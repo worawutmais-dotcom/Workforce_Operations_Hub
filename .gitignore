@@ -1,3 +1,53 @@
+# ───────── Secrets / local config (never commit) ─────────
+admin_desktop/admin_config.json
+admin_console/config.local.json
+*.local.json
+.env
+.env.*
+
+# ───────── Node ─────────
 node_modules/
+
+# ───────── Python / PyInstaller (admin_desktop) ─────────
+admin_desktop/build/
+admin_desktop/build_v*/
+admin_desktop/dist/
+admin_desktop/dist_v*/
+*.pkg
+*.pyz
+*.toc
+__pycache__/
+*.pyc
+
+# ───────── Flutter / Dart (employee_mobile) ─────────
+employee_mobile/build/
+employee_mobile/.dart_tool/
+employee_mobile/.flutter-plugins
+employee_mobile/.flutter-plugins-dependencies
+employee_mobile/android/.gradle/
+employee_mobile/android/app/build/
+employee_mobile/ios/Pods/
+employee_mobile/**/*.g.dart
+
+# ───────── Flutter SDK — must NOT live in the repo ─────────
+# This is the toolchain, not our source. Move it out of the project and keep it ignored.
+mobile_toolchain/
+
+# ───────── Build caches / tooling ─────────
+.gradle_bvn/
+.playwright-cli/
+.openai/
+.agents/
+
+# ───────── Scratch / generated output ─────────
+tmp/
+output/
 outputs/
 *.inspect.ndjson
+
+# ───────── OS / editor ─────────
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/

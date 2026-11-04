@@ -1,0 +1,932 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BVN Package | Admin Console</title>
+<style>
+  :root{
+    --navy:#0b2239;--navy2:#13324f;--panel:#13324f;--ink:#172b4d;--muted:#64748b;
+    --line:#e2e8f0;--bg:#eef2f7;--card:#ffffff;--blue:#1d6ef5;--blue-soft:#e8f1ff;
+    --green:#0b8f62;--green-soft:#e2f6ee;--amber:#b7791f;--amber-soft:#fdf3dd;
+    --red:#d64545;--red-soft:#fdeaea;--radius:12px;
+    --shadow:0 1px 2px rgba(15,34,56,.06),0 8px 24px rgba(15,34,56,.08);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);
+    font-family:"Noto Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px}
+  button{font:inherit;cursor:pointer}
+  input,select,textarea{font:inherit;color:var(--ink)}
+  h1,h2,h3{margin:0}
+  a{color:var(--blue)}
+
+  /* ---------- Login ---------- */
+  #login{position:fixed;inset:0;display:grid;place-items:center;
+    background:radial-gradient(1200px 600px at 20% -10%,#1b4a74,var(--navy));padding:20px;z-index:40}
+  .login-card{width:100%;max-width:400px;background:var(--card);border-radius:16px;
+    padding:30px;box-shadow:0 30px 70px rgba(0,0,0,.35)}
+  .login-card .logo{font-weight:800;font-size:20px;letter-spacing:-.5px;color:var(--navy)}
+  .login-card .logo small{display:block;font-weight:500;color:var(--muted);font-size:12px;margin-top:4px;letter-spacing:.3px}
+  .field{margin-top:16px}
+  .field label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px}
+  .field input,.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:9px;
+    padding:11px 12px;background:#fff;outline:none}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
+  .login-err{margin-top:14px;font-size:13px;color:var(--red);min-height:18px}
+  .btn{border:0;border-radius:9px;padding:11px 15px;background:var(--blue);color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:8px;justify-content:center}
+  .btn:hover{filter:brightness(1.05)}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+  .btn.block{width:100%;margin-top:20px;padding:13px}
+  .btn.ghost{background:var(--blue-soft);color:#1552b8}
+  .btn.sub{background:#eef2f7;color:var(--ink)}
+  .btn.danger{background:var(--red-soft);color:#b52c2c}
+  .btn.ok{background:var(--green-soft);color:#0a7350}
+  .btn.sm{padding:7px 10px;font-size:13px;border-radius:8px}
+
+  /* ---------- Shell ---------- */
+  #app{display:none;grid-template-columns:238px 1fr;min-height:100vh}
+  .side{background:var(--navy);color:#dbe7f2;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+  .side .brand{font-weight:800;font-size:17px;letter-spacing:-.4px;padding:22px 20px 18px}
+  .side .brand small{display:block;font-weight:500;color:#8fa9c4;font-size:11px;margin-top:4px;letter-spacing:.4px}
+  .nav{display:flex;flex-direction:column;gap:3px;padding:6px 12px;flex:1;overflow:auto}
+  .nav button{border:0;background:transparent;color:#aec3da;text-align:left;border-radius:9px;
+    padding:11px 13px;display:flex;align-items:center;gap:10px;font-size:14px}
+  .nav button .ico{width:20px;text-align:center;opacity:.9}
+  .nav button:hover{background:#1b3c5c;color:#fff}
+  .nav button.active{background:var(--blue);color:#fff;font-weight:700;box-shadow:0 6px 18px rgba(29,110,245,.35)}
+  .nav .pill{margin-left:auto;background:#ff5d5d;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;min-width:18px;text-align:center}
+  .side .foot{padding:14px 18px;border-top:1px solid #1d3b58;font-size:12px;color:#8fa9c4}
+  .side .foot b{color:#cfe0f0;display:block;font-weight:600}
+
+  .main{min-width:0;display:flex;flex-direction:column}
+  .topbar{display:flex;align-items:center;gap:14px;padding:16px 26px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+  .topbar .page-title{font-size:18px;font-weight:800;letter-spacing:-.3px}
+  .topbar .page-sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .topbar .spacer{flex:1}
+  .asof{font-size:12px;color:var(--muted);text-align:right}
+  .content{padding:24px 26px 60px;max-width:1360px;width:100%}
+
+  .page{display:none}
+  .page.active{display:block}
+
+  /* ---------- Cards ---------- */
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+  .card .label{font-size:12px;color:var(--muted);font-weight:600}
+  .card .value{font-size:26px;font-weight:800;margin:8px 0 4px;letter-spacing:-.5px}
+  .card .note{font-size:12px;color:var(--muted)}
+  .card .note.warn{color:var(--amber)}
+  .card .note.bad{color:var(--red)}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-top:18px;overflow:hidden}
+  .panel .head{display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .panel .head h2{font-size:15px;font-weight:800}
+  .panel .head .spacer{flex:1}
+  .panel .body{padding:16px 18px}
+  .panel .body.flush{padding:0}
+
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .toolbar input[type=search],.toolbar input[type=text],.toolbar input[type=date],.toolbar select{
+    border:1px solid var(--line);border-radius:9px;padding:9px 11px;background:#fff;outline:none}
+  .toolbar input:focus,.toolbar select:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
+
+  /* ---------- Table ---------- */
+  table{border-collapse:collapse;width:100%}
+  thead th{position:sticky;top:0;background:#f8fafc;text-align:left;font-size:12px;color:var(--muted);
+    font-weight:700;padding:11px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+  tbody td{padding:13px 14px;border-bottom:1px solid #eef2f6;vertical-align:middle}
+  tbody tr:hover{background:#f9fbfe}
+  tbody tr:last-child td{border-bottom:0}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .person{font-weight:700}
+  .person .sub{display:block;font-size:12px;color:var(--muted);font-weight:400;margin-top:2px}
+  .empty{padding:40px;text-align:center;color:var(--muted)}
+  .row-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+
+  .badge{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700;background:var(--green-soft);color:#0a7350}
+  .badge.amber{background:var(--amber-soft);color:#946200}
+  .badge.red{background:var(--red-soft);color:#b52c2c}
+  .badge.grey{background:#eef2f6;color:#5a6b7e}
+  .badge.blue{background:var(--blue-soft);color:#1552b8}
+  .dot{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block}
+
+  .notice{display:flex;gap:10px;align-items:flex-start;border-left:4px solid var(--amber);background:var(--amber-soft);
+    color:#7a5600;padding:12px 14px;border-radius:0 8px 8px 0;font-size:13px;margin:0 0 14px}
+  .notice.blue{border-color:var(--blue);background:var(--blue-soft);color:#174e9c}
+
+  /* ---------- Modal ---------- */
+  .scrim{position:fixed;inset:0;background:rgba(10,28,48,.55);display:none;place-items:center;padding:20px;z-index:30}
+  .scrim.show{display:grid}
+  .modal{background:#fff;border-radius:14px;width:100%;max-width:520px;box-shadow:0 30px 80px rgba(0,0,0,.4);max-height:90vh;display:flex;flex-direction:column}
+  .modal .m-head{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center}
+  .modal .m-head h3{font-size:16px;font-weight:800}
+  .modal .m-head .x{margin-left:auto;border:0;background:#eef2f6;border-radius:8px;width:30px;height:30px;color:var(--muted);font-size:18px}
+  .modal .m-body{padding:18px 20px;overflow:auto}
+  .modal .m-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .check{display:flex;align-items:center;gap:9px;margin-top:10px;font-size:14px}
+  .check input{width:18px;height:18px}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px}
+  .secretbox{background:var(--navy);color:#eaf4ff;border-radius:10px;padding:14px 16px;margin-top:12px;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .secretbox b{display:block;font-size:12px;color:#9ec2ea;font-family:inherit;font-weight:600;margin-bottom:4px}
+  .secretbox .v{font-size:18px;letter-spacing:1px;user-select:all}
+
+  /* ---------- Toast + loader ---------- */
+  .toast{position:fixed;right:22px;bottom:22px;background:var(--navy);color:#fff;padding:13px 16px;border-radius:10px;
+    box-shadow:0 12px 30px rgba(0,0,0,.3);transform:translateY(140%);transition:.28s;max-width:360px;z-index:50;font-size:14px}
+  .toast.show{transform:translateY(0)}
+  .toast.bad{background:#7a1f1f}
+  .toast.good{background:#0a6d4b}
+  .spin{width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;display:inline-block}
+  .btn.ghost .spin,.btn.sub .spin{border-color:rgba(21,82,184,.3);border-top-color:#1552b8}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .loading{padding:40px;text-align:center;color:var(--muted)}
+
+  @media(max-width:900px){
+    #app{grid-template-columns:1fr}
+    .side{position:fixed;left:0;top:0;width:238px;transform:translateX(-100%);transition:.25s;z-index:25}
+    .side.open{transform:none;box-shadow:0 0 0 2000px rgba(0,0,0,.4)}
+    .cards{grid-template-columns:repeat(2,1fr)}
+    .menu-btn{display:inline-flex!important}
+  }
+  @media(max-width:560px){.cards{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}.content{padding:18px 14px 50px}}
+  .menu-btn{display:none;border:0;background:#eef2f6;border-radius:8px;width:36px;height:36px;font-size:18px}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login">
+  <form class="login-card" id="loginForm" autocomplete="off">
+    <div class="logo">BVN PACKAGE<small>Admin Console · ระบบหลังบ้าน</small></div>
+    <div class="field">
+      <label>Apps Script Endpoint</label>
+      <input id="inEndpoint" type="url" placeholder="https://script.google.com/macros/s/.../exec" required>
+    </div>
+    <div class="field">
+      <label>Admin Token</label>
+      <input id="inToken" type="password" placeholder="ADMIN_API_KEY" required>
+      <div class="hint">Token เก็บไว้เฉพาะในหน่วยความจำของแท็บนี้ (sessionStorage) ไม่บันทึกลงดิสก์</div>
+    </div>
+    <div class="field">
+      <label>ชื่อผู้อนุมัติ (สำหรับ audit trail)</label>
+      <input id="inReviewer" type="text" placeholder="เช่น Worawut">
+    </div>
+    <div class="login-err" id="loginErr"></div>
+    <button class="btn block" id="loginBtn" type="submit">เข้าสู่ระบบ</button>
+  </form>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app">
+  <aside class="side" id="side">
+    <div class="brand">BVN PACKAGE<small>ADMIN CONSOLE</small></div>
+    <nav class="nav" id="nav">
+      <button data-page="dashboard" class="active"><span class="ico">▦</span> ภาพรวม</button>
+      <button data-page="employees"><span class="ico">♟</span> พนักงาน</button>
+      <button data-page="approvals"><span class="ico">✔</span> คิวอนุมัติ <span class="pill" id="navApprovals" style="display:none">0</span></button>
+      <button data-page="payroll"><span class="ico">฿</span> เงินเดือน</button>
+      <button data-page="payrules"><span class="ico">⚖</span> เรตค่าจ้าง</button>
+      <button data-page="invoices"><span class="ico">▤</span> ใบแจ้งหนี้</button>
+    </nav>
+    <div class="foot">
+      <b id="footReviewer">—</b>
+      ผู้ดูแลระบบ · <a href="#" id="logoutLink" style="color:#9ec2ea">ออกจากระบบ</a>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <button class="menu-btn" id="menuBtn">☰</button>
+      <div>
+        <div class="page-title" id="pageTitle">ภาพรวม</div>
+        <div class="page-sub" id="pageSub">สถานะที่ต้องตัดสินใจวันนี้</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="asof" id="asof"></div>
+      <button class="btn sub sm" id="refreshBtn">↻ รีเฟรช</button>
+    </div>
+
+    <div class="content">
+      <section class="page active" id="page-dashboard"></section>
+      <section class="page" id="page-employees"></section>
+      <section class="page" id="page-approvals"></section>
+      <section class="page" id="page-payroll"></section>
+      <section class="page" id="page-payrules"></section>
+      <section class="page" id="page-invoices"></section>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =================================================================
+   BVN Package Admin Console — single-file, vanilla JS.
+   Talks to the Apps Script Operations API (see apps_script/Code.gs).
+   ================================================================= */
+"use strict";
+
+const DEFAULT_ENDPOINT = "https://script.google.com/macros/s/AKfycbwWCdTJkadi93Pst2_uBSRkU8uYmGODqoaV0kuy6HtAnO5l31nW1jmHsKEkX8TIYyqp/exec";
+const SS = sessionStorage, LS = localStorage;
+
+const state = {
+  endpoint: "",
+  token: "",
+  reviewer: "",
+  employees: [],         // cached admin_list_employees
+  empById: {},
+  page: "dashboard",
+};
+
+/* ---------- small DOM helpers ---------- */
+const $ = (sel, root=document) => root.querySelector(sel);
+const el = (html) => { const t=document.createElement("template"); t.innerHTML=html.trim(); return t.content.firstElementChild; };
+const esc = (s) => String(s==null?"":s).replace(/[&<>"]/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const fmtBaht = (n) => "฿" + Number(n||0).toLocaleString("th-TH",{minimumFractionDigits:0,maximumFractionDigits:2});
+const fmtInt = (n) => Number(n||0).toLocaleString("th-TH");
+const fmtHours = (minutes) => (Number(minutes||0)/60).toLocaleString("th-TH",{maximumFractionDigits:1}) + " ชม.";
+const todayISO = () => new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Bangkok"});
+function fmtDateTime(iso){ if(!iso) return "—"; const d=new Date(iso); return isNaN(d)?esc(iso):d.toLocaleString("th-TH",{dateStyle:"medium",timeStyle:"short"}); }
+function fmtDate(iso){ if(!iso) return "—"; const d=new Date(iso+"T00:00:00+07:00"); return isNaN(d)?esc(iso):d.toLocaleDateString("th-TH",{dateStyle:"medium"}); }
+
+/* ---------- toast ---------- */
+let toastTimer;
+function toast(msg, kind=""){
+  const t=$("#toast"); t.className="toast show "+kind; t.textContent=msg;
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),3200);
+}
+
+/* ---------- API ---------- */
+async function api(action, fields={}){
+  // text/plain avoids a CORS preflight; Apps Script parses the body as JSON regardless.
+  const res = await fetch(state.endpoint, {
+    method:"POST",
+    headers:{ "Content-Type":"text/plain;charset=utf-8" },
+    body: JSON.stringify({ action, adminToken: state.token, ...fields }),
+    redirect:"follow",
+  });
+  let body;
+  try { body = await res.json(); }
+  catch(e){ throw new Error("เซิร์ฟเวอร์ตอบกลับไม่ใช่ JSON (ตรวจสอบ endpoint และการ deploy)"); }
+  if(!body || typeof body!=="object") throw new Error("รูปแบบคำตอบไม่ถูกต้อง");
+  if(!body.ok) throw new Error(body.message || "คำขอไม่สำเร็จ");
+  return body.data || {};
+}
+// run a button into a loading state while awaiting
+async function withBtn(btn, fn){
+  if(!btn) return fn();
+  const html=btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="spin"></span> กำลังทำงาน…';
+  try{ return await fn(); } finally{ btn.disabled=false; btn.innerHTML=html; }
+}
+
+/* ---------- modal ---------- */
+function openModal(title, bodyNode, footNodes){
+  const m=$("#modal");
+  m.innerHTML="";
+  const head=el(`<div class="m-head"><h3>${esc(title)}</h3><button class="x" aria-label="close">×</button></div>`);
+  head.querySelector(".x").onclick=closeModal;
+  const body=el(`<div class="m-body"></div>`); body.appendChild(bodyNode);
+  const foot=el(`<div class="m-foot"></div>`); (footNodes||[]).forEach(n=>foot.appendChild(n));
+  m.append(head, body, foot);
+  $("#scrim").classList.add("show");
+}
+function closeModal(){ $("#scrim").classList.remove("show"); $("#modal").innerHTML=""; }
+$("#scrim").addEventListener("click", e=>{ if(e.target.id==="scrim") closeModal(); });
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeModal(); });
+
+function confirmDialog(title, message, {danger=false, okText="ยืนยัน"}={}){
+  return new Promise(resolve=>{
+    const body=el(`<div><p style="margin:0;line-height:1.6">${message}</p></div>`);
+    const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=()=>{closeModal();resolve(false);};
+    const ok=el(`<button class="btn ${danger?"danger":""}">${esc(okText)}</button>`);
+    ok.onclick=()=>{closeModal();resolve(true);};
+    openModal(title, body, [cancel, ok]);
+  });
+}
+
+/* field factory for forms */
+function field(label, inputHTML, hint){
+  return el(`<div class="field"><label>${esc(label)}</label>${inputHTML}${hint?`<div class="hint">${hint}</div>`:""}</div>`);
+}
+
+/* =================================================================
+   AUTH
+   ================================================================= */
+async function doLogin(e){
+  e.preventDefault();
+  const endpoint=$("#inEndpoint").value.trim();
+  const token=$("#inToken").value.trim();
+  const reviewer=$("#inReviewer").value.trim();
+  const errBox=$("#loginErr"); errBox.textContent="";
+  if(!endpoint||!token){ errBox.textContent="กรุณากรอก endpoint และ token"; return; }
+  state.endpoint=endpoint; state.token=token; state.reviewer=reviewer;
+  await withBtn($("#loginBtn"), async ()=>{
+    try{
+      const data=await api("dashboard");          // verifies admin token
+      SS.setItem("bvn_token", token);
+      LS.setItem("bvn_endpoint", endpoint);
+      LS.setItem("bvn_reviewer", reviewer);
+      enterApp(data);
+    }catch(err){
+      errBox.textContent = /authentication/i.test(err.message) ? "Admin token ไม่ถูกต้อง" : err.message;
+    }
+  });
+}
+function enterApp(dashboardData){
+  $("#login").style.display="none";
+  $("#app").style.display="grid";
+  $("#footReviewer").textContent = state.reviewer || "ผู้ดูแลระบบ";
+  renderDashboard(dashboardData);
+  // warm the employee cache (used by many pages)
+  loadEmployees().catch(()=>{});
+  refreshApprovalBadge();
+}
+function logout(){
+  SS.removeItem("bvn_token");
+  state.token="";
+  location.reload();
+}
+
+/* =================================================================
+   NAVIGATION
+   ================================================================= */
+const PAGES = {
+  dashboard:{title:"ภาพรวม", sub:"สถานะที่ต้องตัดสินใจวันนี้", load:()=>renderDashboard()},
+  employees:{title:"พนักงาน", sub:"สร้าง แก้ไข ปิดใช้งาน และออกรหัสชั่วคราว", load:()=>renderEmployees()},
+  approvals:{title:"คิวอนุมัติ", sub:"คำขอลา และ OT / แก้ไขเวลา", load:()=>renderApprovals()},
+  payroll:{title:"เงินเดือน", sub:"พรีวิวค่าแรง (gross) · ล็อกงวด · ประวัติ", load:()=>renderPayroll()},
+  payrules:{title:"เรตค่าจ้าง", sub:"ตั้งฐานค่าจ้าง OT และวันพิเศษต่อพนักงาน", load:()=>renderPayrules()},
+  invoices:{title:"ใบแจ้งหนี้", sub:"ออกบิล ติดตามสถานะ และบันทึกการชำระ", load:()=>renderInvoices()},
+};
+function go(page){
+  if(!PAGES[page]) return;
+  state.page=page;
+  $("#nav").querySelectorAll("button").forEach(b=>b.classList.toggle("active", b.dataset.page===page));
+  document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active", p.id==="page-"+page));
+  $("#pageTitle").textContent=PAGES[page].title;
+  $("#pageSub").textContent=PAGES[page].sub;
+  $("#side").classList.remove("open");
+  PAGES[page].load();
+}
+$("#nav").addEventListener("click", e=>{ const b=e.target.closest("button[data-page]"); if(b) go(b.dataset.page); });
+$("#refreshBtn").addEventListener("click", ()=>{ PAGES[state.page].load(); refreshApprovalBadge(); });
+$("#menuBtn").addEventListener("click", ()=>$("#side").classList.toggle("open"));
+$("#logoutLink").addEventListener("click", e=>{e.preventDefault();logout();});
+
+function skeleton(node){ node.innerHTML=`<div class="loading"><span class="spin" style="border-color:#cbd5e1;border-top-color:#1d6ef5"></span><div style="margin-top:10px">กำลังโหลดข้อมูล…</div></div>`; }
+function errorBox(node, err, retry){
+  node.innerHTML="";
+  const box=el(`<div class="panel"><div class="body"><div class="notice">⚠ โหลดข้อมูลไม่สำเร็จ: ${esc(err.message)}</div></div></div>`);
+  const btn=el(`<button class="btn sub sm">ลองใหม่</button>`); btn.onclick=retry;
+  box.querySelector(".body").appendChild(btn);
+  node.appendChild(box);
+}
+
+/* shared employee cache */
+async function loadEmployees(force){
+  if(state.employees.length && !force) return state.employees;
+  const data=await api("admin_list_employees");
+  state.employees=data.employees||[];
+  state.empById={}; state.employees.forEach(e=>state.empById[e.id]=e);
+  return state.employees;
+}
+function empName(id){ const e=state.empById[id]; return e?e.name:id; }
+
+/* =================================================================
+   DASHBOARD
+   ================================================================= */
+async function renderDashboard(data){
+  const node=$("#page-dashboard");
+  try{
+    if(!data){ skeleton(node); data=await api("dashboard"); }
+    $("#asof").innerHTML = "ข้อมูลล่าสุด<br>"+fmtDateTime(data.asOf);
+    const present=Number(data.present||0), total=Number(data.totalEmployees||0);
+    node.innerHTML=`
+      <div class="cards">
+        <div class="card"><div class="label">มาทำงานวันนี้</div>
+          <div class="value">${fmtInt(present)} <span style="font-size:15px;color:var(--muted)">/ ${fmtInt(total)}</span></div>
+          <div class="note">พนักงานที่ active ทั้งหมด ${fmtInt(total)} คน</div></div>
+        <div class="card"><div class="label">รอการอนุมัติ</div>
+          <div class="value">${fmtInt(data.pendingApprovals)}</div>
+          <div class="note ${Number(data.pendingApprovals)>0?"warn":""}">ลา + OT/แก้เวลา รวมกัน</div></div>
+        <div class="card"><div class="label">รายการเวลาที่ผิดปกติ</div>
+          <div class="value">${fmtInt(data.exceptions)}</div>
+          <div class="note ${Number(data.exceptions)>0?"warn":""}">ต้องเคลียร์ก่อนรอบ payroll</div></div>
+        <div class="card"><div class="label">Invoice เกินกำหนด</div>
+          <div class="value">${fmtBaht(data.overdueInvoices)}</div>
+          <div class="note ${Number(data.overdueInvoices)>0?"bad":""}">ยอดที่ยัง issued และเลยกำหนด</div></div>
+      </div>
+      <div class="panel"><div class="head"><h2>ทางลัด</h2></div>
+        <div class="body toolbar">
+          <button class="btn ghost" data-nav="approvals">ไปที่คิวอนุมัติ</button>
+          <button class="btn ghost" data-nav="payroll">พรีวิวเงินเดือน</button>
+          <button class="btn ghost" data-nav="employees">เพิ่มพนักงาน</button>
+          <button class="btn ghost" data-nav="invoices">สร้างใบแจ้งหนี้</button>
+        </div>
+      </div>
+      <div class="panel"><div class="head"><h2>งวดเงินเดือนล่าสุด</h2></div>
+        <div class="body">${data.latestPayrollId
+          ? `<b>${esc(data.latestPayrollId)}</b> — สถานะ <span class="badge ${data.latestPayrollStatus==="locked"?"blue":"grey"}">${esc(data.latestPayrollStatus||"—")}</span>`
+          : `<span style="color:var(--muted)">ยังไม่มีงวดที่ล็อก</span>`}</div>
+      </div>`;
+    node.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>go(b.dataset.nav));
+  }catch(err){ errorBox(node, err, ()=>renderDashboard()); }
+}
+
+async function refreshApprovalBadge(){
+  try{
+    const [l,t]=await Promise.all([api("admin_list_leave_requests"), api("admin_list_time_requests")]);
+    const n=(l.requests||[]).filter(r=>r.status==="pending").length
+           +(t.requests||[]).filter(r=>r.status==="pending").length;
+    const pill=$("#navApprovals");
+    pill.style.display = n>0 ? "" : "none"; pill.textContent=n;
+  }catch(e){/* silent */}
+}
+
+/* =================================================================
+   EMPLOYEES
+   ================================================================= */
+async function renderEmployees(){
+  const node=$("#page-employees");
+  skeleton(node);
+  try{
+    await loadEmployees(true);
+    node.innerHTML=`
+      <div class="panel">
+        <div class="head">
+          <div class="toolbar"><input type="search" id="empSearch" placeholder="ค้นหา ชื่อ / รหัส / แผนก" style="width:260px"></div>
+          <div class="spacer"></div>
+          <button class="btn" id="addEmpBtn">+ เพิ่มพนักงาน</button>
+        </div>
+        <div class="body flush"><table>
+          <thead><tr><th>พนักงาน</th><th>ตำแหน่ง / แผนก</th><th>ไซต์</th><th>GPS</th><th>สถานะ</th><th></th></tr></thead>
+          <tbody id="empRows"></tbody></table>
+        </div>
+      </div>`;
+    const draw=(q="")=>{
+      q=q.trim().toLowerCase();
+      const rows=state.employees
+        .filter(e=>!q || (e.id+e.name+(e.role||"")+(e.siteId||"")).toLowerCase().includes(q))
+        .sort((a,b)=> (a.status===b.status)? a.id.localeCompare(b.id) : (a.status==="active"?-1:1));
+      const tb=$("#empRows");
+      if(!rows.length){ tb.innerHTML=`<tr><td colspan="6"><div class="empty">ไม่พบพนักงาน</div></td></tr>`; return; }
+      tb.innerHTML=rows.map(e=>`
+        <tr>
+          <td class="person">${esc(e.name)}<span class="sub">${esc(e.id)}</span></td>
+          <td>${esc(e.role||"—")}<span class="sub">${esc(e.department||"")}</span></td>
+          <td>${esc(e.siteId||"—")}</td>
+          <td>${e.locationRequired?'<span class="badge blue">บังคับ GPS</span>':'<span class="badge grey">ไม่บังคับ</span>'}</td>
+          <td>${e.status==="active"?'<span class="badge"><span class="dot"></span>ใช้งาน</span>':'<span class="badge grey">ปิดใช้งาน</span>'}</td>
+          <td><div class="row-actions">
+            <button class="btn sub sm" data-edit="${esc(e.id)}">แก้ไข</button>
+            <button class="btn ghost sm" data-reset="${esc(e.id)}">รีเซ็ตรหัส</button>
+            ${e.status==="active"?`<button class="btn danger sm" data-off="${esc(e.id)}">ปิดใช้งาน</button>`:""}
+          </div></td>
+        </tr>`).join("");
+      tb.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>employeeDialog(state.empById[b.dataset.edit]));
+      tb.querySelectorAll("[data-reset]").forEach(b=>b.onclick=()=>resetPassword(state.empById[b.dataset.reset]));
+      tb.querySelectorAll("[data-off]").forEach(b=>b.onclick=()=>deactivate(state.empById[b.dataset.off]));
+    };
+    draw();
+    $("#empSearch").oninput=e=>draw(e.target.value);
+    $("#addEmpBtn").onclick=()=>employeeDialog(null);
+  }catch(err){ errorBox(node, err, renderEmployees); }
+}
+
+function employeeDialog(emp){
+  const isEdit=!!emp;
+  const body=el(`<div></div>`);
+  body.append(
+    field("ชื่อ-นามสกุล", `<input id="fName" type="text" value="${esc(emp?.name||"")}" required>`),
+    el(`<div class="grid2"></div>`),
+  );
+  const g=body.querySelector(".grid2");
+  g.append(
+    field("ตำแหน่ง", `<input id="fRole" type="text" value="${esc(emp?.role||"")}" placeholder="Employee">`),
+    field("แผนก", `<input id="fDept" type="text" value="${esc(emp?.department||"")}">`),
+  );
+  body.append(field("รหัสไซต์ (Work site ID)", `<input id="fSite" type="text" value="${esc(emp?.siteId||"")}" required>`,
+    "ต้องตรงกับแถวในชีต Work_Sites ถึงจะเช็กอินแบบบังคับ GPS ได้"));
+  const chk=el(`<label class="check"><input type="checkbox" id="fLoc" ${(!emp||emp.locationRequired)?"checked":""}> บังคับ GPS ตอนเช็กอิน</label>`);
+  body.append(chk);
+  if(isEdit){
+    const st=el(`<label class="check"><input type="checkbox" id="fActive" ${emp.status==="active"?"checked":""}> พนักงานใช้งานอยู่ (active)</label>`);
+    body.append(st);
+  }
+
+  const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
+  const save=el(`<button class="btn">${isEdit?"บันทึก":"สร้างพนักงาน"}</button>`);
+  save.onclick=()=>withBtn(save, async ()=>{
+    const name=$("#fName").value.trim(), site=$("#fSite").value.trim();
+    if(!name||!site){ toast("ต้องกรอกชื่อและรหัสไซต์","bad"); return; }
+    const fields={
+      name, role:$("#fRole").value.trim(), department:$("#fDept").value.trim(),
+      siteId:site, locationRequired:$("#fLoc").checked, updatedBy:state.reviewer||"Admin",
+    };
+    if(isEdit){ fields.employeeId=emp.id; fields.status=$("#fActive").checked?"active":"inactive"; }
+    try{
+      const data=await api("admin_upsert_employee", fields);
+      closeModal();
+      await loadEmployees(true); renderEmployees();
+      if(data.initialPassword) showSecret("สร้างพนักงานสำเร็จ",
+        [["Employee ID", data.employee?.id||""],["รหัสผ่านชั่วคราว", data.initialPassword]],
+        "ส่งให้พนักงานครั้งเดียว แล้วให้เปลี่ยนทันที — อย่าเก็บไว้ในแชตหรือเอกสารสาธารณะ");
+      else toast("บันทึกพนักงานแล้ว","good");
+    }catch(err){ toast(err.message,"bad"); }
+  });
+  openModal(isEdit?`แก้ไข ${emp.name}`:"เพิ่มพนักงานใหม่", body, [cancel, save]);
+}
+
+async function resetPassword(emp){
+  if(!await confirmDialog("รีเซ็ตรหัสผ่าน", `ออกรหัสชั่วคราวใหม่ให้ <b>${esc(emp.name)}</b> (${esc(emp.id)})?<br>โทเค็นมือถือเดิมทั้งหมดจะถูกเพิกถอน`, {okText:"ออกรหัสใหม่"})) return;
+  try{
+    const data=await api("admin_reset_employee_password",{employeeId:emp.id});
+    showSecret("รีเซ็ตรหัสสำเร็จ", [["Employee ID", emp.id],["รหัสผ่านชั่วคราว", data.temporaryPassword]],
+      "ส่งให้พนักงานครั้งเดียว อย่าบันทึกถาวร");
+  }catch(err){ toast(err.message,"bad"); }
+}
+
+async function deactivate(emp){
+  if(!await confirmDialog("ปิดใช้งานพนักงาน", `ปิดใช้งาน <b>${esc(emp.name)}</b>?<br>ประวัติเวลางาน เงินเดือน และ audit จะยังอยู่ครบ`, {danger:true, okText:"ปิดใช้งาน"})) return;
+  try{
+    await api("admin_upsert_employee",{employeeId:emp.id, name:emp.name, role:emp.role||"Employee",
+      siteId:emp.siteId, department:emp.department||"", status:"inactive", locationRequired:emp.locationRequired, updatedBy:state.reviewer||"Admin"});
+    await loadEmployees(true); renderEmployees(); toast("ปิดใช้งานแล้ว","good");
+  }catch(err){ toast(err.message,"bad"); }
+}
+
+function showSecret(title, rows, hint){
+  const body=el(`<div></div>`);
+  rows.forEach(([k,v])=>body.append(el(`<div class="secretbox"><b>${esc(k)}</b><div class="v">${esc(v)}</div></div>`)));
+  if(hint) body.append(el(`<div class="notice" style="margin-top:14px">${esc(hint)}</div>`));
+  const copy=el(`<button class="btn sub">คัดลอกรหัส</button>`);
+  copy.onclick=()=>{ navigator.clipboard?.writeText(rows.map(r=>r[1]).join(" ")); toast("คัดลอกแล้ว"); };
+  const ok=el(`<button class="btn">เรียบร้อย</button>`); ok.onclick=closeModal;
+  openModal(title, body, [copy, ok]);
+}
+
+/* =================================================================
+   APPROVALS (leave + time requests)
+   ================================================================= */
+async function renderApprovals(){
+  const node=$("#page-approvals");
+  skeleton(node);
+  try{
+    await loadEmployees().catch(()=>{});
+    const [leaveData, timeData]=await Promise.all([api("admin_list_leave_requests"), api("admin_list_time_requests")]);
+    const leaves=(leaveData.requests||[]), times=(timeData.requests||[]);
+    const pendL=leaves.filter(r=>r.status==="pending"), pendT=times.filter(r=>r.status==="pending");
+    node.innerHTML=`
+      <div class="notice blue">อนุมัติที่นี่เพื่อเก็บ audit trail — ระบบไม่แก้ไขยอดเวลาดิบ แต่บันทึกการตัดสินใจแยกต่างหาก ผู้อนุมัติ: <b>${esc(state.reviewer||"Admin")}</b></div>
+      <div class="panel"><div class="head"><h2>คำขอลา</h2><span class="badge amber" style="margin-left:8px">${pendL.length} รออนุมัติ</span><div class="spacer"></div>
+        <label class="check" style="margin:0"><input type="checkbox" id="leaveAll"> แสดงทั้งหมด</label></div>
+        <div class="body flush"><table><thead><tr><th>พนักงาน</th><th>ประเภท</th><th>ช่วงวันลา</th><th>เหตุผล</th><th>สถานะ</th><th></th></tr></thead>
+        <tbody id="leaveRows"></tbody></table></div>
+      </div>
+      <div class="panel"><div class="head"><h2>OT / แก้ไขเวลา</h2><span class="badge amber" style="margin-left:8px">${pendT.length} รออนุมัติ</span><div class="spacer"></div>
+        <label class="check" style="margin:0"><input type="checkbox" id="timeAll"> แสดงทั้งหมด</label></div>
+        <div class="body flush"><table><thead><tr><th>พนักงาน</th><th>ประเภท</th><th>วันที่</th><th>จำนวน</th><th>เหตุผล</th><th>สถานะ</th><th></th></tr></thead>
+        <tbody id="timeRows"></tbody></table></div>
+      </div>`;
+
+    const statusBadge=(s)=> s==="approved"?'<span class="badge">อนุมัติ</span>':s==="rejected"?'<span class="badge red">ปฏิเสธ</span>':'<span class="badge amber">รออนุมัติ</span>';
+
+    const drawLeave=()=>{
+      const all=$("#leaveAll").checked;
+      const list=all?leaves:pendL;
+      const tb=$("#leaveRows");
+      tb.innerHTML = list.length? list.map(r=>`
+        <tr><td class="person">${esc(empName(r.employeeId))}<span class="sub">${esc(r.employeeId)}</span></td>
+          <td>${esc(r.leaveType)}</td><td>${fmtDate(r.startDate)} – ${fmtDate(r.endDate)}</td>
+          <td style="max-width:260px">${esc(r.reason)}</td><td>${statusBadge(r.status)}</td>
+          <td><div class="row-actions">${r.status==="pending"?`
+            <button class="btn ok sm" data-ap="${esc(r.requestId)}">อนุมัติ</button>
+            <button class="btn danger sm" data-rj="${esc(r.requestId)}">ปฏิเสธ</button>`:""}</div></td></tr>`).join("")
+        : `<tr><td colspan="6"><div class="empty">ไม่มีคำขอลา</div></td></tr>`;
+      tb.querySelectorAll("[data-ap]").forEach(b=>b.onclick=()=>reviewLeave(b,b.dataset.ap,"approved"));
+      tb.querySelectorAll("[data-rj]").forEach(b=>b.onclick=()=>reviewLeave(b,b.dataset.rj,"rejected"));
+    };
+    const drawTime=()=>{
+      const all=$("#timeAll").checked;
+      const list=all?times:pendT;
+      const tb=$("#timeRows");
+      const typeLabel=t=> t==="overtime"?"OT":"แก้ไขเวลา";
+      tb.innerHTML = list.length? list.map(r=>`
+        <tr><td class="person">${esc(empName(r.employeeId))}<span class="sub">${esc(r.employeeId)}</span></td>
+          <td>${typeLabel(r.requestType)}</td><td>${fmtDate(r.workDate)}</td><td class="num">${fmtHours(r.requestedMinutes)}</td>
+          <td style="max-width:240px">${esc(r.reason)}${r.reviewerNote?`<span class="sub">หมายเหตุ: ${esc(r.reviewerNote)}</span>`:""}</td>
+          <td>${statusBadge(r.status)}</td>
+          <td><div class="row-actions">${r.status==="pending"?`
+            <button class="btn ok sm" data-ap="${esc(r.requestId)}">อนุมัติ</button>
+            <button class="btn danger sm" data-rj="${esc(r.requestId)}">ปฏิเสธ</button>`:""}</div></td></tr>`).join("")
+        : `<tr><td colspan="7"><div class="empty">ไม่มีคำขอ OT / แก้ไขเวลา</div></td></tr>`;
+      tb.querySelectorAll("[data-ap]").forEach(b=>b.onclick=()=>reviewTime(b,b.dataset.ap,"approved"));
+      tb.querySelectorAll("[data-rj]").forEach(b=>b.onclick=()=>reviewTime(b,b.dataset.rj,"rejected"));
+    };
+    drawLeave(); drawTime();
+    $("#leaveAll").onchange=drawLeave; $("#timeAll").onchange=drawTime;
+  }catch(err){ errorBox(node, err, renderApprovals); }
+}
+
+async function reviewLeave(btn, requestId, decision){
+  if(decision==="rejected" && !await confirmDialog("ปฏิเสธคำขอลา","ยืนยันการปฏิเสธคำขอนี้?",{danger:true,okText:"ปฏิเสธ"})) return;
+  await withBtn(btn, async ()=>{
+    try{ await api("admin_review_leave",{requestId, decision, reviewer:state.reviewer||"Admin"});
+      toast("บันทึกการ"+(decision==="approved"?"อนุมัติ":"ปฏิเสธ")+"แล้ว","good"); renderApprovals(); refreshApprovalBadge();
+    }catch(err){ toast(err.message,"bad"); }
+  });
+}
+async function reviewTime(btn, requestId, decision){
+  let note="";
+  if(decision==="rejected"){
+    note=prompt("หมายเหตุถึงพนักงาน (ไม่บังคับ):")||"";
+  }
+  await withBtn(btn, async ()=>{
+    try{ await api("admin_review_time_request",{requestId, decision, reviewer:state.reviewer||"Admin", reviewerNote:note});
+      toast("บันทึกการ"+(decision==="approved"?"อนุมัติ":"ปฏิเสธ")+"แล้ว","good"); renderApprovals(); refreshApprovalBadge();
+    }catch(err){ toast(err.message,"bad"); }
+  });
+}
+
+/* =================================================================
+   PAYROLL
+   ================================================================= */
+let lastPreview=null;
+async function renderPayroll(){
+  const node=$("#page-payroll");
+  const t=todayISO(); const first=t.slice(0,8)+"01";
+  node.innerHTML=`
+    <div class="notice">พรีวิวนี้เป็น <b>ค่าแรงก่อนหัก (gross)</b> เท่านั้น — ไม่รวมภาษี ประกันสังคม และการจ่ายจริง</div>
+    <div class="panel"><div class="head"><h2>สร้างพรีวิวงวดใหม่</h2></div>
+      <div class="body toolbar">
+        <div><label class="hint">เริ่ม</label><br><input type="date" id="pStart" value="${first}"></div>
+        <div><label class="hint">สิ้นสุด</label><br><input type="date" id="pEnd" value="${t}"></div>
+        <button class="btn" id="previewBtn" style="align-self:flex-end">พรีวิวเงินเดือน</button>
+      </div>
+      <div class="body flush" id="previewResult"></div>
+    </div>
+    <div class="panel"><div class="head"><h2>ประวัติงวดที่ล็อกแล้ว</h2><div class="spacer"></div><button class="btn sub sm" id="loadHist">โหลด</button></div>
+      <div class="body flush" id="histResult"><div class="empty">กด “โหลด” เพื่อดูงวดที่ล็อกแล้ว</div></div>
+    </div>`;
+  $("#previewBtn").onclick=e=>doPreview(e.target);
+  $("#loadHist").onclick=loadPayrollHistory;
+  loadPayrollHistory();
+}
+
+async function doPreview(btn){
+  const startDate=$("#pStart").value, endDate=$("#pEnd").value;
+  if(!startDate||!endDate){ toast("เลือกช่วงวันที่ก่อน","bad"); return; }
+  await loadEmployees().catch(()=>{});
+  await withBtn(btn, async ()=>{
+    try{
+      const data=await api("admin_preview_payroll",{startDate, endDate});
+      lastPreview={startDate:data.startDate, endDate:data.endDate, lines:data.lines, totalGross:data.totalGross};
+      const box=$("#previewResult");
+      if(!data.lines.length){ box.innerHTML=`<div class="empty">ไม่มีข้อมูลค่าแรงในช่วงนี้ (ต้องมีวันทำงานที่เช็กอิน/ออกครบ และตั้งเรตค่าจ้างแล้ว)</div>`; return; }
+      box.innerHTML=`
+        <table><thead><tr><th>พนักงาน</th><th class="num">วันทำงาน</th><th class="num">ชม.ปกติ</th><th class="num">OT</th>
+          <th class="num">ฐาน</th><th class="num">OT (เงิน)</th><th class="num">รวม gross</th><th>หมายเหตุ</th></tr></thead>
+        <tbody>${data.lines.map(l=>`
+          <tr><td class="person">${esc(empName(l.employeeId))}<span class="sub">${esc(l.employeeId)}</span></td>
+            <td class="num">${fmtInt(l.workDays)}</td><td class="num">${fmtHours(l.regularMinutes)}</td>
+            <td class="num">${fmtHours(l.otMinutes)}</td><td class="num">${fmtBaht(l.baseGross)}</td>
+            <td class="num">${fmtBaht(l.otGross)}</td><td class="num"><b>${fmtBaht(l.grossPay)}</b></td>
+            <td>${(l.warnings&&l.warnings.length)?`<span class="badge amber">${esc(l.warnings.join("; "))}</span>`:""}</td></tr>`).join("")}
+        </tbody>
+        <tfoot><tr><td colspan="6" style="text-align:right;font-weight:700;padding:13px 14px">รวมทั้งงวด</td>
+          <td class="num" style="font-weight:800;padding:13px 14px">${fmtBaht(data.totalGross)}</td><td></td></tr></tfoot></table>
+        <div class="body toolbar" style="border-top:1px solid var(--line)">
+          <button class="btn sub sm" id="exportPrev">ส่งออก CSV (พรีวิว)</button>
+          <div class="spacer"></div>
+          <button class="btn" id="lockBtn">🔒 ล็อกงวดนี้ (ทำครั้งเดียว)</button>
+        </div>`;
+      $("#exportPrev").onclick=()=>exportCSV(lastPreview, "preview");
+      $("#lockBtn").onclick=e=>doLock(e.target);
+    }catch(err){ toast(err.message,"bad"); $("#previewResult").innerHTML=`<div class="empty">${esc(err.message)}</div>`; }
+  });
+}
+
+async function doLock(btn){
+  if(!lastPreview) return;
+  if(!await confirmDialog("ล็อกงวดเงินเดือน",
+    `ล็อกงวด <b>${fmtDate(lastPreview.startDate)} – ${fmtDate(lastPreview.endDate)}</b> ยอดรวม <b>${fmtBaht(lastPreview.totalGross)}</b>?<br>
+     เมื่อล็อกแล้ว snapshot จะแก้ไม่ได้อีก (immutable) ตรวจตัวเลขให้ตรงกับที่คำนวณมือก่อน`,
+    {danger:true, okText:"ยืนยันล็อก"})) return;
+  await withBtn(btn, async ()=>{
+    try{
+      const data=await api("admin_lock_payroll",{startDate:lastPreview.startDate, endDate:lastPreview.endDate, lockedBy:state.reviewer||"Admin"});
+      toast("ล็อกงวด "+data.payrollId+" แล้ว","good"); loadPayrollHistory();
+    }catch(err){ toast(err.message,"bad"); }
+  });
+}
+
+async function loadPayrollHistory(){
+  const box=$("#histResult");
+  try{
+    const data=await api("admin_list_payrolls");
+    const periods=data.periods||[];
+    box.innerHTML = periods.length? `<table><thead><tr><th>งวด</th><th>ช่วง</th><th>สถานะ</th><th>ล็อกเมื่อ</th><th>โดย</th><th></th></tr></thead>
+      <tbody>${periods.map(p=>`<tr><td class="person">${esc(p.payrollId)}</td>
+        <td>${fmtDate(p.startDate)} – ${fmtDate(p.endDate)}</td>
+        <td><span class="badge ${p.status==="locked"?"blue":"grey"}">${esc(p.status)}</span></td>
+        <td>${fmtDateTime(p.lockedAt)}</td><td>${esc(p.lockedBy||"—")}</td>
+        <td><div class="row-actions"><button class="btn sub sm" data-pid="${esc(p.payrollId)}">ดู / ส่งออก</button></div></td></tr>`).join("")}</tbody></table>`
+      : `<div class="empty">ยังไม่มีงวดที่ล็อก</div>`;
+    box.querySelectorAll("[data-pid]").forEach(b=>b.onclick=()=>viewSnapshot(b.dataset.pid));
+  }catch(err){ box.innerHTML=`<div class="empty">${esc(err.message)}</div>`; }
+}
+
+async function viewSnapshot(payrollId){
+  try{
+    const data=await api("admin_get_payroll",{payrollId});
+    const body=el(`<div></div>`);
+    body.append(el(`<div class="notice blue">${esc(data.payrollId)} · ${fmtDate(data.startDate)} – ${fmtDate(data.endDate)} · <b>${fmtBaht(data.totalGross)}</b></div>`));
+    const tbl=el(`<div style="max-height:50vh;overflow:auto;border:1px solid var(--line);border-radius:10px">
+      <table><thead><tr><th>พนักงาน</th><th class="num">ปกติ</th><th class="num">OT</th><th class="num">รวม</th></tr></thead>
+      <tbody>${(data.lines||[]).map(l=>`<tr><td class="person">${esc(empName(l.employeeId))}<span class="sub">${esc(l.employeeId)}</span></td>
+        <td class="num">${fmtHours(l.regularMinutes)}</td><td class="num">${fmtHours(l.otMinutes)}</td>
+        <td class="num"><b>${fmtBaht(l.grossPay)}</b></td></tr>`).join("")}</tbody></table></div>`);
+    body.append(tbl);
+    const exp=el(`<button class="btn sub">ส่งออก CSV</button>`); exp.onclick=()=>exportCSV(data,"locked");
+    const close=el(`<button class="btn">ปิด</button>`); close.onclick=closeModal;
+    openModal("Snapshot "+payrollId, body, [exp, close]);
+  }catch(err){ toast(err.message,"bad"); }
+}
+
+function exportCSV(data, kind){
+  const rows=[["payroll_id","employee_id","employee_name","regular_minutes","ot_minutes","base_gross","ot_gross","gross_pay"]];
+  (data.lines||[]).forEach(l=>rows.push([
+    data.payrollId||("PREVIEW "+data.startDate+".."+data.endDate), l.employeeId, empName(l.employeeId),
+    l.regularMinutes||0, l.otMinutes||0, l.baseGross||0, l.otGross||0, l.grossPay||0]));
+  const csv="﻿"+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+  const a=document.createElement("a"); a.href=url;
+  a.download=(data.payrollId||("payroll_"+kind+"_"+(data.startDate||todayISO())))+".csv"; a.click();
+  URL.revokeObjectURL(url); toast("ส่งออก CSV แล้ว","good");
+}
+
+/* =================================================================
+   PAY RULES
+   ================================================================= */
+async function renderPayrules(){
+  const node=$("#page-payrules");
+  skeleton(node);
+  try{
+    await loadEmployees();
+    const opts=state.employees.filter(e=>e.status==="active")
+      .map(e=>`<option value="${esc(e.id)}">${esc(e.name)} (${esc(e.id)})</option>`).join("");
+    node.innerHTML=`
+      <div class="notice blue">ตั้งเรตต่อพนักงาน 1 เรตที่ใช้งาน — ใช้ตอนคำนวณ payroll preview (ฐาน + OT + วันพิเศษ)</div>
+      <div class="panel"><div class="head"><h2>ตั้ง / แก้ไขเรตค่าจ้าง</h2></div>
+        <div class="body">
+          <div class="field"><label>พนักงาน</label><select id="rEmp">${opts||'<option value="">— ไม่มีพนักงาน active —</option>'}</select></div>
+          <div class="grid2">
+            ${field("รูปแบบค่าจ้าง",`<select id="rBasis"><option value="daily">รายวัน (daily)</option><option value="hourly">รายชั่วโมง (hourly)</option></select>`).outerHTML}
+            ${field("อัตราฐาน (บาท)",`<input id="rRate" type="number" min="0" step="0.01" placeholder="เช่น 500">`).outerHTML}
+            ${field("ชม.มาตรฐาน/วัน",`<input id="rHours" type="number" min="1" step="0.5" value="8">`).outerHTML}
+            ${field("ตัวคูณ OT",`<input id="rOtMul" type="number" min="1" step="0.1" value="1.5">`).outerHTML}
+            ${field("วันพิเศษ (YYYY-MM-DD)",`<input id="rPremDate" type="date">`).outerHTML}
+            ${field("ตัวคูณวันพิเศษ",`<input id="rPremMul" type="number" min="1" step="0.1" value="1">`).outerHTML}
+          </div>
+          <label class="check"><input type="checkbox" id="rOt" checked> เปิดใช้ OT</label>
+          <div style="margin-top:18px;display:flex;justify-content:flex-end"><button class="btn" id="saveRule">บันทึกเรต</button></div>
+        </div>
+      </div>`;
+    $("#saveRule").onclick=e=>withBtn(e.target, async ()=>{
+      const employeeId=$("#rEmp").value;
+      const baseRate=parseFloat($("#rRate").value);
+      if(!employeeId){ toast("เลือกพนักงานก่อน","bad"); return; }
+      if(!(baseRate>=0)){ toast("กรอกอัตราฐานให้ถูกต้อง","bad"); return; }
+      try{
+        await api("admin_upsert_pay_rule",{
+          employeeId, payBasis:$("#rBasis").value, baseRate,
+          standardHours:parseFloat($("#rHours").value)||8,
+          otEnabled:$("#rOt").checked, otMultiplier:parseFloat($("#rOtMul").value)||1.5,
+          premiumDate:$("#rPremDate").value||"", premiumMultiplier:parseFloat($("#rPremMul").value)||1,
+          updatedBy:state.reviewer||"Admin",
+        });
+        toast("บันทึกเรตค่าจ้างแล้ว","good");
+      }catch(err){ toast(err.message,"bad"); }
+    });
+  }catch(err){ errorBox(node, err, renderPayrules); }
+}
+
+/* =================================================================
+   INVOICES
+   ================================================================= */
+async function renderInvoices(){
+  const node=$("#page-invoices");
+  skeleton(node);
+  try{
+    const data=await api("admin_list_invoices");
+    const inv=data.invoices||[];
+    const sum=(pred)=>inv.filter(pred).reduce((s,i)=>s+Number(i.total||0),0);
+    const badge=(s)=>({draft:"grey",issued:"blue",paid:"",overdue:"red",void:"grey"}[s]||"grey");
+    const label=(s)=>({draft:"ร่าง",issued:"ออกบิลแล้ว",paid:"ชำระแล้ว",overdue:"เกินกำหนด","void":"ยกเลิก"}[s]||s);
+    node.innerHTML=`
+      <div class="cards">
+        <div class="card"><div class="label">ร่าง (draft)</div><div class="value">${fmtBaht(sum(i=>i.status==="draft"))}</div><div class="note">${inv.filter(i=>i.status==="draft").length} ใบ</div></div>
+        <div class="card"><div class="label">รอชำระ (issued)</div><div class="value">${fmtBaht(sum(i=>i.status==="issued"))}</div><div class="note">${inv.filter(i=>i.status==="issued").length} ใบ</div></div>
+        <div class="card"><div class="label">เกินกำหนด</div><div class="value">${fmtBaht(sum(i=>i.status==="overdue"))}</div><div class="note bad">${inv.filter(i=>i.status==="overdue").length} ใบต้องติดตาม</div></div>
+        <div class="card"><div class="label">ชำระแล้ว</div><div class="value">${fmtBaht(sum(i=>i.status==="paid"))}</div><div class="note">${inv.filter(i=>i.status==="paid").length} ใบ</div></div>
+      </div>
+      <div class="panel"><div class="head"><div class="toolbar"><input type="search" id="invSearch" placeholder="ค้นหา เลขที่ / ลูกค้า" style="width:260px"></div>
+        <div class="spacer"></div><button class="btn" id="newInv">+ สร้างใบแจ้งหนี้</button></div>
+        <div class="body flush"><table><thead><tr><th>เลขที่</th><th>ลูกค้า</th><th>ครบกำหนด</th><th class="num">ยอดรวม</th><th>สถานะ</th><th></th></tr></thead>
+        <tbody id="invRows"></tbody></table></div>
+      </div>`;
+    const draw=(q="")=>{
+      q=q.trim().toLowerCase();
+      const rows=inv.filter(i=>!q||(i.invoiceNo+i.customer).toLowerCase().includes(q));
+      const tb=$("#invRows");
+      tb.innerHTML=rows.length? rows.map(i=>{
+        const acts=[];
+        if(i.status==="draft"){ acts.push(`<button class="btn ghost sm" data-issue="${esc(i.invoiceNo)}">ออกบิล</button>`); acts.push(`<button class="btn danger sm" data-void="${esc(i.invoiceNo)}">ยกเลิก</button>`); }
+        if(i.status==="issued"||i.status==="overdue"){ acts.push(`<button class="btn ok sm" data-pay="${esc(i.invoiceNo)}">บันทึกชำระ</button>`); acts.push(`<button class="btn danger sm" data-void="${esc(i.invoiceNo)}">ยกเลิก</button>`); }
+        return `<tr><td class="person">${esc(i.invoiceNo)}<span class="sub">${esc(i.description||"")}</span></td>
+          <td>${esc(i.customer)}</td><td>${fmtDate(i.dueDate)}</td><td class="num"><b>${fmtBaht(i.total)}</b><span class="sub">VAT ${fmtBaht(i.vat)}</span></td>
+          <td><span class="badge ${badge(i.status)}">${label(i.status)}</span>${i.paymentReference?`<span class="sub">ref: ${esc(i.paymentReference)}</span>`:""}</td>
+          <td><div class="row-actions">${acts.join("")}</div></td></tr>`;
+      }).join("") : `<tr><td colspan="6"><div class="empty">ยังไม่มีใบแจ้งหนี้</div></td></tr>`;
+      tb.querySelectorAll("[data-issue]").forEach(b=>b.onclick=()=>invStatus(b,b.dataset.issue,"issued"));
+      tb.querySelectorAll("[data-void]").forEach(b=>b.onclick=()=>invStatus(b,b.dataset.void,"void"));
+      tb.querySelectorAll("[data-pay]").forEach(b=>b.onclick=()=>payInvoice(b.dataset.pay));
+    };
+    draw();
+    $("#invSearch").oninput=e=>draw(e.target.value);
+    $("#newInv").onclick=newInvoiceDialog;
+  }catch(err){ errorBox(node, err, renderInvoices); }
+}
+
+function newInvoiceDialog(){
+  const body=el(`<div></div>`);
+  body.append(
+    field("ลูกค้า", `<input id="iCust" type="text" required>`),
+    field("รายละเอียด", `<textarea id="iDesc" rows="2"></textarea>`),
+  );
+  const g=el(`<div class="grid2"></div>`);
+  g.append(
+    field("ยอดก่อน VAT (บาท)", `<input id="iSub" type="number" min="0" step="0.01">`),
+    field("ครบกำหนด", `<input id="iDue" type="date" value="${todayISO()}">`),
+  );
+  body.append(g);
+  const vatLine=el(`<div class="notice blue" style="margin-top:4px">VAT 7% และยอดรวมจะคำนวณโดยเซิร์ฟเวอร์</div>`);
+  body.append(vatLine);
+  const sub=g.querySelector("#iSub");
+  sub.oninput=()=>{ const s=parseFloat(sub.value)||0; vatLine.innerHTML=`VAT 7% = <b>${fmtBaht(s*0.07)}</b> · ยอดรวม = <b>${fmtBaht(s*1.07)}</b>`; };
+  const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
+  const save=el(`<button class="btn">สร้างใบแจ้งหนี้</button>`);
+  save.onclick=()=>withBtn(save, async ()=>{
+    const customer=$("#iCust").value.trim(), description=$("#iDesc").value.trim(), subtotal=parseFloat($("#iSub").value), dueDate=$("#iDue").value;
+    if(!customer||!description||!(subtotal>=0)||!dueDate){ toast("กรอกข้อมูลให้ครบ","bad"); return; }
+    try{ await api("admin_create_invoice",{customer, description, subtotal, dueDate});
+      closeModal(); renderInvoices(); toast("สร้างใบแจ้งหนี้แล้ว (สถานะ: ร่าง)","good");
+    }catch(err){ toast(err.message,"bad"); }
+  });
+  openModal("สร้างใบแจ้งหนี้ใหม่", body, [cancel, save]);
+}
+
+async function invStatus(btn, invoiceNo, status){
+  const verb={issued:"ออกบิล","void":"ยกเลิก"}[status];
+  if(status==="void" && !await confirmDialog("ยกเลิกใบแจ้งหนี้",`ยกเลิก <b>${esc(invoiceNo)}</b>?`,{danger:true,okText:"ยกเลิกบิล"})) return;
+  await withBtn(btn, async ()=>{
+    try{ await api("admin_update_invoice_status",{invoiceNo, status}); toast(verb+"แล้ว","good"); renderInvoices(); }
+    catch(err){ toast(err.message,"bad"); }
+  });
+}
+function payInvoice(invoiceNo){
+  const body=el(`<div></div>`);
+  body.append(field("เลขอ้างอิงการชำระ (payment reference)", `<input id="payRef" type="text" placeholder="เช่น เลขสลิป / เลขโอน" required>`,
+    "จำเป็นต้องมีเมื่อเปลี่ยนสถานะเป็น “ชำระแล้ว”"));
+  const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
+  const ok=el(`<button class="btn ok">บันทึกชำระ</button>`);
+  ok.onclick=()=>withBtn(ok, async ()=>{
+    const paymentReference=$("#payRef").value.trim();
+    if(!paymentReference){ toast("กรอกเลขอ้างอิงก่อน","bad"); return; }
+    try{ await api("admin_update_invoice_status",{invoiceNo, status:"paid", paymentReference});
+      closeModal(); renderInvoices(); toast("บันทึกการชำระแล้ว","good");
+    }catch(err){ toast(err.message,"bad"); }
+  });
+  openModal("บันทึกการชำระ "+invoiceNo, body, [cancel, ok]);
+}
+
+/* =================================================================
+   BOOT
+   ================================================================= */
+$("#inEndpoint").value = LS.getItem("bvn_endpoint") || DEFAULT_ENDPOINT;
+$("#inReviewer").value = LS.getItem("bvn_reviewer") || "";
+$("#loginForm").addEventListener("submit", doLogin);
+
+// Auto-resume a session token kept in this tab.
+(function resume(){
+  const token=SS.getItem("bvn_token"), endpoint=LS.getItem("bvn_endpoint")||DEFAULT_ENDPOINT, reviewer=LS.getItem("bvn_reviewer")||"";
+  if(!token) return;
+  state.endpoint=endpoint; state.token=token; state.reviewer=reviewer;
+  api("dashboard").then(enterApp).catch(()=>{ SS.removeItem("bvn_token"); });
+})();
+</script>
+</body>
+</html>
