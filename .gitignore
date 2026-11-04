@@ -4,6 +4,10 @@ admin_console/config.local.json
 *.local.json
 .env
 .env.*
+# Android release signing — keystore + its passwords never go in git
+employee_mobile/android/key.properties
+*.jks
+*.keystore
 
 # ───────── Node ─────────
 node_modules/
