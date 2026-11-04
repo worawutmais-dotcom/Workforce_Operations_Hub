@@ -37,6 +37,10 @@ employee_mobile/**/*.g.dart
 # This is the toolchain, not our source. Move it out of the project and keep it ignored.
 mobile_toolchain/
 
+# Machine-specific Flutter/Android paths (points at the local SDKs)
+employee_mobile/android/local.properties
+employee_mobile/.flutter-plugins*
+
 # ───────── Build caches / tooling ─────────
 .gradle_bvn/
 .playwright-cli/
