@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 
 const bvnApiUrl = String.fromEnvironment(
   'BVN_API_URL',
-  defaultValue: 'https://script.google.com/macros/s/AKfycbwWCdTJkadi93Pst2_uBSRkU8uYmGODqoaV0kuy6HtAnO5l31nW1jmHsKEkX8TIYyqp/exec',
+  defaultValue: 'https://script.google.com/macros/s/AKfycbwFBbwv6uiLevkMl3k_p8T1cFsJOcxhoJaLedYk8MR2HV-EITwPkxcu_yfqAK4WBW-2/exec',
 );
 
 class BvnApiException implements Exception {
@@ -29,7 +29,14 @@ class BvnApi {
       }
       decoded = parsed;
     } on FormatException {
-      throw BvnApiException('เชื่อมต่อระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+      final snippet = utf8
+          .decode(response.bodyBytes, allowMalformed: true)
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+      throw BvnApiException(
+        'ข้อมูลไม่ใช่ JSON (HTTP ${response.statusCode}) '
+        '${snippet.substring(0, snippet.length < 80 ? snippet.length : 80)}',
+      );
     }
     if (decoded['ok'] != true) {
       throw BvnApiException(
@@ -51,8 +58,11 @@ class BvnApi {
     var response = await http.Response.fromStream(
       await _client.send(request).timeout(const Duration(seconds: 20)),
     );
+    // Follow redirects manually by status code: package:http reports
+    // isRedirect=false when followRedirects is disabled, so rely on 3xx + Location.
     var hops = 0;
-    while (response.isRedirect &&
+    while (response.statusCode >= 300 &&
+        response.statusCode < 400 &&
         response.headers['location'] != null &&
         hops < 5) {
       final location = uri.resolve(response.headers['location']!);

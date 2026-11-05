@@ -103,8 +103,8 @@ class _LoginPageState extends State<LoginPage> {
       _people = await BvnApi().employeeDirectory();
     } on BvnApiException catch (e) {
       _error = e.message;
-    } catch (_) {
-      _error = 'เชื่อมต่อรายชื่อพนักงานไม่สำเร็จ';
+    } catch (e) {
+      _error = 'โหลดรายชื่อไม่สำเร็จ: $e';
     }
     if (mounted) setState(() => _loading = false);
   }
