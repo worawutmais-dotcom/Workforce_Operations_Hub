@@ -242,12 +242,14 @@ function adminUpsertEmployee_(payload) {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.employees), rows = values_(sheet), columns = employeeColumns_(rows[0]);
   const id = requestedId || nextEmployeeId_(rows);
   const rowIndex = rows.slice(1).findIndex(r => String(r[columns.id]).trim().toUpperCase() === id);
-  const needsPassword = rowIndex < 0 || !String(rows[rowIndex + 1][columns.passwordHash] || '');
-  const initialPassword = needsPassword ? temporaryPassword_() : String(rows[rowIndex + 1][columns.passwordHash] || '');
+  const existingPassword = rowIndex < 0 ? '' : String(rows[rowIndex + 1][columns.passwordHash] || '');
+  const providedPassword = String(payload.password || '').trim();
+  // Admin may set a chosen password; otherwise keep the current one, or generate one when none exists.
+  const finalPassword = providedPassword || existingPassword || temporaryPassword_();
   const values = rowIndex < 0 ? Array(rows[0].length).fill('') : rows[rowIndex + 1].slice();
-  values[columns.id] = id; values[columns.name] = name; values[columns.role] = role || 'Employee'; values[columns.department] = String(payload.department || ''); values[columns.siteId] = siteId; values[columns.status] = status; values[columns.locationRequired] = locationRequired; values[columns.passwordHash] = needsPassword ? hashEmployeePassword_(initialPassword) : initialPassword;
+  values[columns.id] = id; values[columns.name] = name; values[columns.role] = role || 'Employee'; values[columns.department] = String(payload.department || ''); values[columns.siteId] = siteId; values[columns.status] = status; values[columns.locationRequired] = locationRequired; values[columns.passwordHash] = hashEmployeePassword_(finalPassword);
   if (rowIndex >= 0) sheet.getRange(rowIndex + 2, 1, 1, values.length).setValues([values]); else sheet.appendRow(values);
-  return reply_(true, 'Employee saved', { employee: employeeFromRow_(values, columns), initialPassword: needsPassword ? initialPassword : null });
+  return reply_(true, 'Employee saved', { employee: employeeFromRow_(values, columns), initialPassword: finalPassword });
 }
 
 function adminResetEmployeePassword_(payload) {
@@ -255,7 +257,8 @@ function adminResetEmployeePassword_(payload) {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.employees), rows = values_(sheet), columns = employeeColumns_(rows[0]), index = rows.slice(1).findIndex(r => String(r[columns.id]).trim().toUpperCase() === employeeId);
   if (index < 0) return reply_(false, 'Employee was not found');
   revokeEmployeeTokens_(employeeId);
-  const password = temporaryPassword_(); sheet.getRange(index + 2, columns.passwordHash + 1).setValue(hashEmployeePassword_(password));
+  const password = String(payload.password || '').trim() || temporaryPassword_();
+  sheet.getRange(index + 2, columns.passwordHash + 1).setValue(hashEmployeePassword_(password));
   return reply_(true, 'Temporary password reset', { employeeId: employeeId, temporaryPassword: password });
 }
 
@@ -500,7 +503,9 @@ function valuesIfSheet_(sheet) { return sheet ? sheet.getDataRange().getValues()
 function requiredProperty_(key) { const value = PropertiesService.getScriptProperties().getProperty(key); if (!value) throw new Error('Missing Script Property: ' + key); return value; }
 function requireAdmin_(payload) { if (!constantTimeEqual_(String(payload.adminToken || ''), requiredProperty_('ADMIN_API_KEY'))) throw new Error('Administrator authentication failed'); }
 function hashMobileToken_(rawToken) { return Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(String(rawToken), requiredProperty_('MOBILE_TOKEN_PEPPER'))); }
-function hashEmployeePassword_(password) { return Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature('password:' + String(password), requiredProperty_('MOBILE_TOKEN_PEPPER'))); }
+// Plain-text password storage (internal "บ้านๆ" mode): admin can view and set passwords.
+// NOTE: anyone with access to the Employees sheet can read every password. Keep sheet access tight.
+function hashEmployeePassword_(password) { return String(password); }
 function temporaryPassword_() { return String(Math.floor(10000000 + Math.random() * 90000000)); }
 function nextEmployeeId_(rows) { const idColumn = employeeColumns_(rows[0]).id; const numbers = rows.slice(1).map(r => /^EMP-(\d+)$/.exec(String(r[idColumn] || ''))).filter(Boolean).map(m => Number(m[1])); return 'EMP-' + String((numbers.length ? Math.max(...numbers) : 0) + 1).padStart(4, '0'); }
 function finiteNumber_(value) { const n = Number(value); return Number.isFinite(n) ? n : null; }

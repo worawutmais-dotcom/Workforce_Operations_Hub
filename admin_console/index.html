@@ -471,7 +471,7 @@ async function renderEmployees(){
           <button class="btn" id="addEmpBtn">+ เพิ่มพนักงาน</button>
         </div>
         <div class="body flush"><table>
-          <thead><tr><th>พนักงาน</th><th>ตำแหน่ง / แผนก</th><th>ไซต์</th><th>GPS</th><th>สถานะ</th><th></th></tr></thead>
+          <thead><tr><th>พนักงาน</th><th>ตำแหน่ง / แผนก</th><th>ไซต์</th><th>GPS</th><th>รหัสผ่าน</th><th>สถานะ</th><th></th></tr></thead>
           <tbody id="empRows"></tbody></table>
         </div>
       </div>`;
@@ -481,13 +481,14 @@ async function renderEmployees(){
         .filter(e=>!q || (e.id+e.name+(e.role||"")+(e.siteId||"")).toLowerCase().includes(q))
         .sort((a,b)=> (a.status===b.status)? a.id.localeCompare(b.id) : (a.status==="active"?-1:1));
       const tb=$("#empRows");
-      if(!rows.length){ tb.innerHTML=`<tr><td colspan="6"><div class="empty">ไม่พบพนักงาน</div></td></tr>`; return; }
+      if(!rows.length){ tb.innerHTML=`<tr><td colspan="7"><div class="empty">ไม่พบพนักงาน</div></td></tr>`; return; }
       tb.innerHTML=rows.map(e=>`
         <tr>
           <td class="person">${esc(e.name)}<span class="sub">${esc(e.id)}</span></td>
           <td>${esc(e.role||"—")}<span class="sub">${esc(e.department||"")}</span></td>
           <td>${esc(e.siteId||"—")}</td>
           <td>${e.locationRequired?'<span class="badge blue">บังคับ GPS</span>':'<span class="badge grey">ไม่บังคับ</span>'}</td>
+          <td><code style="font-size:13px">${esc(e.passwordHash||"—")}</code></td>
           <td>${e.status==="active"?'<span class="badge"><span class="dot"></span>ใช้งาน</span>':'<span class="badge grey">ปิดใช้งาน</span>'}</td>
           <td><div class="row-actions">
             <button class="btn sub sm" data-edit="${esc(e.id)}">แก้ไข</button>
@@ -519,6 +520,8 @@ function employeeDialog(emp){
   );
   body.append(field("รหัสไซต์ (Work site ID)", `<input id="fSite" type="text" value="${esc(emp?.siteId||"")}" required>`,
     "ต้องตรงกับแถวในชีต Work_Sites ถึงจะเช็กอินแบบบังคับ GPS ได้"));
+  body.append(field("รหัสผ่าน", `<input id="fPw" type="text" value="${esc(emp?.passwordHash||"")}" placeholder="${isEdit?"พิมพ์เพื่อเปลี่ยนรหัส":"เว้นว่าง = สุ่มให้อัตโนมัติ"}">`,
+    "รหัสผ่านเก็บแบบข้อความธรรมดา (ใช้ภายในทีม) — แอดมินดูและตั้งเองได้"));
   const chk=el(`<label class="check"><input type="checkbox" id="fLoc" ${(!emp||emp.locationRequired)?"checked":""}> บังคับ GPS ตอนเช็กอิน</label>`);
   body.append(chk);
   if(isEdit){
@@ -533,16 +536,16 @@ function employeeDialog(emp){
     if(!name||!site){ toast("ต้องกรอกชื่อและรหัสไซต์","bad"); return; }
     const fields={
       name, role:$("#fRole").value.trim(), department:$("#fDept").value.trim(),
-      siteId:site, locationRequired:$("#fLoc").checked, updatedBy:state.reviewer||"Admin",
+      siteId:site, locationRequired:$("#fLoc").checked, password:$("#fPw").value.trim(), updatedBy:state.reviewer||"Admin",
     };
     if(isEdit){ fields.employeeId=emp.id; fields.status=$("#fActive").checked?"active":"inactive"; }
     try{
       const data=await api("admin_upsert_employee", fields);
       closeModal();
       await loadEmployees(true); renderEmployees();
-      if(data.initialPassword) showSecret("สร้างพนักงานสำเร็จ",
-        [["Employee ID", data.employee?.id||""],["รหัสผ่านชั่วคราว", data.initialPassword]],
-        "ส่งให้พนักงานครั้งเดียว แล้วให้เปลี่ยนทันที — อย่าเก็บไว้ในแชตหรือเอกสารสาธารณะ");
+      if(!isEdit && data.initialPassword) showSecret("สร้างพนักงานสำเร็จ",
+        [["Employee ID", data.employee?.id||""],["รหัสผ่าน", data.initialPassword]],
+        "ดู/แก้รหัสได้ภายหลังที่คอลัมน์รหัสผ่านหรือปุ่มแก้ไข");
       else toast("บันทึกพนักงานแล้ว","good");
     }catch(err){ toast(err.message,"bad"); }
   });
