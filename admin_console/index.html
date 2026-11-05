@@ -741,26 +741,31 @@ async function doPreview(btn){
   await withBtn(btn, async ()=>{
     try{
       const data=await api("admin_preview_payroll",{startDate, endDate});
-      lastPreview={startDate:data.startDate, endDate:data.endDate, lines:data.lines, totalGross:data.totalGross};
+      lastPreview={startDate:data.startDate, endDate:data.endDate, lines:data.lines, totalGross:data.totalGross, totalAdvance:data.totalAdvance, totalNet:data.totalNet, period:{start:data.startDate, end:data.endDate, label:""}};
       const box=$("#previewResult");
       if(!data.lines.length){ box.innerHTML=`<div class="empty">ไม่มีข้อมูลค่าแรงในช่วงนี้ (ต้องมีวันทำงานที่เช็กอิน/ออกครบ และตั้งเรตค่าจ้างแล้ว)</div>`; return; }
       box.innerHTML=`
         <table><thead><tr><th>พนักงาน</th><th class="num">วันทำงาน</th><th class="num">ชม.ปกติ</th><th class="num">OT</th>
-          <th class="num">ฐาน</th><th class="num">OT (เงิน)</th><th class="num">รวม gross</th><th>หมายเหตุ</th></tr></thead>
-        <tbody>${data.lines.map(l=>`
+          <th class="num">ฐาน</th><th class="num">OT (เงิน)</th><th class="num">รวม gross</th><th class="num">หักเบิก</th><th class="num">สุทธิ</th><th></th></tr></thead>
+        <tbody>${data.lines.map((l,idx)=>`
           <tr><td class="person">${esc(empName(l.employeeId))}<span class="sub">${esc(l.employeeId)}</span></td>
             <td class="num">${fmtInt(l.workDays)}</td><td class="num">${fmtHours(l.regularMinutes)}</td>
             <td class="num">${fmtHours(l.otMinutes)}</td><td class="num">${fmtBaht(l.baseGross)}</td>
-            <td class="num">${fmtBaht(l.otGross)}</td><td class="num"><b>${fmtBaht(l.grossPay)}</b></td>
-            <td>${(l.warnings&&l.warnings.length)?`<span class="badge amber">${esc(l.warnings.join("; "))}</span>`:""}</td></tr>`).join("")}
+            <td class="num">${fmtBaht(l.otGross)}</td><td class="num">${fmtBaht(l.grossPay)}</td>
+            <td class="num">${l.advanceDeduction?'<span style="color:#b91c1c">-'+fmtBaht(l.advanceDeduction)+'</span>':"—"}</td>
+            <td class="num"><b>${fmtBaht(l.netPay!=null?l.netPay:l.grossPay)}</b></td>
+            <td class="num"><button class="btn sub sm" data-pslip="${idx}">สลิป</button></td></tr>`).join("")}
         </tbody>
         <tfoot><tr><td colspan="6" style="text-align:right;font-weight:700;padding:13px 14px">รวมทั้งงวด</td>
-          <td class="num" style="font-weight:800;padding:13px 14px">${fmtBaht(data.totalGross)}</td><td></td></tr></tfoot></table>
+          <td class="num" style="padding:13px 14px">${fmtBaht(data.totalGross)}</td>
+          <td class="num" style="padding:13px 14px">${(data.totalAdvance||0)?"-"+fmtBaht(data.totalAdvance):"—"}</td>
+          <td class="num" style="font-weight:800;padding:13px 14px">${fmtBaht(data.totalNet!=null?data.totalNet:data.totalGross)}</td><td></td></tr></tfoot></table>
         <div class="body toolbar" style="border-top:1px solid var(--line)">
           <button class="btn sub sm" id="exportPrev">ส่งออก CSV (พรีวิว)</button>
           <div class="spacer"></div>
           <button class="btn" id="lockBtn">🔒 ล็อกงวดนี้ (ทำครั้งเดียว)</button>
         </div>`;
+      box.querySelectorAll("[data-pslip]").forEach(b=>b.onclick=()=>printPayslip(data.lines[+b.dataset.pslip], lastPreview.period));
       $("#exportPrev").onclick=()=>exportCSV(lastPreview, "preview");
       $("#lockBtn").onclick=e=>doLock(e.target);
     }catch(err){ toast(err.message,"bad"); $("#previewResult").innerHTML=`<div class="empty">${esc(err.message)}</div>`; }
@@ -815,10 +820,11 @@ async function viewSnapshot(payrollId){
 }
 
 function exportCSV(data, kind){
-  const rows=[["payroll_id","employee_id","employee_name","regular_minutes","ot_minutes","base_gross","ot_gross","gross_pay"]];
+  const rows=[["payroll_id","employee_id","employee_name","regular_minutes","ot_minutes","base_gross","ot_gross","gross_pay","advance_deduction","net_pay"]];
   (data.lines||[]).forEach(l=>rows.push([
     data.payrollId||("PREVIEW "+data.startDate+".."+data.endDate), l.employeeId, empName(l.employeeId),
-    l.regularMinutes||0, l.otMinutes||0, l.baseGross||0, l.otGross||0, l.grossPay||0]));
+    l.regularMinutes||0, l.otMinutes||0, l.baseGross||0, l.otGross||0, l.grossPay||0,
+    l.advanceDeduction||0, (l.netPay!=null?l.netPay:l.grossPay)||0]));
   const csv="﻿"+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n");
   const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
   const a=document.createElement("a"); a.href=url;
@@ -914,9 +920,9 @@ async function renderOwner(){
       </div>
       <div class="panel"><div class="head"><b>ต้องจ่ายใครบ้างในงวดนี้</b><div class="spacer"></div><button class="btn" id="ownLock">ล็อกงวด + บันทึก snapshot</button></div>
         <div class="body flush"><table>
-          <thead><tr><th>พนักงาน</th><th class="num">วันทำงาน</th><th class="num">ชม.ปกติ</th><th class="num">OT</th><th class="num">ฐาน</th><th class="num">OT เงิน</th><th class="num">รวมจ่าย</th></tr></thead>
+          <thead><tr><th>พนักงาน</th><th class="num">วันทำงาน</th><th class="num">ชม.ปกติ</th><th class="num">OT</th><th class="num">ฐาน</th><th class="num">OT เงิน</th><th class="num">รวม gross</th><th class="num">หักเบิก</th><th class="num">สุทธิจ่ายจริง</th><th></th></tr></thead>
           <tbody id="ownRows"></tbody>
-          <tfoot><tr><td colspan="6" class="num"><b>ยอดรวมทั้งสิ้น</b></td><td class="num"><b>${fmtBaht(data.totalGross)}</b></td></tr></tfoot>
+          <tfoot><tr><td colspan="6" class="num"><b>ยอดรวมทั้งสิ้น</b></td><td class="num">${fmtBaht(data.totalGross)}</td><td class="num">${(data.totalAdvance||0)?"-"+fmtBaht(data.totalAdvance):"—"}</td><td class="num"><b>${fmtBaht(data.totalNet!=null?data.totalNet:data.totalGross)}</b></td><td></td></tr></tfoot>
         </table></div>
       </div>
       <div class="panel"><div class="head"><b>บันทึกเวลาเข้า-ออก</b> <span class="sub">(บรรทัดเดียวต่อวัน)</span><div class="spacer"></div>
@@ -929,11 +935,15 @@ async function renderOwner(){
         </table></div>
       </div>`;
     const rows=data.lines||[];
-    $("#ownRows").innerHTML = rows.length? rows.map(l=>`<tr>
+    $("#ownRows").innerHTML = rows.length? rows.map((l,idx)=>`<tr>
         <td class="person">${esc(l.name)}<span class="sub">${esc(l.employeeId)}${l.role?" · "+esc(l.role):""}</span></td>
         <td class="num">${fmtInt(l.workDays)}</td><td class="num">${fmtHours(l.regularMinutes)}</td><td class="num">${l.otMinutes?fmtHours(l.otMinutes):"—"}</td>
-        <td class="num">${fmtBaht(l.baseGross)}</td><td class="num">${l.otGross?fmtBaht(l.otGross):"—"}</td><td class="num"><b>${fmtBaht(l.grossPay)}</b></td>
-      </tr>`).join("") : `<tr><td colspan="7"><div class="empty">ยังไม่มีใครมีวันทำงานครบในงวดนี้ (ต้องมีทั้งเช็กอินและเช็กเอาต์ + ตั้งเรตค่าจ้าง)</div></td></tr>`;
+        <td class="num">${fmtBaht(l.baseGross)}</td><td class="num">${l.otGross?fmtBaht(l.otGross):"—"}</td><td class="num">${fmtBaht(l.grossPay)}</td>
+        <td class="num">${l.advanceDeduction?'<span style="color:#b91c1c">-'+fmtBaht(l.advanceDeduction)+'</span>':"—"}</td>
+        <td class="num"><b>${fmtBaht(l.netPay!=null?l.netPay:l.grossPay)}</b></td>
+        <td class="num"><button class="btn sub sm" data-slip="${idx}">สลิป</button></td>
+      </tr>`).join("") : `<tr><td colspan="10"><div class="empty">ยังไม่มีใครมีวันทำงานครบในงวดนี้ (ต้องมีทั้งเช็กอินและเช็กเอาต์ + ตั้งเรตค่าจ้าง)</div></td></tr>`;
+    $("#ownRows").querySelectorAll("[data-slip]").forEach(b=>b.onclick=()=>printPayslip(rows[+b.dataset.slip], p));
     $("#ownSettings").onclick=()=>settingsDialog(s);
     $("#ownLock").onclick=()=>lockFromOwner(p);
     $("#ownSite").onclick=()=>siteDialog();
@@ -1184,6 +1194,74 @@ function printInvoice(i){
       <div class="foot">
         <div>หมายเหตุ: กรุณาชำระภายในวันครบกำหนด</div>
         <div class="sign"><div class="line">ผู้มีอำนาจลงนาม<br>${esc(ISSUER.name)}</div></div>
+      </div>
+    </div></body></html>`;
+  const w=window.open("","_blank");
+  if(!w){ toast("เบราว์เซอร์บล็อก popup — อนุญาตแล้วลองใหม่","bad"); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
+
+function printPayslip(l, period){
+  if(!l){ toast("ไม่พบข้อมูลพนักงาน","bad"); return; }
+  const money=(n)=>Number(n||0).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const hrs=(m)=>{ m=Number(m||0); return (Math.floor(m/60))+" ชม. "+(m%60)+" นาที"; };
+  const dateTh=(iso)=>{ if(!iso) return "—"; const d=new Date(iso.length<=10?iso+"T00:00:00+07:00":iso); return isNaN(d)?esc(iso):d.toLocaleDateString("th-TH",{dateStyle:"long"}); };
+  const today=new Date().toLocaleDateString("th-TH",{dateStyle:"long"});
+  const periodText=(period&&period.start)?(dateTh(period.start)+" – "+dateTh(period.end)):(period&&period.label?esc(period.label):"—");
+  const gross=Number(l.grossPay||0), adv=Number(l.advanceDeduction||0), net=l.netPay!=null?Number(l.netPay):gross-adv;
+  const html=`<!doctype html><html lang="th"><head><meta charset="utf-8">
+    <title>สลิปเงินเดือน ${esc(l.name||l.employeeId)}</title>
+    <style>
+      *{box-sizing:border-box} body{font-family:"Sarabun","TH Sarabun New","Tahoma",sans-serif;color:#111;margin:0;padding:24px;background:#f3f4f6}
+      .sheet{max-width:620px;margin:0 auto;background:#fff;padding:40px 44px;box-shadow:0 1px 6px rgba(0,0,0,.12)}
+      .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0f766e;padding-bottom:16px}
+      .co-name{font-size:19px;font-weight:700;color:#0f766e;margin:0} .co-en{font-size:12px;color:#374151;margin:2px 0 8px}
+      .co-line{font-size:12px;color:#374151;line-height:1.5}
+      .doc-title{text-align:right} .doc-title h1{font-size:22px;margin:0;letter-spacing:1px;color:#111} .doc-title .sub{font-size:11px;color:#6b7280}
+      .meta{display:flex;justify-content:space-between;margin-top:20px;gap:24px;font-size:13px;line-height:1.7} .meta .k{color:#6b7280}
+      table{width:100%;border-collapse:collapse;margin-top:22px;font-size:14px}
+      th{background:#0f766e;color:#fff;text-align:left;padding:9px 12px;font-weight:600} th.num,td.num{text-align:right}
+      td{padding:9px 12px;border-bottom:1px solid #e5e7eb}
+      .totals{margin-top:14px;margin-left:auto;width:300px;font-size:14px}
+      .totals div{display:flex;justify-content:space-between;padding:6px 2px}
+      .totals .ded{color:#b91c1c}
+      .totals .grand{border-top:2px solid #0f766e;margin-top:4px;padding-top:10px;font-size:18px;font-weight:700;color:#0f766e}
+      .foot{margin-top:40px;display:flex;justify-content:space-between;font-size:13px;color:#374151}
+      .sign{text-align:center;width:200px} .sign .line{margin-top:48px;border-top:1px dotted #9ca3af;padding-top:6px}
+      .note{margin-top:8px;font-size:11px;color:#6b7280}
+      .toolbar{max-width:620px;margin:0 auto 14px;text-align:right}
+      .pbtn{font:inherit;font-size:14px;padding:8px 18px;border:0;border-radius:8px;background:#0f766e;color:#fff;cursor:pointer}
+      @media print{body{background:#fff;padding:0}.sheet{box-shadow:none;max-width:none;padding:24px}.toolbar{display:none}}
+    </style></head><body>
+    <div class="toolbar"><button class="pbtn" onclick="window.print()">พิมพ์ / บันทึก PDF</button></div>
+    <div class="sheet">
+      <div class="top">
+        <div>
+          <p class="co-name">${esc(ISSUER.name)}</p>
+          <p class="co-en">${esc(ISSUER.nameEn)}</p>
+          <div class="co-line">${esc(ISSUER.address)}</div>
+          <div class="co-line">เลขประจำตัวผู้เสียภาษี ${esc(ISSUER.taxId)}</div>
+        </div>
+        <div class="doc-title"><h1>สลิปเงินเดือน</h1><div class="sub">PAYSLIP</div></div>
+      </div>
+      <div class="meta">
+        <div><div><span class="k">พนักงาน</span> <b>${esc(l.name||l.employeeId)}</b></div><div><span class="k">รหัส</span> ${esc(l.employeeId)}${l.role?" · "+esc(l.role):""}</div></div>
+        <div style="text-align:right"><div><span class="k">งวด</span> <b>${periodText}</b></div><div><span class="k">ออกเมื่อ</span> ${today}</div></div>
+      </div>
+      <table><thead><tr><th>รายการ</th><th class="num">จำนวน</th><th class="num">เงิน (บาท)</th></tr></thead>
+        <tbody>
+          <tr><td>ค่าแรงฐาน · ${fmtInt(l.workDays)} วัน (${hrs(l.regularMinutes)})</td><td class="num">—</td><td class="num">${money(l.baseGross)}</td></tr>
+          ${Number(l.otGross||0)?`<tr><td>ค่าล่วงเวลา (OT) · ${hrs(l.otMinutes)}</td><td class="num">—</td><td class="num">${money(l.otGross)}</td></tr>`:""}
+        </tbody></table>
+      <div class="totals">
+        <div><span>รวมรายได้ (gross)</span><span>${money(gross)}</span></div>
+        <div class="ded"><span>หักเงินเบิกล่วงหน้า</span><span>${adv?"-"+money(adv):money(0)}</span></div>
+        <div class="grand"><span>เงินสุทธิที่จ่ายจริง</span><span>฿${money(net)}</span></div>
+      </div>
+      <div class="note">* รายได้ก่อนหักภาษี ณ ที่จ่าย และประกันสังคม (ยังไม่รวมในสลิปนี้) · หักเบิกคือยอดเบิกล่วงหน้าที่อนุมัติแล้วและยังไม่ได้จ่ายคืน</div>
+      <div class="foot">
+        <div>ลงชื่อผู้รับเงิน</div>
+        <div class="sign"><div class="line">ผู้จ่ายเงิน<br>${esc(ISSUER.name)}</div></div>
       </div>
     </div></body></html>`;
   const w=window.open("","_blank");

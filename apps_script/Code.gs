@@ -347,8 +347,21 @@ function adminPreviewPayroll_(payload) {
   const result = {};
   Object.values(byEmployeeDay).forEach(item => { if (!item.in || !item.out || item.out <= item.in || !rules[item.employeeId]) return; const line = result[item.employeeId] || { employeeId: item.employeeId, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0, grossPay: 0, warnings: [] }; const rule = rules[item.employeeId], basis = normalise_(rule[1]), rate = Number(rule[2] || 0), standardMinutes = Number(rule[3] || 8) * 60; const minutes = Math.round((item.out - item.in) / 60000); line.workDays += 1; line.regularMinutes += Math.min(minutes, standardMinutes); if (basis === 'daily') line.baseGross += rate; else line.baseGross += Math.min(minutes, standardMinutes) / 60 * rate; result[item.employeeId] = line; });
   approvedOt.forEach(row => { const day = Utilities.formatDate(new Date(row[3]), ICT, 'yyyy-MM-dd'), employeeId = String(row[1]); if (day < startText || day > endText || !rules[employeeId]) return; const line = result[employeeId] || { employeeId: employeeId, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0, grossPay: 0, warnings: ['Approved OT has no accepted complete attendance day'] }; const rule = rules[employeeId], baseHourly = normalise_(rule[1]) === 'daily' ? Number(rule[2] || 0) / Number(rule[3] || 8) : Number(rule[2] || 0), multiplier = String(rule[4]) === 'true' ? Number(rule[5] || 1.5) : 0, minutes = Number(row[4] || 0); line.otMinutes += minutes; line.otGross += minutes / 60 * baseHourly * multiplier; result[employeeId] = line; });
-  const lines = Object.values(result).map(line => ({ ...line, baseGross: roundMoney_(line.baseGross), otGross: roundMoney_(line.otGross), grossPay: roundMoney_(line.baseGross + line.otGross) }));
-  return reply_(true, 'Gross-pay preview loaded', { startDate: startText, endDate: endText, status: 'preview', disclaimer: 'Gross-pay preview only. Tax, SSO, withholding and payment are excluded.', lines: lines, totalGross: roundMoney_(lines.reduce((sum, line) => sum + line.grossPay, 0)) });
+  const advanceMap = approvedUnpaidAdvanceMap_();
+  const lines = Object.values(result).map(line => {
+    const grossPay = roundMoney_(line.baseGross + line.otGross);
+    const advanceDeduction = roundMoney_(advanceMap[line.employeeId] || 0);
+    return { ...line, baseGross: roundMoney_(line.baseGross), otGross: roundMoney_(line.otGross), grossPay: grossPay, advanceDeduction: advanceDeduction, netPay: roundMoney_(grossPay - advanceDeduction) };
+  });
+  return reply_(true, 'Gross-pay preview loaded', { startDate: startText, endDate: endText, status: 'preview', disclaimer: 'Gross-pay preview only. Tax, SSO, withholding and payment are excluded. Net = gross minus approved unpaid advances.', lines: lines, totalGross: roundMoney_(lines.reduce((sum, line) => sum + line.grossPay, 0)), totalAdvance: roundMoney_(lines.reduce((sum, line) => sum + line.advanceDeduction, 0)), totalNet: roundMoney_(lines.reduce((sum, line) => sum + line.netPay, 0)) });
+}
+
+// Per-employee total of advances that are approved but not yet paid — the amount
+// to subtract from gross pay to get net pay at month end.
+function approvedUnpaidAdvanceMap_() {
+  initializeAdvancesSheet();
+  const rows = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.advances)).slice(1).map(advanceFromRow_);
+  return rows.reduce((map, a) => { if (a.advanceId && a.status === 'approved') map[a.employeeId] = (map[a.employeeId] || 0) + a.amount; return map; }, {});
 }
 
 function adminLockPayroll_(payload) {
@@ -377,9 +390,11 @@ function adminGetPayroll_(payload) {
   if (!payrollId) return reply_(false, 'Payroll ID is required');
   const period = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.payroll)).slice(1).find(row => String(row[0]) === payrollId);
   if (!period) return reply_(false, 'Payroll period not found');
+  const names = employeeNameMap_();
+  const advanceMap = approvedUnpaidAdvanceMap_();
   const lines = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.payrollLines)).slice(1).filter(row => String(row[0]) === payrollId)
-    .map(row => ({ employeeId: String(row[1]), regularMinutes: Number(row[2] || 0), otMinutes: Number(row[3] || 0), baseGross: Number(row[4] || 0), otGross: Number(row[5] || 0), grossPay: Number(row[6] || 0) }));
-  return reply_(true, 'Payroll snapshot loaded', { payrollId: payrollId, startDate: Utilities.formatDate(new Date(period[1]), ICT, 'yyyy-MM-dd'), endDate: Utilities.formatDate(new Date(period[2]), ICT, 'yyyy-MM-dd'), status: String(period[3]), lines: lines, totalGross: roundMoney_(lines.reduce((sum, line) => sum + line.grossPay, 0)) });
+    .map(row => { const employeeId = String(row[1]); const grossPay = Number(row[6] || 0); const advanceDeduction = roundMoney_(advanceMap[employeeId] || 0); return { employeeId: employeeId, name: (names[employeeId] || {}).name || employeeId, role: (names[employeeId] || {}).role || '', regularMinutes: Number(row[2] || 0), otMinutes: Number(row[3] || 0), baseGross: Number(row[4] || 0), otGross: Number(row[5] || 0), grossPay: grossPay, advanceDeduction: advanceDeduction, netPay: roundMoney_(grossPay - advanceDeduction) }; });
+  return reply_(true, 'Payroll snapshot loaded', { payrollId: payrollId, startDate: Utilities.formatDate(new Date(period[1]), ICT, 'yyyy-MM-dd'), endDate: Utilities.formatDate(new Date(period[2]), ICT, 'yyyy-MM-dd'), status: String(period[3]), lines: lines, totalGross: roundMoney_(lines.reduce((sum, line) => sum + line.grossPay, 0)), totalAdvance: roundMoney_(lines.reduce((sum, line) => sum + line.advanceDeduction, 0)), totalNet: roundMoney_(lines.reduce((sum, line) => sum + line.netPay, 0)) });
 }
 
 /* =========================== Owner settings & analytics =========================== */
@@ -496,8 +511,9 @@ function adminOwnerOverview_(payload) {
   const names = employeeNameMap_();
   const lines = preview.data.lines.map(l => ({
     employeeId: l.employeeId, name: (names[l.employeeId] || {}).name || l.employeeId, role: (names[l.employeeId] || {}).role || '',
-    workDays: l.workDays, regularMinutes: l.regularMinutes, otMinutes: l.otMinutes, baseGross: l.baseGross, otGross: l.otGross, grossPay: l.grossPay
-  })).sort((a, b) => b.grossPay - a.grossPay);
+    workDays: l.workDays, regularMinutes: l.regularMinutes, otMinutes: l.otMinutes, baseGross: l.baseGross, otGross: l.otGross, grossPay: l.grossPay,
+    advanceDeduction: l.advanceDeduction, netPay: l.netPay
+  })).sort((a, b) => b.netPay - a.netPay);
   const activeCount = Object.values(names).filter(e => e.status === 'active').length;
   initializeAdvancesSheet();
   const advances = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.advances)).slice(1).map(advanceFromRow_).filter(a => a.advanceId);
@@ -505,7 +521,7 @@ function adminOwnerOverview_(payload) {
   const pending = advances.filter(a => a.status === 'pending'), approvedUnpaid = advances.filter(a => a.status === 'approved');
   return reply_(true, 'Owner overview loaded', {
     settings: settings, period: range, nextPayday: nextPayday_(settings),
-    lines: lines, totalGross: preview.data.totalGross, paidCount: lines.length, activeEmployees: activeCount,
+    lines: lines, totalGross: preview.data.totalGross, totalAdvance: preview.data.totalAdvance, totalNet: preview.data.totalNet, paidCount: lines.length, activeEmployees: activeCount,
     advancesPending: { count: pending.length, total: sumAmt(pending) },
     advancesApprovedUnpaid: { count: approvedUnpaid.length, total: sumAmt(approvedUnpaid) }
   });
