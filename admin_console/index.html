@@ -188,6 +188,7 @@
       <button data-page="employees"><span class="ico">♟</span> พนักงาน</button>
       <button data-page="approvals"><span class="ico">✔</span> คิวอนุมัติ <span class="pill" id="navApprovals" style="display:none">0</span></button>
       <button data-page="payroll"><span class="ico">฿</span> เงินเดือน</button>
+      <button data-page="advances"><span class="ico">⇅</span> เบิกเงินล่วงหน้า <span class="pill" id="navAdvances" style="display:none">0</span></button>
       <button data-page="payrules"><span class="ico">⚖</span> เรตค่าจ้าง</button>
       <button data-page="invoices"><span class="ico">▤</span> ใบแจ้งหนี้</button>
     </nav>
@@ -215,6 +216,7 @@
       <section class="page" id="page-employees"></section>
       <section class="page" id="page-approvals"></section>
       <section class="page" id="page-payroll"></section>
+      <section class="page" id="page-advances"></section>
       <section class="page" id="page-payrules"></section>
       <section class="page" id="page-invoices"></section>
     </div>
@@ -370,6 +372,7 @@ const PAGES = {
   employees:{title:"พนักงาน", sub:"สร้าง แก้ไข ปิดใช้งาน และตั้งรหัสผ่าน", load:()=>renderEmployees()},
   approvals:{title:"คิวอนุมัติ", sub:"คำขอลา และ OT / แก้ไขเวลา", load:()=>renderApprovals()},
   payroll:{title:"เงินเดือน", sub:"พรีวิวค่าแรง (gross) · ล็อกงวด · ประวัติ", load:()=>renderPayroll()},
+  advances:{title:"เบิกเงินล่วงหน้า", sub:"อนุมัติคำขอเบิกเงิน และบันทึกการจ่าย", load:()=>renderAdvances()},
   payrules:{title:"เรตค่าจ้าง", sub:"ตั้งฐานค่าจ้าง OT และวันพิเศษต่อพนักงาน", load:()=>renderPayrules()},
   invoices:{title:"ใบแจ้งหนี้", sub:"ออกบิล ติดตามสถานะ และบันทึกการชำระ", load:()=>renderInvoices()},
 };
@@ -467,6 +470,7 @@ async function renderEmployees(){
   try{
     await loadEmployees(true);
     node.innerHTML=`
+      <div id="pwReqPanel"></div>
       <div class="panel">
         <div class="head">
           <div class="toolbar"><input type="search" id="empSearch" placeholder="ค้นหา ชื่อ / รหัส / แผนก" style="width:260px"></div>
@@ -506,7 +510,32 @@ async function renderEmployees(){
     draw();
     $("#empSearch").oninput=e=>draw(e.target.value);
     $("#addEmpBtn").onclick=()=>employeeDialog(null);
+    loadPwRequests();
   }catch(err){ errorBox(node, err, renderEmployees); }
+}
+
+async function loadPwRequests(){
+  const panel=$("#pwReqPanel"); if(!panel) return;
+  try{
+    const data=await api("admin_list_password_requests");
+    const reqs=data.requests||[];
+    if(!reqs.length){ panel.innerHTML=""; return; }
+    panel.innerHTML=`<div class="panel" style="border-left:3px solid #e0a800">
+      <div class="head"><b>คำขอรีเซ็ตรหัสผ่าน</b> <span class="badge blue">${fmtInt(reqs.length)}</span></div>
+      <div class="body flush"><table><thead><tr><th>พนักงาน</th><th>ขอเมื่อ</th><th></th></tr></thead>
+      <tbody>${reqs.map(r=>`<tr><td class="person">${esc(r.name)}<span class="sub">${esc(r.employeeId)}</span></td>
+        <td>${fmtDateTime(r.requestedAt)}</td>
+        <td><div class="row-actions"><button class="btn ok sm" data-pwr="${esc(r.requestId)}" data-emp="${esc(r.employeeId)}">ออกรหัสใหม่</button></div></td></tr>`).join("")}</tbody></table></div></div>`;
+    panel.querySelectorAll("[data-pwr]").forEach(b=>b.onclick=()=>issueResetForRequest(b.dataset.emp, b.dataset.pwr));
+  }catch(_){ panel.innerHTML=""; }
+}
+async function issueResetForRequest(employeeId, requestId){
+  const emp=state.empById[employeeId];
+  if(!await confirmDialog("ออกรหัสผ่านใหม่", `สุ่มรหัสผ่านใหม่ให้ <b>${esc(emp?emp.name:employeeId)}</b> (${esc(employeeId)})?`, {okText:"ออกรหัสใหม่"})) return;
+  try{ const data=await api("admin_reset_employee_password",{employeeId, requestId, reviewer:state.reviewer||"Admin"});
+    showSecret("ออกรหัสผ่านใหม่แล้ว", [["Employee ID", employeeId],["รหัสผ่าน", data.temporaryPassword]], "แจ้งรหัสนี้ให้พนักงาน · ระบบจำไว้ถาวร");
+    renderEmployees();
+  }catch(err){ toast(err.message,"bad"); }
 }
 
 function employeeDialog(emp){
@@ -860,6 +889,15 @@ async function renderOwner(){
           <div><div class="label">วันทำงาน</div><div style="font-size:17px;font-weight:600;margin-top:3px">${esc(wdLabel)}</div></div>
         </div></div>
       </div>
+      <div class="panel"><div class="head"><b>ตำแหน่งร้าน (สำหรับเช็กอิน GPS)</b><div class="spacer"></div><button class="btn sub" id="ownSite">ตั้ง / แก้ตำแหน่งร้าน</button></div>
+        <div class="body"><div id="ownSiteBody" class="sub">กำลังโหลด…</div></div>
+      </div>
+      <div class="panel"><div class="head"><b>เบิกเงินล่วงหน้า</b><div class="spacer"></div><button class="btn sub" id="ownGoAdv">ไปหน้าเบิกเงิน</button></div>
+        <div class="body"><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:18px">
+          <div><div class="label">รออนุมัติ</div><div style="font-size:17px;font-weight:600;margin-top:3px">${fmtInt((data.advancesPending||{}).count||0)} รายการ · ${fmtBaht((data.advancesPending||{}).total||0)}</div></div>
+          <div><div class="label">อนุมัติแล้ว รอจ่าย</div><div style="font-size:17px;font-weight:600;margin-top:3px">${fmtInt((data.advancesApprovedUnpaid||{}).count||0)} รายการ · ${fmtBaht((data.advancesApprovedUnpaid||{}).total||0)}</div></div>
+        </div></div>
+      </div>
       <div class="panel"><div class="head"><b>ต้องจ่ายใครบ้างในงวดนี้</b><div class="spacer"></div><button class="btn" id="ownLock">ล็อกงวด + บันทึก snapshot</button></div>
         <div class="body flush"><table>
           <thead><tr><th>พนักงาน</th><th class="num">วันทำงาน</th><th class="num">ชม.ปกติ</th><th class="num">OT</th><th class="num">ฐาน</th><th class="num">OT เงิน</th><th class="num">รวมจ่าย</th></tr></thead>
@@ -884,6 +922,13 @@ async function renderOwner(){
       </tr>`).join("") : `<tr><td colspan="7"><div class="empty">ยังไม่มีใครมีวันทำงานครบในงวดนี้ (ต้องมีทั้งเช็กอินและเช็กเอาต์ + ตั้งเรตค่าจ้าง)</div></td></tr>`;
     $("#ownSettings").onclick=()=>settingsDialog(s);
     $("#ownLock").onclick=()=>lockFromOwner(p);
+    $("#ownSite").onclick=()=>siteDialog();
+    $("#ownGoAdv").onclick=()=>go("advances");
+    api("admin_list_sites").then(sd=>{ const st=(sd.sites||[])[0];
+      $("#ownSiteBody").innerHTML= st
+        ? `<b>${esc(st.name||st.siteId)}</b> <span class="sub">(${esc(st.siteId)})</span> · พิกัด ${st.lat}, ${st.lng} · รัศมี ${fmtInt(st.radius)} ม. ${st.active?"":'<span class="badge red">ปิดใช้งาน</span>'}`
+        : `ยังไม่ได้ตั้งตำแหน่งร้าน — กด “ตั้ง / แก้ตำแหน่งร้าน” เพื่อใส่พิกัด GPS`;
+    }).catch(()=>{ const b=$("#ownSiteBody"); if(b) b.textContent="โหลดตำแหน่งร้านไม่ได้"; });
     const sel=$("#ownEmp");
     const fillSel=()=>{ sel.innerHTML=`<option value="">ทุกคน</option>`+(state.employees||[]).map(e=>`<option value="${esc(e.id)}"${e.id===ownerState.emp?" selected":""}>${esc(e.name)} (${esc(e.id)})</option>`).join(""); };
     if(!state.employees||!state.employees.length){ try{ await loadEmployees(true); }catch(_){} }
@@ -946,6 +991,77 @@ async function lockFromOwner(p){
   try{ const d=await api("admin_lock_payroll",{startDate:p.start, endDate:p.end, lockedBy:state.reviewer||"Admin"});
     toast("ล็อกงวดแล้ว: "+d.payrollId,"good");
   }catch(err){ toast(err.message,"bad"); }
+}
+
+async function siteDialog(site){
+  if(site===undefined){ try{ const d=await api("admin_list_sites"); site=(d.sites||[])[0]||null; }catch(_){ site=null; } }
+  const body=el(`<div></div>`);
+  body.append(field("รหัสร้าน/ไซต์", `<input id="tSite" type="text" value="${esc(site?site.siteId:"BVN-HQ")}">`, "ต้องตรงกับช่อง “รหัสไซต์” ของพนักงานที่บังคับ GPS"));
+  body.append(field("ชื่อร้าน", `<input id="tName" type="text" value="${esc(site?site.name:"")}">`));
+  const g=el(`<div class="grid2"></div>`);
+  g.append(field("Latitude", `<input id="tLat" type="text" value="${site?site.lat:""}">`), field("Longitude", `<input id="tLng" type="text" value="${site?site.lng:""}">`));
+  body.append(g);
+  body.append(field("รัศมีอนุญาต (เมตร)", `<input id="tRad" type="number" min="1" value="${site?site.radius:200}">`, "พนักงานต้องอยู่ในรัศมีนี้ถึงจะเช็กอินผ่าน"));
+  const paste=field("วางพิกัดจาก Google Maps", `<input id="tPaste" type="text" placeholder="13.7629, 100.5582">`, "คัดลอกพิกัดจาก Google Maps มาวาง แล้วช่อง Lat/Lng จะเติมให้อัตโนมัติ");
+  body.append(paste);
+  paste.querySelector("#tPaste").oninput=(e)=>{ const m=/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/.exec(e.target.value); if(m){ $("#tLat").value=m[1]; $("#tLng").value=m[2]; } };
+  const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
+  const save=el(`<button class="btn">บันทึก</button>`);
+  save.onclick=()=>withBtn(save, async ()=>{
+    const lat=parseFloat($("#tLat").value), lng=parseFloat($("#tLng").value), radius=parseFloat($("#tRad").value);
+    if(!$("#tSite").value.trim()||isNaN(lat)||isNaN(lng)||!(radius>0)){ toast("กรอกรหัสไซต์ พิกัด และรัศมีให้ครบ","bad"); return; }
+    try{ await api("admin_save_site",{siteId:$("#tSite").value.trim(), name:$("#tName").value.trim(), lat, lng, radius});
+      closeModal(); toast("บันทึกตำแหน่งร้านแล้ว","good"); renderOwner();
+    }catch(err){ toast(err.message,"bad"); }
+  });
+  openModal("ตั้งค่าตำแหน่งร้าน (GPS)", body, [cancel, save]);
+}
+
+const ADV_BADGE={pending:"blue",approved:"",paid:"grey",rejected:"red"};
+const ADV_LABEL={pending:"รออนุมัติ",approved:"อนุมัติแล้ว · รอจ่าย",paid:"จ่ายแล้ว",rejected:"ปฏิเสธ"};
+async function renderAdvances(){
+  const node=$("#page-advances"); skeleton(node);
+  try{
+    const data=await api("admin_list_advances");
+    const adv=data.advances||[];
+    const pending=adv.filter(a=>a.status==="pending"), approved=adv.filter(a=>a.status==="approved");
+    const sum=(arr)=>arr.reduce((s,a)=>s+Number(a.amount||0),0);
+    node.innerHTML=`
+      <div class="cards">
+        <div class="card"><div class="label">รออนุมัติ</div><div class="value">${fmtInt(pending.length)}</div><div class="note ${pending.length?"bad":""}">${fmtBaht(sum(pending))}</div></div>
+        <div class="card"><div class="label">อนุมัติแล้ว รอจ่าย</div><div class="value">${fmtBaht(sum(approved))}</div><div class="note">${fmtInt(approved.length)} รายการ</div></div>
+        <div class="card"><div class="label">คำขอทั้งหมด</div><div class="value">${fmtInt(adv.length)}</div><div class="note">ทุกสถานะ</div></div>
+      </div>
+      <div class="panel"><div class="head"><b>คำขอเบิกเงินล่วงหน้า</b></div>
+        <div class="body flush"><table>
+          <thead><tr><th>พนักงาน</th><th class="num">จำนวน</th><th>เหตุผล</th><th>วันที่ขอ</th><th>สถานะ</th><th></th></tr></thead>
+          <tbody id="advRows"></tbody></table></div>
+      </div>`;
+    const tb=$("#advRows");
+    tb.innerHTML=adv.length? adv.map(a=>{
+      const acts=[];
+      if(a.status==="pending"){ acts.push(`<button class="btn ok sm" data-ap="${esc(a.advanceId)}">อนุมัติ</button>`); acts.push(`<button class="btn danger sm" data-rj="${esc(a.advanceId)}">ปฏิเสธ</button>`); }
+      if(a.status==="approved"){ acts.push(`<button class="btn sm" data-paid="${esc(a.advanceId)}">บันทึกจ่ายแล้ว</button>`); }
+      return `<tr><td class="person">${esc(a.name)}<span class="sub">${esc(a.employeeId)}</span></td>
+        <td class="num"><b>${fmtBaht(a.amount)}</b></td><td>${esc(a.reason||"—")}</td><td>${fmtDate(a.requestDate)}</td>
+        <td><span class="badge ${ADV_BADGE[a.status]||"grey"}">${ADV_LABEL[a.status]||a.status}</span></td>
+        <td><div class="row-actions">${acts.join("")}</div></td></tr>`;
+    }).join("") : `<tr><td colspan="6"><div class="empty">ยังไม่มีคำขอเบิกเงิน</div></td></tr>`;
+    tb.querySelectorAll("[data-ap]").forEach(b=>b.onclick=()=>decideAdvance(b.dataset.ap,"approved"));
+    tb.querySelectorAll("[data-rj]").forEach(b=>b.onclick=()=>decideAdvance(b.dataset.rj,"rejected"));
+    tb.querySelectorAll("[data-paid]").forEach(b=>b.onclick=()=>markAdvancePaid(b.dataset.paid));
+  }catch(err){ errorBox(node, err, renderAdvances); }
+}
+async function decideAdvance(id, decision){
+  const t=decision==="approved"?"อนุมัติ":"ปฏิเสธ";
+  if(!await confirmDialog(t+"คำขอเบิกเงิน", `${t}คำขอเบิกเงินรายการนี้?`, {okText:t})) return;
+  try{ await api("admin_decide_advance",{advanceId:id, decision, reviewer:state.reviewer||"Admin"}); toast("บันทึกแล้ว","good"); renderAdvances(); }
+  catch(err){ toast(err.message,"bad"); }
+}
+async function markAdvancePaid(id){
+  if(!await confirmDialog("บันทึกการจ่ายเงิน", "ยืนยันว่าได้จ่ายเงินเบิกล่วงหน้ารายการนี้ให้พนักงานแล้ว?", {okText:"จ่ายแล้ว"})) return;
+  try{ await api("admin_mark_advance_paid",{advanceId:id}); toast("บันทึกการจ่ายแล้ว","good"); renderAdvances(); }
+  catch(err){ toast(err.message,"bad"); }
 }
 
 async function renderInvoices(){

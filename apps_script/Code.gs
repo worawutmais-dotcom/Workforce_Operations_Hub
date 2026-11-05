@@ -7,7 +7,7 @@ const SPREADSHEET_ID = '1-deVDtN8sZQmDyXTH7cR2TtmXgmm4RHOkONRk-HFdT4';
 const SHEETS = Object.freeze({
   sites: 'Work_Sites', employees: 'Employees', attendance: 'Attendance_Log',
   payroll: 'Payroll_Periods', payrollLines: 'Payroll_Lines', payrollRules: 'Payroll_Rules', invoices: 'Invoices', tokens: 'Mobile_Access', leaves: 'Leave_Requests', timeRequests: 'Time_Requests',
-  settings: 'Settings', advances: 'Advances',
+  settings: 'Settings', advances: 'Advances', pwRequests: 'Password_Requests',
 });
 const ICT = 'Asia/Bangkok';
 const MAX_ACCURACY_METRES = 100;
@@ -57,6 +57,9 @@ function doPost(e) {
     if (action === 'admin_list_advances') return adminListAdvances_(payload);
     if (action === 'admin_decide_advance') return adminDecideAdvance_(payload);
     if (action === 'admin_mark_advance_paid') return adminMarkAdvancePaid_(payload);
+    if (action === 'employee_change_password') return employeeChangePassword_(payload);
+    if (action === 'employee_request_password_reset') return employeeRequestPasswordReset_(payload);
+    if (action === 'admin_list_password_requests') return adminListPasswordRequests_(payload);
     return reply_(false, 'Unsupported action');
   } catch (error) {
     console.error(error && error.stack ? error.stack : error);
@@ -294,6 +297,7 @@ function adminResetEmployeePassword_(payload) {
   revokeEmployeeTokens_(employeeId);
   const password = String(payload.password || '').trim() || temporaryPassword_();
   sheet.getRange(index + 2, columns.passwordHash + 1).setValue(hashEmployeePassword_(password));
+  if (payload.requestId) resolvePwRequest_(String(payload.requestId), String(payload.reviewer || 'Admin'));
   return reply_(true, 'Temporary password reset', { employeeId: employeeId, temporaryPassword: password });
 }
 
@@ -590,6 +594,51 @@ function adminMarkAdvancePaid_(payload) {
   sheet.getRange(idx + 2, 6).setValue('paid');
   sheet.getRange(idx + 2, 9).setValue(new Date());
   return reply_(true, 'บันทึกการจ่ายเงินเบิกล่วงหน้าแล้ว');
+}
+
+/* =========================== Password: self-change & reset requests =========================== */
+function initializePwRequestsSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  if (!ss.getSheetByName(SHEETS.pwRequests)) { const s = ss.insertSheet(SHEETS.pwRequests); s.appendRow(['Request ID', 'Employee ID', 'Requested at', 'Status', 'Handled by', 'Handled at']); s.setFrozenRows(1); }
+}
+// Employee changes own password; requires the current password.
+function employeeChangePassword_(payload) {
+  const employeeId = authenticateMobile_(payload.mobileToken);
+  if (!employeeId) return reply_(false, 'Mobile authentication failed');
+  const oldPw = String(payload.oldPassword || ''), newPw = String(payload.newPassword || '').trim();
+  if (newPw.length < 4) return reply_(false, 'รหัสผ่านใหม่ต้องยาวอย่างน้อย 4 ตัว');
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.employees), rows = values_(sheet), columns = employeeColumns_(rows[0]);
+  const index = rows.slice(1).findIndex(r => String(r[columns.id]).trim().toUpperCase() === employeeId);
+  if (index < 0) return reply_(false, 'ไม่พบพนักงาน');
+  const current = String(rows[index + 1][columns.passwordHash] || '');
+  if (!constantTimeEqual_(current, hashEmployeePassword_(oldPw))) return reply_(false, 'รหัสผ่านเดิมไม่ถูกต้อง');
+  sheet.getRange(index + 2, columns.passwordHash + 1).setValue(hashEmployeePassword_(newPw));
+  return reply_(true, 'เปลี่ยนรหัสผ่านแล้ว');
+}
+// Employee asks Admin to reset their password (logged for the Admin queue).
+function employeeRequestPasswordReset_(payload) {
+  const employeeId = authenticateMobile_(payload.mobileToken);
+  if (!employeeId) return reply_(false, 'Mobile authentication failed');
+  initializePwRequestsSheet();
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.pwRequests), rows = values_(sheet);
+  if (rows.slice(1).some(r => String(r[1]).toUpperCase() === employeeId && normalise_(r[3]) === 'pending')) return reply_(true, 'มีคำขออยู่แล้ว รอแอดมินดำเนินการ');
+  const id = 'PWR-' + Utilities.formatDate(new Date(), ICT, 'yyyyMMdd-HHmmss');
+  sheet.appendRow([id, employeeId, new Date(), 'pending', '', '']);
+  return reply_(true, 'ส่งคำขอรีเซ็ตรหัสผ่านให้แอดมินแล้ว', { requestId: id });
+}
+function adminListPasswordRequests_(payload) {
+  requireAdmin_(payload); initializePwRequestsSheet();
+  const names = employeeNameMap_();
+  const rows = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.pwRequests)).slice(1)
+    .map(r => ({ requestId: String(r[0]), employeeId: String(r[1]), name: (names[String(r[1])] || {}).name || String(r[1]), requestedAt: r[2] ? Utilities.formatDate(new Date(r[2]), ICT, "yyyy-MM-dd'T'HH:mm:ssXXX") : '', status: normalise_(r[3]) }))
+    .filter(x => x.requestId && x.status === 'pending').reverse();
+  return reply_(true, 'Password requests loaded', { requests: rows });
+}
+function resolvePwRequest_(requestId, handledBy) {
+  initializePwRequestsSheet();
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.pwRequests), rows = values_(sheet);
+  const idx = rows.slice(1).findIndex(r => String(r[0]) === requestId);
+  if (idx >= 0) sheet.getRange(idx + 2, 4, 1, 3).setValues([['done', handledBy, new Date()]]);
 }
 
 /* =========================== Demo data seeder (run once from the editor as owner) =========================== */
