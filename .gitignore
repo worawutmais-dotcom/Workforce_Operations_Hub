@@ -52,6 +52,10 @@ tmp/
 output/
 outputs/
 *.inspect.ndjson
+*.log
+coverage/
+*.apk
+*.aab
 
 # ───────── OS / editor ─────────
 Thumbs.db
