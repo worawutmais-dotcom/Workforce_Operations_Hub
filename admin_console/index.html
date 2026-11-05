@@ -29,11 +29,12 @@
 
   /* ---------- Login ---------- */
   #login{position:fixed;inset:0;display:grid;place-items:center;
-    background:radial-gradient(1200px 600px at 20% -10%,#1b4a74,var(--navy));padding:20px;z-index:40}
-  .login-card{width:100%;max-width:400px;background:var(--card);border-radius:16px;
-    padding:30px;box-shadow:0 30px 70px rgba(0,0,0,.35)}
-  .login-card .logo{font-weight:800;font-size:20px;letter-spacing:-.5px;color:var(--navy)}
-  .login-card .logo small{display:block;font-weight:500;color:var(--muted);font-size:12px;margin-top:4px;letter-spacing:.3px}
+    background:radial-gradient(1200px 700px at 15% -10%,#1e5aa8,#0a1f38 60%),var(--navy);padding:20px;z-index:40}
+  .login-card{width:100%;max-width:410px;background:var(--card);border-radius:20px;
+    padding:34px 32px;box-shadow:0 40px 90px rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.06)}
+  .login-card .logo{font-weight:800;font-size:21px;letter-spacing:-.5px;color:var(--navy);display:flex;flex-direction:column}
+  .login-card .logo::before{content:"";width:46px;height:46px;border-radius:13px;background:linear-gradient(135deg,#3b82f6,#2563eb);box-shadow:0 10px 24px rgba(37,99,235,.45);margin-bottom:14px}
+  .login-card .logo small{font-weight:500;color:var(--muted);font-size:12px;margin-top:5px;letter-spacing:.3px}
   .field{margin-top:16px}
   .field label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px}
   .field input,.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:9px;
