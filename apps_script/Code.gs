@@ -7,7 +7,7 @@ const SPREADSHEET_ID = '1-deVDtN8sZQmDyXTH7cR2TtmXgmm4RHOkONRk-HFdT4';
 const SHEETS = Object.freeze({
   sites: 'Work_Sites', employees: 'Employees', attendance: 'Attendance_Log',
   payroll: 'Payroll_Periods', payrollLines: 'Payroll_Lines', payrollRules: 'Payroll_Rules', invoices: 'Invoices', tokens: 'Mobile_Access', leaves: 'Leave_Requests', timeRequests: 'Time_Requests',
-  settings: 'Settings',
+  settings: 'Settings', advances: 'Advances',
 });
 const ICT = 'Asia/Bangkok';
 const MAX_ACCURACY_METRES = 100;
@@ -50,6 +50,13 @@ function doPost(e) {
     if (action === 'admin_attendance_days') return adminAttendanceDays_(payload);
     if (action === 'admin_owner_overview') return adminOwnerOverview_(payload);
     if (action === 'admin_record_attendance') return adminRecordAttendance_(payload);
+    if (action === 'admin_list_sites') return adminListSites_(payload);
+    if (action === 'admin_save_site') return adminSaveSite_(payload);
+    if (action === 'employee_submit_advance') return employeeSubmitAdvance_(payload);
+    if (action === 'employee_advances') return employeeAdvances_(payload);
+    if (action === 'admin_list_advances') return adminListAdvances_(payload);
+    if (action === 'admin_decide_advance') return adminDecideAdvance_(payload);
+    if (action === 'admin_mark_advance_paid') return adminMarkAdvancePaid_(payload);
     return reply_(false, 'Unsupported action');
   } catch (error) {
     console.error(error && error.stack ? error.stack : error);
@@ -488,10 +495,136 @@ function adminOwnerOverview_(payload) {
     workDays: l.workDays, regularMinutes: l.regularMinutes, otMinutes: l.otMinutes, baseGross: l.baseGross, otGross: l.otGross, grossPay: l.grossPay
   })).sort((a, b) => b.grossPay - a.grossPay);
   const activeCount = Object.values(names).filter(e => e.status === 'active').length;
+  initializeAdvancesSheet();
+  const advances = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.advances)).slice(1).map(advanceFromRow_).filter(a => a.advanceId);
+  const sumAmt = (arr) => roundMoney_(arr.reduce((s, a) => s + a.amount, 0));
+  const pending = advances.filter(a => a.status === 'pending'), approvedUnpaid = advances.filter(a => a.status === 'approved');
   return reply_(true, 'Owner overview loaded', {
     settings: settings, period: range, nextPayday: nextPayday_(settings),
-    lines: lines, totalGross: preview.data.totalGross, paidCount: lines.length, activeEmployees: activeCount
+    lines: lines, totalGross: preview.data.totalGross, paidCount: lines.length, activeEmployees: activeCount,
+    advancesPending: { count: pending.length, total: sumAmt(pending) },
+    advancesApprovedUnpaid: { count: approvedUnpaid.length, total: sumAmt(approvedUnpaid) }
   });
+}
+
+/* =========================== Work site (shop location) =========================== */
+function initializeWorkSitesSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  if (!ss.getSheetByName(SHEETS.sites)) { const s = ss.insertSheet(SHEETS.sites); s.appendRow(['Site ID', 'Name', 'Latitude', 'Longitude', 'Radius (m)', 'Active']); s.setFrozenRows(1); }
+}
+function adminListSites_(payload) {
+  requireAdmin_(payload); initializeWorkSitesSheet();
+  const rows = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.sites)).slice(1)
+    .map(r => ({ siteId: String(r[0]), name: String(r[1] || ''), lat: Number(r[2] || 0), lng: Number(r[3] || 0), radius: Number(r[4] || 0), active: normalise_(r[5]) !== 'false' }))
+    .filter(x => x.siteId);
+  return reply_(true, 'Sites loaded', { sites: rows });
+}
+function adminSaveSite_(payload) {
+  requireAdmin_(payload); initializeWorkSitesSheet();
+  const siteId = String(payload.siteId || '').trim(), name = String(payload.name || '').trim();
+  const lat = finiteNumber_(payload.lat), lng = finiteNumber_(payload.lng), radius = finiteNumber_(payload.radius);
+  if (!siteId) return reply_(false, 'ต้องระบุรหัสร้าน/ไซต์');
+  if (lat === null || lng === null || lat < -90 || lat > 90 || lng < -180 || lng > 180) return reply_(false, 'พิกัดไม่ถูกต้อง');
+  if (radius === null || radius <= 0) return reply_(false, 'รัศมีต้องมากกว่า 0 เมตร');
+  const active = payload.active === false ? 'false' : 'true';
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.sites), rows = values_(sheet);
+  const idx = rows.slice(1).findIndex(r => String(r[0]).trim() === siteId);
+  const row = [siteId, name, lat, lng, radius, active];
+  if (idx >= 0) sheet.getRange(idx + 2, 1, 1, row.length).setValues([row]); else sheet.appendRow(row);
+  return reply_(true, 'บันทึกตำแหน่งร้านแล้ว', { siteId: siteId });
+}
+
+/* =========================== Salary advance (เบิกเงินล่วงหน้า) =========================== */
+function initializeAdvancesSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  if (!ss.getSheetByName(SHEETS.advances)) { const s = ss.insertSheet(SHEETS.advances); s.appendRow(['Advance ID', 'Employee ID', 'Amount', 'Reason', 'Request date', 'Status', 'Reviewer', 'Decided at', 'Paid at', 'Created at']); s.setFrozenRows(1); }
+}
+function advanceFromRow_(r) {
+  const dt = (v) => v ? Utilities.formatDate(new Date(v), ICT, "yyyy-MM-dd'T'HH:mm:ssXXX") : '';
+  return { advanceId: String(r[0]), employeeId: String(r[1]), amount: Number(r[2] || 0), reason: String(r[3] || ''), requestDate: r[4] ? Utilities.formatDate(new Date(r[4]), ICT, 'yyyy-MM-dd') : '', status: normalise_(r[5]), reviewer: String(r[6] || ''), decidedAt: dt(r[7]), paidAt: dt(r[8]) };
+}
+function employeeSubmitAdvance_(payload) {
+  const employeeId = authenticateMobile_(payload.mobileToken);
+  if (!employeeId) return reply_(false, 'Mobile authentication failed');
+  initializeAdvancesSheet();
+  const amount = finiteNumber_(payload.amount), reason = String(payload.reason || '').trim();
+  if (amount === null || amount <= 0) return reply_(false, 'จำนวนเงินไม่ถูกต้อง');
+  if (amount > 100000) return reply_(false, 'จำนวนเงินเกินวงเงินที่อนุญาต');
+  const id = 'ADV-' + Utilities.formatDate(new Date(), ICT, 'yyyyMMdd-HHmmss');
+  SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.advances).appendRow([id, employeeId, amount, reason, Utilities.formatDate(new Date(), ICT, 'yyyy-MM-dd'), 'pending', '', '', '', new Date()]);
+  return reply_(true, 'ส่งคำขอเบิกเงินล่วงหน้าแล้ว', { advanceId: id });
+}
+function employeeAdvances_(payload) {
+  const employeeId = authenticateMobile_(payload.mobileToken);
+  if (!employeeId) return reply_(false, 'Mobile authentication failed');
+  initializeAdvancesSheet();
+  const rows = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.advances)).slice(1)
+    .map(advanceFromRow_).filter(a => a.advanceId && a.employeeId === employeeId).reverse();
+  return reply_(true, 'Advances loaded', { advances: rows });
+}
+function adminListAdvances_(payload) {
+  requireAdmin_(payload); initializeAdvancesSheet();
+  const names = employeeNameMap_();
+  const wanted = normalise_(payload.status || '');
+  const rows = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.advances)).slice(1)
+    .map(advanceFromRow_).filter(a => a.advanceId && (!wanted || a.status === wanted))
+    .map(a => Object.assign(a, { name: (names[a.employeeId] || {}).name || a.employeeId })).reverse();
+  return reply_(true, 'Advances loaded', { advances: rows });
+}
+function adminDecideAdvance_(payload) {
+  requireAdmin_(payload); initializeAdvancesSheet();
+  const advanceId = String(payload.advanceId || '').trim(), decision = normalise_(payload.decision), reviewer = String(payload.reviewer || 'Admin').trim();
+  if (!advanceId || !['approved', 'rejected'].includes(decision)) return reply_(false, 'คำสั่งไม่ถูกต้อง');
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.advances), rows = values_(sheet);
+  const idx = rows.slice(1).findIndex(r => String(r[0]) === advanceId && normalise_(r[5]) === 'pending');
+  if (idx < 0) return reply_(false, 'ไม่พบคำขอที่รออนุมัติ');
+  sheet.getRange(idx + 2, 6, 1, 3).setValues([[decision, reviewer, new Date()]]);
+  return reply_(true, 'คำขอเบิกเงิน' + (decision === 'approved' ? 'ได้รับการอนุมัติ' : 'ถูกปฏิเสธ'));
+}
+function adminMarkAdvancePaid_(payload) {
+  requireAdmin_(payload); initializeAdvancesSheet();
+  const advanceId = String(payload.advanceId || '').trim();
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.advances), rows = values_(sheet);
+  const idx = rows.slice(1).findIndex(r => String(r[0]) === advanceId && normalise_(r[5]) === 'approved');
+  if (idx < 0) return reply_(false, 'ต้องเป็นคำขอที่อนุมัติแล้วเท่านั้น');
+  sheet.getRange(idx + 2, 6).setValue('paid');
+  sheet.getRange(idx + 2, 9).setValue(new Date());
+  return reply_(true, 'บันทึกการจ่ายเงินเบิกล่วงหน้าแล้ว');
+}
+
+/* =========================== Demo data seeder (run once from the editor as owner) =========================== */
+function seedDemoData() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  initializeEmployeesSheet(); initializePayrollRulesSheet(); initializeSettingsSheet(); initializeWorkSitesSheet(); initializeAdvancesSheet();
+  const roster = [['สมชาย ใจดี', 'ผู้จัดการร้าน'], ['สมหญิง รักงาน', 'แคชเชียร์'], ['อนุชา พากเพียร', 'คลังสินค้า'], ['กนกวรรณ ศรีสุข', 'พนักงานขาย'], ['ธนากร มั่นคง', 'พนักงานขาย'], ['ปรียา วงศ์ทอง', 'บัญชี'], ['วิชัย แสงทอง', 'ช่างซ่อม'], ['นภา ดวงเดือน', 'ธุรการ'], ['ชัยวัฒน์ รุ่งเรือง', 'จัดส่ง'], ['มาลี บุญมา', 'แม่บ้าน']];
+  const empSheet = ss.getSheetByName(SHEETS.employees), eCols = employeeColumns_(values_(empSheet)[0]), width = values_(empSheet)[0].length;
+  const ruleSheet = ss.getSheetByName(SHEETS.payrollRules);
+  let seq = values_(empSheet).slice(1).reduce((mx, r) => { const m = /EMP-0*(\d+)/.exec(String(r[eCols.id])); return m ? Math.max(mx, parseInt(m[1], 10)) : mx; }, 0);
+  const created = [];
+  roster.forEach((nm, i) => {
+    seq++; const id = 'EMP-' + String(seq).padStart(4, '0'), pw = 'demo' + (1000 + seq);
+    const row = Array(width).fill('');
+    row[eCols.id] = id; row[eCols.name] = nm[0]; row[eCols.role] = nm[1]; row[eCols.department] = 'สาขาหลัก'; row[eCols.siteId] = 'BVN-HQ'; row[eCols.status] = 'active'; row[eCols.locationRequired] = 'false'; row[eCols.passwordHash] = hashEmployeePassword_(pw);
+    empSheet.appendRow(row);
+    const daily = i % 2 === 0, rate = daily ? 400 + i * 20 : 55 + i * 3;
+    ruleSheet.appendRow([id, daily ? 'daily' : 'hourly', rate, 8, i % 3 === 0 ? 'true' : 'false', 1.5, '', 1, new Date(), 'seed']);
+    created.push(id);
+  });
+  const log = ss.getSheetByName(SHEETS.attendance), out = [], today = new Date();
+  for (let d = 0; d < 365; d++) {
+    const day = new Date(today.getTime() - d * 86400000); if (day.getDay() === 0) continue; // skip Sundays
+    const y = day.getFullYear(), mo = day.getMonth(), da = day.getDate();
+    created.forEach(id => {
+      if (Math.random() < 0.08) return; // ~8% absence
+      const tIn = new Date(y, mo, da, 8, Math.floor(Math.random() * 25)), tOut = new Date(y, mo, da, 17, Math.floor(Math.random() * 40));
+      out.push([Utilities.getUuid(), id, 'BVN-HQ', 'check_in', tIn, '', '', '', '', 'accepted', '', 'seed', 'accepted', new Date()]);
+      out.push([Utilities.getUuid(), id, 'BVN-HQ', 'check_out', tOut, '', '', '', '', 'accepted', '', 'seed', 'accepted', new Date()]);
+    });
+  }
+  if (out.length) log.getRange(log.getLastRow() + 1, 1, out.length, out[0].length).setValues(out);
+  const sites = ss.getSheetByName(SHEETS.sites);
+  if (!values_(sites).slice(1).some(r => String(r[0]) === 'BVN-HQ')) sites.appendRow(['BVN-HQ', 'ร้าน BVN สาขาหลัก', 13.762962071350593, 100.5582875856417, 200, 'true']);
+  return 'Seeded ' + created.length + ' employees + ' + out.length + ' attendance rows (' + created.join(', ') + ')';
 }
 
 function adminListInvoices_(payload) {
