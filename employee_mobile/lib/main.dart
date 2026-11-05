@@ -110,8 +110,8 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _submit() async {
-    if (_id == null || _password.text.trim().length < 8) {
-      setState(() => _error = 'เลือกชื่อของคุณและกรอกรหัสผ่านชั่วคราว');
+    if (_id == null || _password.text.trim().isEmpty) {
+      setState(() => _error = 'เลือกชื่อของคุณและกรอกรหัสผ่าน');
       return;
     }
     setState(() {
@@ -170,7 +170,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'เลือกชื่อของคุณ แล้วกรอกรหัสผ่านชั่วคราวจาก Admin',
+                'เลือกชื่อของคุณ แล้วกรอกรหัสผ่านของคุณ',
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
@@ -197,9 +197,9 @@ class _LoginPageState extends State<LoginPage> {
               TextField(
                 controller: _password,
                 obscureText: _hidden,
-                keyboardType: TextInputType.number,
+                keyboardType: TextInputType.text,
                 decoration: InputDecoration(
-                  labelText: 'รหัสผ่านชั่วคราว',
+                  labelText: 'รหัสผ่าน',
                   border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -735,7 +735,7 @@ class _Account extends StatelessWidget {
       const Card(
         child: ListTile(
           title: Text('เปลี่ยนเครื่อง / ลืมรหัสผ่าน'),
-          subtitle: Text('แจ้ง Admin เพื่อรีเซ็ตรหัสชั่วคราว'),
+          subtitle: Text('แจ้ง Admin เพื่อตั้งรหัสผ่านใหม่'),
         ),
       ),
       OutlinedButton.icon(

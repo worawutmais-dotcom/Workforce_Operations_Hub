@@ -231,7 +231,7 @@
    ================================================================= */
 "use strict";
 
-const DEFAULT_ENDPOINT = "https://script.google.com/macros/s/AKfycbzPXANOmG9GlT36JMQ0bwJiRZRyOiAtNntyktXUM1kvZMh8AA3a7JWqRoBYDODafxnL/exec";
+const DEFAULT_ENDPOINT = "https://script.google.com/macros/s/AKfycbw_Jf5Wy1WaLtUQEs7EDNaR-vs5tKcfqlnPCrYjIJNWUJV1tUBBnWOjcSHzu9KzeCGU/exec";
 const SS = sessionStorage, LS = localStorage;
 
 /* ---------- ผู้ออกใบแจ้งหนี้ (หัวบิล) ---------- */
@@ -367,7 +367,7 @@ function logout(){
 const PAGES = {
   dashboard:{title:"ภาพรวม", sub:"สถานะที่ต้องตัดสินใจวันนี้", load:()=>renderDashboard()},
   owner:{title:"เจ้าของธุรกิจ", sub:"ใครต้องจ่ายเท่าไร · วันจ่าย · วันทำงาน · เวลาเข้า-ออก", load:()=>renderOwner()},
-  employees:{title:"พนักงาน", sub:"สร้าง แก้ไข ปิดใช้งาน และออกรหัสชั่วคราว", load:()=>renderEmployees()},
+  employees:{title:"พนักงาน", sub:"สร้าง แก้ไข ปิดใช้งาน และตั้งรหัสผ่าน", load:()=>renderEmployees()},
   approvals:{title:"คิวอนุมัติ", sub:"คำขอลา และ OT / แก้ไขเวลา", load:()=>renderApprovals()},
   payroll:{title:"เงินเดือน", sub:"พรีวิวค่าแรง (gross) · ล็อกงวด · ประวัติ", load:()=>renderPayroll()},
   payrules:{title:"เรตค่าจ้าง", sub:"ตั้งฐานค่าจ้าง OT และวันพิเศษต่อพนักงาน", load:()=>renderPayrules()},
@@ -556,11 +556,11 @@ function employeeDialog(emp){
 }
 
 async function resetPassword(emp){
-  if(!await confirmDialog("รีเซ็ตรหัสผ่าน", `ออกรหัสชั่วคราวใหม่ให้ <b>${esc(emp.name)}</b> (${esc(emp.id)})?<br>โทเค็นมือถือเดิมทั้งหมดจะถูกเพิกถอน`, {okText:"ออกรหัสใหม่"})) return;
+  if(!await confirmDialog("ตั้งรหัสผ่านใหม่", `สุ่มรหัสผ่านใหม่ให้ <b>${esc(emp.name)}</b> (${esc(emp.id)})?<br>พนักงานต้องใช้รหัสใหม่นี้ในการเข้าสู่ระบบครั้งถัดไป<br><span class="sub">หรือกด “แก้ไข” เพื่อตั้งรหัสที่ต้องการเองก็ได้</span>`, {okText:"สุ่มรหัสใหม่"})) return;
   try{
     const data=await api("admin_reset_employee_password",{employeeId:emp.id});
-    showSecret("รีเซ็ตรหัสสำเร็จ", [["Employee ID", emp.id],["รหัสผ่านชั่วคราว", data.temporaryPassword]],
-      "ส่งให้พนักงานครั้งเดียว อย่าบันทึกถาวร");
+    showSecret("ตั้งรหัสผ่านใหม่แล้ว", [["Employee ID", emp.id],["รหัสผ่าน", data.temporaryPassword]],
+      "ระบบจำรหัสนี้ไว้ถาวร · ดู/แก้ได้ที่คอลัมน์รหัสผ่านหรือปุ่มแก้ไข");
   }catch(err){ toast(err.message,"bad"); }
 }
 

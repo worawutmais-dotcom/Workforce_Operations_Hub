@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 
 const bvnApiUrl = String.fromEnvironment(
   'BVN_API_URL',
-  defaultValue: 'https://script.google.com/macros/s/AKfycbzPXANOmG9GlT36JMQ0bwJiRZRyOiAtNntyktXUM1kvZMh8AA3a7JWqRoBYDODafxnL/exec',
+  defaultValue: 'https://script.google.com/macros/s/AKfycbw_Jf5Wy1WaLtUQEs7EDNaR-vs5tKcfqlnPCrYjIJNWUJV1tUBBnWOjcSHzu9KzeCGU/exec',
 );
 
 class BvnApiException implements Exception {
