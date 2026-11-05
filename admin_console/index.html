@@ -232,6 +232,15 @@
 const DEFAULT_ENDPOINT = "https://script.google.com/macros/s/AKfycbwWCdTJkadi93Pst2_uBSRkU8uYmGODqoaV0kuy6HtAnO5l31nW1jmHsKEkX8TIYyqp/exec";
 const SS = sessionStorage, LS = localStorage;
 
+/* ---------- ผู้ออกใบแจ้งหนี้ (หัวบิล) ---------- */
+const ISSUER = {
+  name: "บริษัท พนมพร พาณิชย์ จำกัด",
+  nameEn: "Phanomporn Phanich Co., Ltd.",
+  address: "479/162 ซอยสุทธิพร แขวงดินแดง เขตดินแดง กรุงเทพมหานคร 10400",
+  phone: "096-797-9923",
+  taxId: "0105569191266",
+};
+
 const state = {
   endpoint: "",
   token: "",
@@ -844,6 +853,7 @@ async function renderInvoices(){
       const tb=$("#invRows");
       tb.innerHTML=rows.length? rows.map(i=>{
         const acts=[];
+        acts.push(`<button class="btn ghost sm" data-print="${esc(i.invoiceNo)}">พิมพ์</button>`);
         if(i.status==="draft"){ acts.push(`<button class="btn ghost sm" data-issue="${esc(i.invoiceNo)}">ออกบิล</button>`); acts.push(`<button class="btn danger sm" data-void="${esc(i.invoiceNo)}">ยกเลิก</button>`); }
         if(i.status==="issued"||i.status==="overdue"){ acts.push(`<button class="btn ok sm" data-pay="${esc(i.invoiceNo)}">บันทึกชำระ</button>`); acts.push(`<button class="btn danger sm" data-void="${esc(i.invoiceNo)}">ยกเลิก</button>`); }
         return `<tr><td class="person">${esc(i.invoiceNo)}<span class="sub">${esc(i.description||"")}</span></td>
@@ -854,11 +864,79 @@ async function renderInvoices(){
       tb.querySelectorAll("[data-issue]").forEach(b=>b.onclick=()=>invStatus(b,b.dataset.issue,"issued"));
       tb.querySelectorAll("[data-void]").forEach(b=>b.onclick=()=>invStatus(b,b.dataset.void,"void"));
       tb.querySelectorAll("[data-pay]").forEach(b=>b.onclick=()=>payInvoice(b.dataset.pay));
+      tb.querySelectorAll("[data-print]").forEach(b=>b.onclick=()=>printInvoice(inv.find(x=>x.invoiceNo===b.dataset.print)));
     };
     draw();
     $("#invSearch").oninput=e=>draw(e.target.value);
     $("#newInv").onclick=newInvoiceDialog;
   }catch(err){ errorBox(node, err, renderInvoices); }
+}
+
+function printInvoice(i){
+  if(!i){ toast("ไม่พบใบแจ้งหนี้","bad"); return; }
+  const label={draft:"ร่าง",issued:"ออกบิลแล้ว",paid:"ชำระแล้ว",overdue:"เกินกำหนด","void":"ยกเลิก"}[i.status]||i.status;
+  const money=(n)=>Number(n||0).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const dateTh=(iso)=>{ if(!iso) return "—"; const d=new Date(iso.length<=10?iso+"T00:00:00+07:00":iso); return isNaN(d)?esc(iso):d.toLocaleDateString("th-TH",{dateStyle:"long"}); };
+  const today=new Date().toLocaleDateString("th-TH",{dateStyle:"long"});
+  const html=`<!doctype html><html lang="th"><head><meta charset="utf-8">
+    <title>${esc(i.invoiceNo)}</title>
+    <style>
+      *{box-sizing:border-box} body{font-family:"Sarabun","TH Sarabun New","Tahoma",sans-serif;color:#111;margin:0;padding:24px;background:#f3f4f6}
+      .sheet{max-width:780px;margin:0 auto;background:#fff;padding:40px 44px;box-shadow:0 1px 6px rgba(0,0,0,.12)}
+      .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1e3a8a;padding-bottom:16px}
+      .co-name{font-size:20px;font-weight:700;color:#1e3a8a;margin:0} .co-en{font-size:13px;color:#374151;margin:2px 0 8px}
+      .co-line{font-size:13px;color:#374151;line-height:1.5}
+      .doc-title{text-align:right} .doc-title h1{font-size:26px;margin:0;letter-spacing:1px;color:#111} .doc-title .sub{font-size:12px;color:#6b7280}
+      .meta{display:flex;justify-content:space-between;margin-top:20px;gap:24px}
+      .meta .box{font-size:13px;line-height:1.7} .meta .k{color:#6b7280} .meta b{color:#111}
+      table{width:100%;border-collapse:collapse;margin-top:22px;font-size:14px}
+      th{background:#1e3a8a;color:#fff;text-align:left;padding:9px 12px;font-weight:600} th.num,td.num{text-align:right}
+      td{padding:10px 12px;border-bottom:1px solid #e5e7eb;vertical-align:top}
+      .totals{margin-top:14px;margin-left:auto;width:280px;font-size:14px}
+      .totals div{display:flex;justify-content:space-between;padding:6px 2px} .totals .grand{border-top:2px solid #1e3a8a;margin-top:4px;padding-top:10px;font-size:17px;font-weight:700;color:#1e3a8a}
+      .status{display:inline-block;margin-top:4px;padding:2px 10px;border-radius:999px;font-size:12px;background:#eef2ff;color:#1e3a8a}
+      .foot{margin-top:40px;display:flex;justify-content:space-between;font-size:13px;color:#374151}
+      .sign{text-align:center;width:220px} .sign .line{margin-top:48px;border-top:1px dotted #9ca3af;padding-top:6px}
+      .toolbar{max-width:780px;margin:0 auto 14px;text-align:right}
+      .pbtn{font:inherit;font-size:14px;padding:8px 18px;border:0;border-radius:8px;background:#1e3a8a;color:#fff;cursor:pointer}
+      @media print{body{background:#fff;padding:0}.sheet{box-shadow:none;max-width:none;padding:24px}.toolbar{display:none}}
+    </style></head><body>
+    <div class="toolbar"><button class="pbtn" onclick="window.print()">พิมพ์ / บันทึก PDF</button></div>
+    <div class="sheet">
+      <div class="top">
+        <div>
+          <p class="co-name">${esc(ISSUER.name)}</p>
+          <p class="co-en">${esc(ISSUER.nameEn)}</p>
+          <div class="co-line">${esc(ISSUER.address)}</div>
+          <div class="co-line">โทร. ${esc(ISSUER.phone)}</div>
+          <div class="co-line">เลขประจำตัวผู้เสียภาษี ${esc(ISSUER.taxId)}</div>
+        </div>
+        <div class="doc-title"><h1>ใบแจ้งหนี้</h1><div class="sub">INVOICE</div></div>
+      </div>
+      <div class="meta">
+        <div class="box"><div><span class="k">ลูกค้า</span></div><div><b>${esc(i.customer)}</b></div><div class="status">${esc(label)}</div></div>
+        <div class="box" style="text-align:right">
+          <div><span class="k">เลขที่</span> <b>${esc(i.invoiceNo)}</b></div>
+          <div><span class="k">วันที่</span> <b>${today}</b></div>
+          <div><span class="k">ครบกำหนดชำระ</span> <b>${dateTh(i.dueDate)}</b></div>
+          ${i.paymentReference?`<div><span class="k">อ้างอิงการชำระ</span> <b>${esc(i.paymentReference)}</b></div>`:""}
+        </div>
+      </div>
+      <table><thead><tr><th>รายการ</th><th class="num">จำนวนเงิน (บาท)</th></tr></thead>
+        <tbody><tr><td>${esc(i.description||"-")}</td><td class="num">${money(i.subtotal)}</td></tr></tbody></table>
+      <div class="totals">
+        <div><span>ยอดก่อนภาษี</span><span>${money(i.subtotal)}</span></div>
+        <div><span>ภาษีมูลค่าเพิ่ม 7%</span><span>${money(i.vat)}</span></div>
+        <div class="grand"><span>ยอดรวมทั้งสิ้น</span><span>฿${money(i.total)}</span></div>
+      </div>
+      <div class="foot">
+        <div>หมายเหตุ: กรุณาชำระภายในวันครบกำหนด</div>
+        <div class="sign"><div class="line">ผู้มีอำนาจลงนาม<br>${esc(ISSUER.name)}</div></div>
+      </div>
+    </div></body></html>`;
+  const w=window.open("","_blank");
+  if(!w){ toast("เบราว์เซอร์บล็อก popup — อนุญาตแล้วลองใหม่","bad"); return; }
+  w.document.open(); w.document.write(html); w.document.close();
 }
 
 function newInvoiceDialog(){
