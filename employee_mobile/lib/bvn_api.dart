@@ -20,16 +20,16 @@ class BvnApi {
   final http.Client _client;
 
   Future<Map<String, dynamic>> post(Map<String, dynamic> body) async {
-    final response = await _client
-        .post(
-          Uri.parse(bvnApiUrl),
-          headers: const {'Content-Type': 'application/json'},
-          body: jsonEncode(body),
-        )
-        .timeout(const Duration(seconds: 20));
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic>) {
-      throw BvnApiException('รูปแบบข้อมูลจากระบบไม่ถูกต้อง');
+    final response = await _send(body);
+    final Map<String, dynamic> decoded;
+    try {
+      final parsed = jsonDecode(utf8.decode(response.bodyBytes));
+      if (parsed is! Map<String, dynamic>) {
+        throw const FormatException('not-a-map');
+      }
+      decoded = parsed;
+    } on FormatException {
+      throw BvnApiException('เชื่อมต่อระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
     }
     if (decoded['ok'] != true) {
       throw BvnApiException(
@@ -37,6 +37,33 @@ class BvnApi {
       );
     }
     return decoded;
+  }
+
+  // Apps Script /exec answers with a 302 redirect to script.googleusercontent.com.
+  // package:http's automatic redirect re-POSTs to that host (which fails), so the
+  // redirect must be followed manually as a GET to receive the JSON body.
+  Future<http.Response> _send(Map<String, dynamic> body) async {
+    var uri = Uri.parse(bvnApiUrl);
+    final request = http.Request('POST', uri)
+      ..followRedirects = false
+      ..headers['Content-Type'] = 'text/plain;charset=utf-8'
+      ..body = jsonEncode(body);
+    var response = await http.Response.fromStream(
+      await _client.send(request).timeout(const Duration(seconds: 20)),
+    );
+    var hops = 0;
+    while (response.isRedirect &&
+        response.headers['location'] != null &&
+        hops < 5) {
+      final location = uri.resolve(response.headers['location']!);
+      final redirect = http.Request('GET', location)..followRedirects = false;
+      response = await http.Response.fromStream(
+        await _client.send(redirect).timeout(const Duration(seconds: 20)),
+      );
+      uri = location;
+      hops++;
+    }
+    return response;
   }
 
   Future<String> activate(String employeeId, String token) async {
