@@ -30,11 +30,12 @@ class _BvnEmployeeAppState extends State<BvnEmployeeApp> {
     if (saved != null) {
       try {
         final id = await BvnApi().activate(saved.id, saved.token);
-        if (mounted)
+        if (mounted) {
           setState(() {
             _id = id;
             _token = saved.token;
           });
+        }
       } catch (_) {
         await _store.clear();
       }
@@ -44,20 +45,22 @@ class _BvnEmployeeAppState extends State<BvnEmployeeApp> {
 
   Future<void> _login(String id, String token) async {
     await _store.save(id, token);
-    if (mounted)
+    if (mounted) {
       setState(() {
         _id = id;
         _token = token;
       });
+    }
   }
 
   Future<void> _logout() async {
     await _store.clear();
-    if (mounted)
+    if (mounted) {
       setState(() {
         _id = null;
         _token = null;
       });
+    }
   }
 
   @override
@@ -121,8 +124,9 @@ class _LoginPageState extends State<LoginPage> {
     } on BvnApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'เชื่อมต่อระบบไม่สำเร็จ ลองใหม่อีกครั้ง');
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -171,7 +175,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 32),
               DropdownButtonFormField<String>(
-                value: _id,
+                initialValue: _id,
                 isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'ชื่อพนักงาน',
@@ -281,7 +285,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
         return value.length >= 16 ? value.substring(11, 16) : null;
       }
 
-      if (mounted)
+      if (mounted) {
         setState(() {
           _name = '${profile['name'] ?? ''}';
           _role = '${profile['role'] ?? ''}';
@@ -295,6 +299,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
               ? 'อยู่ระหว่างงาน'
               : 'ยังไม่ได้ลงเวลาเข้างาน';
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _status = 'ดึงสถานะจากระบบไม่สำเร็จ');
     }
@@ -305,14 +310,17 @@ class _EmployeeShellState extends State<EmployeeShell> {
     try {
       Position? p;
       if (_locationRequired) {
-        if (!await Geolocator.isLocationServiceEnabled())
+        if (!await Geolocator.isLocationServiceEnabled()) {
           throw Exception('กรุณาเปิด Location/GPS');
+        }
         var permission = await Geolocator.checkPermission();
-        if (permission == LocationPermission.denied)
+        if (permission == LocationPermission.denied) {
           permission = await Geolocator.requestPermission();
+        }
         if (permission == LocationPermission.denied ||
-            permission == LocationPermission.deniedForever)
+            permission == LocationPermission.deniedForever) {
           throw Exception('ต้องอนุญาต GPS ตามสิทธิ์ของคุณ');
+        }
         p = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.high,
@@ -327,19 +335,22 @@ class _EmployeeShellState extends State<EmployeeShell> {
         accuracy: p?.accuracy ?? 0,
       );
       await _refresh();
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('บันทึกเวลาเข้าระบบแล้ว')));
+      }
     } on BvnApiException catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(e.message)));
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
         );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -526,28 +537,31 @@ class _ListPageState extends State<_ListPage> {
       FutureBuilder<List<Map<String, dynamic>>>(
         future: _rows,
         builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done)
+          if (snapshot.connectionState != ConnectionState.done) {
             return const Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
                 child: CircularProgressIndicator(),
               ),
             );
-          if (snapshot.hasError)
+          }
+          if (snapshot.hasError) {
             return const Card(
               child: Padding(
                 padding: EdgeInsets.all(16),
                 child: Text('ดึงข้อมูลไม่สำเร็จ กดรีเฟรชเพื่อลองใหม่'),
               ),
             );
+          }
           final rows = snapshot.data ?? [];
-          if (rows.isEmpty)
+          if (rows.isEmpty) {
             return const Card(
               child: Padding(
                 padding: EdgeInsets.all(16),
                 child: Text('ยังไม่มีรายการในระบบ'),
               ),
             );
+          }
           return Column(
             children: rows.map((r) => Card(child: widget.row(r))).toList(),
           );
@@ -606,13 +620,15 @@ class _LeaveFormState extends State<_LeaveForm> {
         end: _end!,
         reason: _reason.text.trim(),
       );
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('ส่งคำขอลาแล้ว')));
+      }
     } on BvnApiException catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(e.message)));
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -628,7 +644,7 @@ class _LeaveFormState extends State<_LeaveForm> {
       ),
       const SizedBox(height: 16),
       DropdownButtonFormField<String>(
-        value: _type,
+        initialValue: _type,
         decoration: const InputDecoration(
           labelText: 'ประเภทการลา',
           border: OutlineInputBorder(),

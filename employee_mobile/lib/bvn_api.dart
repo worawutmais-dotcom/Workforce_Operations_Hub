@@ -28,12 +28,14 @@ class BvnApi {
         )
         .timeout(const Duration(seconds: 20));
     final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic>)
+    if (decoded is! Map<String, dynamic>) {
       throw BvnApiException('รูปแบบข้อมูลจากระบบไม่ถูกต้อง');
-    if (decoded['ok'] != true)
+    }
+    if (decoded['ok'] != true) {
       throw BvnApiException(
         decoded['message']?.toString() ?? 'ระบบไม่สามารถดำเนินการได้',
       );
+    }
     return decoded;
   }
 
@@ -46,8 +48,9 @@ class BvnApi {
         (response['data'] as Map<String, dynamic>?)?['employeeId']
             ?.toString() ??
         '';
-    if (returnedId.isEmpty || returnedId != employeeId)
+    if (returnedId.isEmpty || returnedId != employeeId) {
       throw BvnApiException('รหัสพนักงานหรือ Device token ไม่ถูกต้อง');
+    }
     return returnedId;
   }
 
@@ -70,8 +73,9 @@ class BvnApi {
     final data = response['data'] as Map<String, dynamic>?;
     final id = data?['employeeId']?.toString() ?? '',
         token = data?['mobileToken']?.toString() ?? '';
-    if (id.isEmpty || token.isEmpty)
+    if (id.isEmpty || token.isEmpty) {
       throw BvnApiException('ระบบไม่สามารถเปิดใช้งานอุปกรณ์ได้');
+    }
     return (employeeId: id, mobileToken: token);
   }
 

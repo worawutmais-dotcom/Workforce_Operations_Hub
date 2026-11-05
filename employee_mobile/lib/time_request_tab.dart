@@ -54,9 +54,10 @@ class _TimeRequestTabState extends State<TimeRequestTab> {
         const SnackBar(content: Text('ส่งคำขอให้ Admin ตรวจสอบแล้ว')),
       );
     } on BvnApiException catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(error.message)));
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -78,7 +79,7 @@ class _TimeRequestTabState extends State<TimeRequestTab> {
         const Text('คำขอจะไม่เปลี่ยนเวลาหรือเงินเดือนจนกว่า Admin จะอนุมัติ'),
         const SizedBox(height: 20),
         DropdownButtonFormField<String>(
-          value: _type,
+          initialValue: _type,
           decoration: const InputDecoration(
             labelText: 'ประเภทคำขอ',
             border: OutlineInputBorder(),
@@ -102,7 +103,7 @@ class _TimeRequestTabState extends State<TimeRequestTab> {
         ),
         const SizedBox(height: 14),
         DropdownButtonFormField<int>(
-          value: _minutes,
+          initialValue: _minutes,
           decoration: const InputDecoration(
             labelText: 'จำนวนนาทีที่ขอ',
             border: OutlineInputBorder(),
