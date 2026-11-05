@@ -184,6 +184,7 @@
     <div class="brand">BVN PACKAGE<small>ADMIN CONSOLE</small></div>
     <nav class="nav" id="nav">
       <button data-page="dashboard" class="active"><span class="ico">▦</span> ภาพรวม</button>
+      <button data-page="owner"><span class="ico">◆</span> เจ้าของธุรกิจ</button>
       <button data-page="employees"><span class="ico">♟</span> พนักงาน</button>
       <button data-page="approvals"><span class="ico">✔</span> คิวอนุมัติ <span class="pill" id="navApprovals" style="display:none">0</span></button>
       <button data-page="payroll"><span class="ico">฿</span> เงินเดือน</button>
@@ -210,6 +211,7 @@
 
     <div class="content">
       <section class="page active" id="page-dashboard"></section>
+      <section class="page" id="page-owner"></section>
       <section class="page" id="page-employees"></section>
       <section class="page" id="page-approvals"></section>
       <section class="page" id="page-payroll"></section>
@@ -364,6 +366,7 @@ function logout(){
    ================================================================= */
 const PAGES = {
   dashboard:{title:"ภาพรวม", sub:"สถานะที่ต้องตัดสินใจวันนี้", load:()=>renderDashboard()},
+  owner:{title:"เจ้าของธุรกิจ", sub:"ใครต้องจ่ายเท่าไร · วันจ่าย · วันทำงาน · เวลาเข้า-ออก", load:()=>renderOwner()},
   employees:{title:"พนักงาน", sub:"สร้าง แก้ไข ปิดใช้งาน และออกรหัสชั่วคราว", load:()=>renderEmployees()},
   approvals:{title:"คิวอนุมัติ", sub:"คำขอลา และ OT / แก้ไขเวลา", load:()=>renderApprovals()},
   payroll:{title:"เงินเดือน", sub:"พรีวิวค่าแรง (gross) · ล็อกงวด · ประวัติ", load:()=>renderPayroll()},
@@ -829,6 +832,108 @@ async function renderPayrules(){
 /* =================================================================
    INVOICES
    ================================================================= */
+/* ======================= หน้าเจ้าของธุรกิจ (owner) ======================= */
+const ownerState={emp:""};
+const FREQ_LABEL={monthly:"รายเดือน",semimonthly:"เดือนละ 2 ครั้ง",weekly:"รายสัปดาห์"};
+const DOW_SHORT=["อา","จ","อ","พ","พฤ","ศ","ส"];
+const payDayLabel=(v)=>String(v)==="end"?"สิ้นเดือน":("วันที่ "+v);
+
+async function renderOwner(){
+  const node=$("#page-owner"); skeleton(node);
+  try{
+    const data=await api("admin_owner_overview");
+    const s=data.settings, p=data.period;
+    const freqLabel=FREQ_LABEL[s.pay_frequency]||s.pay_frequency;
+    const wdLabel=(s.workdays||"").split(",").filter(x=>x!=="").map(d=>DOW_SHORT[+d]).join(" ")||"—";
+    const paydayText=s.pay_frequency==="semimonthly"?(payDayLabel(s.pay_day_2)+" และ "+payDayLabel(s.pay_day_1)):(s.pay_frequency==="weekly"?"ทุกวันศุกร์":payDayLabel(s.pay_day_1));
+    node.innerHTML=`
+      <div class="cards">
+        <div class="card"><div class="label">งวดปัจจุบัน</div><div class="value" style="font-size:18px">${esc(p.label||(p.start+" → "+p.end))}</div><div class="note">${fmtDate(p.start)} – ${fmtDate(p.end)}</div></div>
+        <div class="card"><div class="label">ยอดต้องจ่ายรวม</div><div class="value">${fmtBaht(data.totalGross)}</div><div class="note">ค่าแรง gross · ยังไม่หักภาษี/ประกันสังคม</div></div>
+        <div class="card"><div class="label">คนที่ต้องจ่าย</div><div class="value">${fmtInt(data.paidCount)}<span style="font-size:14px;color:#9aa">/${fmtInt(data.activeEmployees)} คน</span></div><div class="note">มีวันทำงานครบในงวดนี้</div></div>
+        <div class="card"><div class="label">วันจ่ายถัดไป</div><div class="value" style="font-size:18px">${fmtDate(data.nextPayday)}</div><div class="note">${esc(freqLabel)}</div></div>
+      </div>
+      <div class="panel"><div class="head"><b>ตั้งค่าการจ่ายเงินเดือน</b><div class="spacer"></div><button class="btn sub" id="ownSettings">แก้ไขการตั้งค่า</button></div>
+        <div class="body"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
+          <div><div class="label">รอบการจ่าย</div><div style="font-size:17px;font-weight:600;margin-top:3px">${esc(freqLabel)}</div></div>
+          <div><div class="label">วันจ่าย</div><div style="font-size:17px;font-weight:600;margin-top:3px">${esc(paydayText)}</div></div>
+          <div><div class="label">วันทำงาน</div><div style="font-size:17px;font-weight:600;margin-top:3px">${esc(wdLabel)}</div></div>
+        </div></div>
+      </div>
+      <div class="panel"><div class="head"><b>ต้องจ่ายใครบ้างในงวดนี้</b><div class="spacer"></div><button class="btn" id="ownLock">ล็อกงวด + บันทึก snapshot</button></div>
+        <div class="body flush"><table>
+          <thead><tr><th>พนักงาน</th><th class="num">วันทำงาน</th><th class="num">ชม.ปกติ</th><th class="num">OT</th><th class="num">ฐาน</th><th class="num">OT เงิน</th><th class="num">รวมจ่าย</th></tr></thead>
+          <tbody id="ownRows"></tbody>
+          <tfoot><tr><td colspan="6" class="num"><b>ยอดรวมทั้งสิ้น</b></td><td class="num"><b>${fmtBaht(data.totalGross)}</b></td></tr></tfoot>
+        </table></div>
+      </div>
+      <div class="panel"><div class="head"><b>บันทึกเวลาเข้า-ออก</b> <span class="sub">(บรรทัดเดียวต่อวัน)</span><div class="spacer"></div>
+        <select id="ownEmp" style="padding:7px 10px;border:1px solid #d7dce5;border-radius:8px;font:inherit"></select></div>
+        <div class="body flush"><table>
+          <thead><tr><th>วันที่</th><th>พนักงาน</th><th>เข้า</th><th>ออก</th><th class="num">รวม</th><th>สถานะ</th></tr></thead>
+          <tbody id="ownAtt"><tr><td colspan="6"><div class="empty">กำลังโหลด…</div></td></tr></tbody>
+        </table></div>
+      </div>`;
+    const rows=data.lines||[];
+    $("#ownRows").innerHTML = rows.length? rows.map(l=>`<tr>
+        <td class="person">${esc(l.name)}<span class="sub">${esc(l.employeeId)}${l.role?" · "+esc(l.role):""}</span></td>
+        <td class="num">${fmtInt(l.workDays)}</td><td class="num">${fmtHours(l.regularMinutes)}</td><td class="num">${l.otMinutes?fmtHours(l.otMinutes):"—"}</td>
+        <td class="num">${fmtBaht(l.baseGross)}</td><td class="num">${l.otGross?fmtBaht(l.otGross):"—"}</td><td class="num"><b>${fmtBaht(l.grossPay)}</b></td>
+      </tr>`).join("") : `<tr><td colspan="7"><div class="empty">ยังไม่มีใครมีวันทำงานครบในงวดนี้ (ต้องมีทั้งเช็กอินและเช็กเอาต์ + ตั้งเรตค่าจ้าง)</div></td></tr>`;
+    $("#ownSettings").onclick=()=>settingsDialog(s);
+    $("#ownLock").onclick=()=>lockFromOwner(p);
+    const sel=$("#ownEmp");
+    const fillSel=()=>{ sel.innerHTML=`<option value="">ทุกคน</option>`+(state.employees||[]).map(e=>`<option value="${esc(e.id)}"${e.id===ownerState.emp?" selected":""}>${esc(e.name)} (${esc(e.id)})</option>`).join(""); };
+    if(!state.employees||!state.employees.length){ try{ await loadEmployees(true); }catch(_){} }
+    fillSel();
+    const loadAtt=async()=>{ const tb=$("#ownAtt");
+      try{ const a=await api("admin_attendance_days", ownerState.emp?{employeeId:ownerState.emp}:{});
+        tb.innerHTML=(a.days&&a.days.length)? a.days.map(d=>`<tr>
+          <td>${fmtDate(d.date)}</td><td>${esc(d.name)}</td><td>${esc(d.checkIn||"—")}</td><td>${esc(d.checkOut||"—")}</td>
+          <td class="num">${d.workedMinutes?fmtHours(d.workedMinutes):"—"}</td>
+          <td>${d.status==="complete"?'<span class="badge">ครบ</span>':'<span class="badge red">ไม่ครบ</span>'}</td></tr>`).join("")
+        : `<tr><td colspan="6"><div class="empty">ไม่มีบันทึกเวลาในงวดนี้</div></td></tr>`;
+      }catch(err){ tb.innerHTML=`<tr><td colspan="6"><div class="empty">${esc(err.message)}</div></td></tr>`; } };
+    sel.onchange=()=>{ ownerState.emp=sel.value; loadAtt(); };
+    loadAtt();
+  }catch(err){ errorBox(node, err, renderOwner); }
+}
+
+function settingsDialog(s){
+  const body=el(`<div></div>`);
+  const freqField=el(`<div class="field"><label>รอบการจ่าย</label><select id="sFreq" style="width:100%;padding:9px 10px;border:1px solid #d7dce5;border-radius:8px;font:inherit">
+    <option value="monthly">รายเดือน (เดือนละครั้ง)</option><option value="semimonthly">เดือนละ 2 ครั้ง</option><option value="weekly">รายสัปดาห์ (จ่ายทุกวันศุกร์)</option></select></div>`);
+  body.append(freqField); freqField.querySelector("#sFreq").value=s.pay_frequency||"monthly";
+  const g=el(`<div class="grid2"></div>`);
+  g.append(
+    field("วันจ่าย (หลัก)", `<input id="sPay1" type="text" value="${esc(s.pay_day_1||"end")}" placeholder="30 หรือ end">`, "ใส่เลขวันที่ หรือ end = สิ้นเดือน"),
+    field("วันจ่ายรอบ 2 (เฉพาะเดือนละ 2 ครั้ง)", `<input id="sPay2" type="text" value="${esc(s.pay_day_2||"15")}" placeholder="15">`),
+  );
+  body.append(g);
+  const wd=el(`<div class="field"><label>วันทำงาน (เลือกวันที่พนักงานต้องมาทำงาน)</label><div id="sWd" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px"></div></div>`);
+  const set=new Set((s.workdays||"").split(",").filter(x=>x!==""));
+  [["1","จันทร์"],["2","อังคาร"],["3","พุธ"],["4","พฤหัส"],["5","ศุกร์"],["6","เสาร์"],["0","อาทิตย์"]].forEach(([v,n])=>{
+    wd.querySelector("#sWd").append(el(`<label class="check" style="margin:0"><input type="checkbox" value="${v}" ${set.has(v)?"checked":""}> ${n}</label>`));
+  });
+  body.append(wd);
+  const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
+  const save=el(`<button class="btn">บันทึก</button>`);
+  save.onclick=()=>withBtn(save, async ()=>{
+    const workdays=[...document.querySelectorAll('#sWd input:checked')].map(c=>c.value).join(",");
+    try{ await api("admin_save_settings",{settings:{pay_frequency:$("#sFreq").value, pay_day_1:$("#sPay1").value.trim(), pay_day_2:$("#sPay2").value.trim(), workdays}});
+      closeModal(); toast("บันทึกการตั้งค่าแล้ว","good"); renderOwner();
+    }catch(err){ toast(err.message,"bad"); }
+  });
+  openModal("ตั้งค่าการจ่ายเงินเดือน", body, [cancel, save]);
+}
+
+async function lockFromOwner(p){
+  if(!await confirmDialog("ล็อกงวดเงินเดือน", `ล็อกงวด <b>${fmtDate(p.start)} – ${fmtDate(p.end)}</b> และบันทึกเป็น snapshot ถาวร?<br>หลังล็อกยอดในงวดนี้จะแก้ไขไม่ได้ (เป็นการบันทึกยอด ไม่ใช่การจ่ายเงินจริง)`, {okText:"ล็อกงวด"})) return;
+  try{ const d=await api("admin_lock_payroll",{startDate:p.start, endDate:p.end, lockedBy:state.reviewer||"Admin"});
+    toast("ล็อกงวดแล้ว: "+d.payrollId,"good");
+  }catch(err){ toast(err.message,"bad"); }
+}
+
 async function renderInvoices(){
   const node=$("#page-invoices");
   skeleton(node);

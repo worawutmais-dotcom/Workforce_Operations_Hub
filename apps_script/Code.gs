@@ -7,6 +7,7 @@ const SPREADSHEET_ID = 'IDKzV-19nTgG7rLB6Cbg29ml9cVECWOisFTEoZEWQEU';
 const SHEETS = Object.freeze({
   sites: 'Work_Sites', employees: 'Employees', attendance: 'Attendance_Log',
   payroll: 'Payroll_Periods', payrollLines: 'Payroll_Lines', payrollRules: 'Payroll_Rules', invoices: 'Invoices', tokens: 'Mobile_Access', leaves: 'Leave_Requests', timeRequests: 'Time_Requests',
+  settings: 'Settings',
 });
 const ICT = 'Asia/Bangkok';
 const MAX_ACCURACY_METRES = 100;
@@ -44,6 +45,10 @@ function doPost(e) {
     if (action === 'admin_list_invoices') return adminListInvoices_(payload);
     if (action === 'admin_create_invoice') return adminCreateInvoice_(payload);
     if (action === 'admin_update_invoice_status') return adminUpdateInvoiceStatus_(payload);
+    if (action === 'admin_get_settings') return adminGetSettings_(payload);
+    if (action === 'admin_save_settings') return adminSaveSettings_(payload);
+    if (action === 'admin_attendance_days') return adminAttendanceDays_(payload);
+    if (action === 'admin_owner_overview') return adminOwnerOverview_(payload);
     return reply_(false, 'Unsupported action');
   } catch (error) {
     console.error(error && error.stack ? error.stack : error);
@@ -341,6 +346,129 @@ function adminGetPayroll_(payload) {
   const lines = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.payrollLines)).slice(1).filter(row => String(row[0]) === payrollId)
     .map(row => ({ employeeId: String(row[1]), regularMinutes: Number(row[2] || 0), otMinutes: Number(row[3] || 0), baseGross: Number(row[4] || 0), otGross: Number(row[5] || 0), grossPay: Number(row[6] || 0) }));
   return reply_(true, 'Payroll snapshot loaded', { payrollId: payrollId, startDate: Utilities.formatDate(new Date(period[1]), ICT, 'yyyy-MM-dd'), endDate: Utilities.formatDate(new Date(period[2]), ICT, 'yyyy-MM-dd'), status: String(period[3]), lines: lines, totalGross: roundMoney_(lines.reduce((sum, line) => sum + line.grossPay, 0)) });
+}
+
+/* =========================== Owner settings & analytics =========================== */
+var SETTINGS_DEFAULTS = { pay_frequency: 'monthly', pay_day_1: 'end', pay_day_2: '15', workdays: '1,2,3,4,5' };
+var TH_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+
+function initializeSettingsSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(SHEETS.settings);
+  if (!sheet) { sheet = ss.insertSheet(SHEETS.settings); sheet.appendRow(['Key', 'Value']); sheet.setFrozenRows(1); }
+  const existing = values_(sheet).slice(1).reduce((m, r) => { m[String(r[0])] = true; return m; }, {});
+  Object.keys(SETTINGS_DEFAULTS).forEach(k => { if (!existing[k]) sheet.appendRow([k, SETTINGS_DEFAULTS[k]]); });
+}
+
+function readSettings_() {
+  initializeSettingsSheet();
+  const rows = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.settings)).slice(1);
+  const out = Object.assign({}, SETTINGS_DEFAULTS);
+  rows.forEach(r => { const k = String(r[0]); if (k) out[k] = String(r[1]); });
+  return out;
+}
+
+function adminGetSettings_(payload) { requireAdmin_(payload); return reply_(true, 'Settings loaded', { settings: readSettings_() }); }
+
+function adminSaveSettings_(payload) {
+  requireAdmin_(payload); initializeSettingsSheet();
+  const incoming = payload.settings && typeof payload.settings === 'object' ? payload.settings : {};
+  const freq = normalise_(incoming.pay_frequency);
+  if (freq && !['monthly', 'semimonthly', 'weekly'].includes(freq)) return reply_(false, 'Invalid pay frequency');
+  const validDay = (v) => { v = String(v).trim().toLowerCase(); if (v === 'end' || v === 'last') return 'end'; const n = parseInt(v, 10); return (n >= 1 && n <= 31) ? String(n) : null; };
+  const next = Object.assign(readSettings_(), {});
+  if (incoming.pay_frequency) next.pay_frequency = freq;
+  if (incoming.pay_day_1 != null) { const d = validDay(incoming.pay_day_1); if (d === null) return reply_(false, 'Invalid pay day'); next.pay_day_1 = d; }
+  if (incoming.pay_day_2 != null) { const d = validDay(incoming.pay_day_2); if (d === null) return reply_(false, 'Invalid pay day 2'); next.pay_day_2 = d; }
+  if (incoming.workdays != null) {
+    const days = String(incoming.workdays).split(',').map(s => s.trim()).filter(s => s !== '');
+    if (!days.every(d => /^[0-6]$/.test(d))) return reply_(false, 'Workdays must be 0-6 (0=Sun)');
+    next.workdays = days.join(',');
+  }
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.settings), rows = values_(sheet);
+  Object.keys(next).forEach(key => {
+    const idx = rows.slice(1).findIndex(r => String(r[0]) === key);
+    if (idx >= 0) sheet.getRange(idx + 2, 2).setValue(next[key]); else sheet.appendRow([key, next[key]]);
+  });
+  return reply_(true, 'Settings saved', { settings: next });
+}
+
+function currentMonthRange_() {
+  const todayYmd = Utilities.formatDate(new Date(), ICT, 'yyyy-MM-dd'), parts = todayYmd.split('-').map(Number);
+  const last = new Date(parts[0], parts[1], 0).getDate();
+  return { start: ymd_(parts[0], parts[1], 1), end: ymd_(parts[0], parts[1], last), label: TH_MONTHS[parts[1] - 1] + ' ' + (parts[0] + 543) };
+}
+function ymd_(y, m, d) { return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0'); }
+function resolveDayOfMonth_(y, m, dayVal) { const last = new Date(y, m, 0).getDate(); if (String(dayVal) === 'end') return last; return Math.min(Math.max(parseInt(dayVal, 10) || last, 1), last); }
+function nextMonthlyPayday_(todayYmd, dayVal) {
+  const p = todayYmd.split('-').map(Number), thisDay = resolveDayOfMonth_(p[0], p[1], dayVal);
+  if (p[2] <= thisDay) return ymd_(p[0], p[1], thisDay);
+  const nm = p[1] === 12 ? 1 : p[1] + 1, ny = p[1] === 12 ? p[0] + 1 : p[0];
+  return ymd_(ny, nm, resolveDayOfMonth_(ny, nm, dayVal));
+}
+function nextPayday_(settings) {
+  const todayYmd = Utilities.formatDate(new Date(), ICT, 'yyyy-MM-dd');
+  if (settings.pay_frequency === 'weekly') {
+    const t = new Date(todayYmd + 'T00:00:00+07:00'), add = ((5 - t.getDay()) + 7) % 7 || 7; // next Friday
+    t.setDate(t.getDate() + add); return Utilities.formatDate(t, ICT, 'yyyy-MM-dd');
+  }
+  if (settings.pay_frequency === 'semimonthly') {
+    const a = nextMonthlyPayday_(todayYmd, settings.pay_day_1), b = nextMonthlyPayday_(todayYmd, settings.pay_day_2);
+    return a < b ? a : b;
+  }
+  return nextMonthlyPayday_(todayYmd, settings.pay_day_1);
+}
+
+function employeeNameMap_() {
+  const src = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.employees)), cols = employeeColumns_(src[0]);
+  return src.slice(1).reduce((m, r) => { const e = employeeFromRow_(r, cols); if (e) m[e.id] = { name: e.name, role: e.role, status: e.status }; return m; }, {});
+}
+
+function adminAttendanceDays_(payload) {
+  requireAdmin_(payload);
+  const range = (parseIsoDate_(payload.startDate) && parseIsoDate_(payload.endDate))
+    ? { start: Utilities.formatDate(parseIsoDate_(payload.startDate), ICT, 'yyyy-MM-dd'), end: Utilities.formatDate(parseIsoDate_(payload.endDate), ICT, 'yyyy-MM-dd') }
+    : currentMonthRange_();
+  const names = employeeNameMap_();
+  const logs = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.attendance)).slice(1).filter(r => String(r[9]) === 'accepted');
+  const byDay = {};
+  logs.forEach(r => {
+    const day = Utilities.formatDate(new Date(r[4]), ICT, 'yyyy-MM-dd'); if (day < range.start || day > range.end) return;
+    if (payload.employeeId && String(r[1]).toUpperCase() !== String(payload.employeeId).toUpperCase()) return;
+    const key = String(r[1]) + '|' + day, it = byDay[key] || { employeeId: String(r[1]), date: day, in: null, out: null };
+    const ts = new Date(r[4]);
+    if (String(r[3]) === 'check_in') it.in = it.in ? (ts < it.in ? ts : it.in) : ts;
+    if (String(r[3]) === 'check_out') it.out = it.out ? (ts > it.out ? ts : it.out) : ts;
+    byDay[key] = it;
+  });
+  const days = Object.values(byDay).map(it => {
+    const worked = it.in && it.out && it.out > it.in ? Math.round((it.out - it.in) / 60000) : 0;
+    return { employeeId: it.employeeId, name: (names[it.employeeId] || {}).name || it.employeeId, date: it.date,
+      checkIn: it.in ? Utilities.formatDate(it.in, ICT, 'HH:mm') : '', checkOut: it.out ? Utilities.formatDate(it.out, ICT, 'HH:mm') : '',
+      workedMinutes: worked, status: (it.in && it.out) ? 'complete' : 'incomplete' };
+  }).sort((a, b) => a.date === b.date ? a.employeeId.localeCompare(b.employeeId) : (a.date < b.date ? 1 : -1));
+  return reply_(true, 'Attendance days loaded', { startDate: range.start, endDate: range.end, days: days });
+}
+
+function adminOwnerOverview_(payload) {
+  requireAdmin_(payload);
+  const settings = readSettings_();
+  const range = (parseIsoDate_(payload.startDate) && parseIsoDate_(payload.endDate))
+    ? { start: Utilities.formatDate(parseIsoDate_(payload.startDate), ICT, 'yyyy-MM-dd'), end: Utilities.formatDate(parseIsoDate_(payload.endDate), ICT, 'yyyy-MM-dd'), label: '' }
+    : currentMonthRange_();
+  const previewOut = adminPreviewPayroll_({ adminToken: payload.adminToken, startDate: range.start, endDate: range.end });
+  const preview = JSON.parse(previewOut.getContent());
+  if (!preview.ok) return previewOut;
+  const names = employeeNameMap_();
+  const lines = preview.data.lines.map(l => ({
+    employeeId: l.employeeId, name: (names[l.employeeId] || {}).name || l.employeeId, role: (names[l.employeeId] || {}).role || '',
+    workDays: l.workDays, regularMinutes: l.regularMinutes, otMinutes: l.otMinutes, baseGross: l.baseGross, otGross: l.otGross, grossPay: l.grossPay
+  })).sort((a, b) => b.grossPay - a.grossPay);
+  const activeCount = Object.values(names).filter(e => e.status === 'active').length;
+  return reply_(true, 'Owner overview loaded', {
+    settings: settings, period: range, nextPayday: nextPayday_(settings),
+    lines: lines, totalGross: preview.data.totalGross, paidCount: lines.length, activeEmployees: activeCount
+  });
 }
 
 function adminListInvoices_(payload) {
