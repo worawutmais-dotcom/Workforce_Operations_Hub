@@ -215,6 +215,39 @@ class BvnApi {
     final rows = data?['requests'];
     return rows is List ? rows.whereType<Map<String, dynamic>>().toList() : [];
   }
+
+  Future<void> submitAdvance({
+    required String token,
+    required double amount,
+    required String reason,
+  }) => post({
+    'action': 'employee_submit_advance',
+    'mobileToken': token,
+    'amount': amount,
+    'reason': reason,
+  });
+
+  Future<List<Map<String, dynamic>>> advances(String token) async {
+    final data =
+        (await post({'action': 'employee_advances', 'mobileToken': token}))['data']
+            as Map<String, dynamic>?;
+    final rows = data?['advances'];
+    return rows is List ? rows.whereType<Map<String, dynamic>>().toList() : [];
+  }
+
+  Future<void> changePassword({
+    required String token,
+    required String oldPassword,
+    required String newPassword,
+  }) => post({
+    'action': 'employee_change_password',
+    'mobileToken': token,
+    'oldPassword': oldPassword,
+    'newPassword': newPassword,
+  });
+
+  Future<void> requestPasswordReset(String token) =>
+      post({'action': 'employee_request_password_reset', 'mobileToken': token});
 }
 
 class DeviceSessionStore {

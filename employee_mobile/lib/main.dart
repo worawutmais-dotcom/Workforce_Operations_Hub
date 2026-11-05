@@ -1,3 +1,5 @@
+// Account-tab actions guard context use via a context.mounted check inside _snack.
+// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -389,6 +391,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
       ),
       TimeRequestTab(token: widget.token),
       _Account(
+        token: widget.token,
         name: _name,
         id: widget.employeeId,
         role: _role,
@@ -690,6 +693,7 @@ class _LeaveFormState extends State<_LeaveForm> {
 
 class _Account extends StatelessWidget {
   const _Account({
+    required this.token,
     required this.name,
     required this.id,
     required this.role,
@@ -697,7 +701,7 @@ class _Account extends StatelessWidget {
     required this.locationRequired,
     required this.onLogout,
   });
-  final String name, id, role, site;
+  final String token, name, id, role, site;
   final bool locationRequired;
   final Future<void> Function() onLogout;
   @override
@@ -732,10 +736,31 @@ class _Account extends StatelessWidget {
           ],
         ),
       ),
-      const Card(
-        child: ListTile(
-          title: Text('เปลี่ยนเครื่อง / ลืมรหัสผ่าน'),
-          subtitle: Text('แจ้ง Admin เพื่อตั้งรหัสผ่านใหม่'),
+      Card(
+        child: Column(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.payments_outlined),
+              title: const Text('ขอเบิกเงินล่วงหน้า'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _advanceDialog(context),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.password),
+              title: const Text('เปลี่ยนรหัสผ่าน'),
+              subtitle: const Text('ต้องใช้รหัสผ่านเดิม'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _changePasswordDialog(context),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.lock_reset),
+              title: const Text('ลืมรหัสผ่าน? ขอให้แอดมินรีเซ็ต'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _requestResetDialog(context),
+            ),
+          ],
         ),
       ),
       OutlinedButton.icon(
@@ -745,4 +770,139 @@ class _Account extends StatelessWidget {
       ),
     ],
   );
+
+  void _snack(BuildContext context, String msg) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    }
+  }
+
+  Future<void> _advanceDialog(BuildContext context) async {
+    final amount = TextEditingController(), reason = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('ขอเบิกเงินล่วงหน้า'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: amount,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'จำนวนเงิน (บาท)'),
+            ),
+            TextField(
+              controller: reason,
+              decoration: const InputDecoration(labelText: 'เหตุผล'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('ส่งคำขอ'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final amt = double.tryParse(amount.text.trim()) ?? 0;
+    if (amt <= 0) {
+      _snack(context, 'จำนวนเงินไม่ถูกต้อง');
+      return;
+    }
+    try {
+      await BvnApi().submitAdvance(
+        token: token,
+        amount: amt,
+        reason: reason.text.trim(),
+      );
+      _snack(context, 'ส่งคำขอเบิกเงินล่วงหน้าแล้ว');
+    } catch (e) {
+      _snack(context, e.toString());
+    }
+  }
+
+  Future<void> _changePasswordDialog(BuildContext context) async {
+    final oldPw = TextEditingController(), newPw = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('เปลี่ยนรหัสผ่าน'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: oldPw,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'รหัสผ่านเดิม'),
+            ),
+            TextField(
+              controller: newPw,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'รหัสผ่านใหม่'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('บันทึก'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    if (newPw.text.trim().length < 4) {
+      _snack(context, 'รหัสผ่านใหม่ต้องยาวอย่างน้อย 4 ตัว');
+      return;
+    }
+    try {
+      await BvnApi().changePassword(
+        token: token,
+        oldPassword: oldPw.text,
+        newPassword: newPw.text.trim(),
+      );
+      _snack(context, 'เปลี่ยนรหัสผ่านแล้ว');
+    } catch (e) {
+      _snack(context, e.toString());
+    }
+  }
+
+  Future<void> _requestResetDialog(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('ขอให้แอดมินรีเซ็ตรหัสผ่าน'),
+        content: const Text(
+          'ส่งคำขอให้แอดมินออกรหัสผ่านใหม่ให้ แล้วแอดมินจะแจ้งรหัสใหม่กลับมา',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('ส่งคำขอ'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await BvnApi().requestPasswordReset(token);
+      _snack(context, 'ส่งคำขอรีเซ็ตรหัสผ่านให้แอดมินแล้ว');
+    } catch (e) {
+      _snack(context, e.toString());
+    }
+  }
 }
