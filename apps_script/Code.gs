@@ -489,7 +489,7 @@ function employeeColumns_(headers) {
   if (Object.values(columns).some(index => index < 0)) throw new Error('Employees sheet headers are incomplete. Run initializeEmployeesSheet.');
   return columns;
 }
-function employeeFromRow_(row, columns) { const c = columns || { id: 0, name: 1, role: 2, siteId: 4, status: 5, locationRequired: 6, passwordHash: 7 }; return row ? { id: String(row[c.id]), name: String(row[c.name] || ''), role: String(row[c.role] || ''), siteId: String(row[c.siteId] || ''), status: normalise_(row[c.status]), locationRequired: normalise_(row[c.locationRequired]) !== 'false', passwordHash: String(row[c.passwordHash] || '') } : null; }
+function employeeFromRow_(row, columns) { const c = columns || { id: 0, name: 1, role: 2, siteId: 4, status: 5, locationRequired: 6, passwordHash: 7 }; if (!row) return null; const locRaw = row[c.locationRequired]; const locationRequired = !(locRaw === false || String(locRaw).trim().toLowerCase() === 'false'); return { id: String(row[c.id]), name: String(row[c.name] || ''), role: String(row[c.role] || ''), siteId: String(row[c.siteId] || ''), status: normalise_(row[c.status]), locationRequired: locationRequired, passwordHash: String(row[c.passwordHash] || '') }; }
 function findSite_(siteId) {
   const row = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.sites)).slice(1).find(r => String(r[0]) === siteId && normalise_(r[5]) === 'true');
   return row ? { id: String(row[0]), lat: Number(row[2]), lng: Number(row[3]), radius: Number(row[4]) } : null;
