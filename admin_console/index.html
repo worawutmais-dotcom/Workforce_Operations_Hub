@@ -868,7 +868,9 @@ async function renderOwner(){
         </table></div>
       </div>
       <div class="panel"><div class="head"><b>บันทึกเวลาเข้า-ออก</b> <span class="sub">(บรรทัดเดียวต่อวัน)</span><div class="spacer"></div>
-        <select id="ownEmp" style="padding:7px 10px;border:1px solid #d7dce5;border-radius:8px;font:inherit"></select></div>
+        <select id="ownEmp" style="padding:7px 10px;border:1px solid #d7dce5;border-radius:8px;font:inherit"></select>
+        <button class="btn ok sm" id="ownIn" style="margin-left:8px">ลงเวลาเข้า</button>
+        <button class="btn sub sm" id="ownOut">ลงเวลาออก</button></div>
         <div class="body flush"><table>
           <thead><tr><th>วันที่</th><th>พนักงาน</th><th>เข้า</th><th>ออก</th><th class="num">รวม</th><th>สถานะ</th></tr></thead>
           <tbody id="ownAtt"><tr><td colspan="6"><div class="empty">กำลังโหลด…</div></td></tr></tbody>
@@ -895,8 +897,20 @@ async function renderOwner(){
         : `<tr><td colspan="6"><div class="empty">ไม่มีบันทึกเวลาในงวดนี้</div></td></tr>`;
       }catch(err){ tb.innerHTML=`<tr><td colspan="6"><div class="empty">${esc(err.message)}</div></td></tr>`; } };
     sel.onchange=()=>{ ownerState.emp=sel.value; loadAtt(); };
+    $("#ownIn").onclick=()=>adminClock("check_in");
+    $("#ownOut").onclick=()=>adminClock("check_out");
     loadAtt();
   }catch(err){ errorBox(node, err, renderOwner); }
+}
+
+async function adminClock(eventType){
+  if(!ownerState.emp){ toast("เลือกพนักงานก่อน (ต้องไม่ใช่ 'ทุกคน')","bad"); return; }
+  const emp=(state.employees||[]).find(e=>e.id===ownerState.emp);
+  const label=eventType==="check_in"?"ลงเวลาเข้า":"ลงเวลาออก";
+  if(!await confirmDialog(label, `${label}ให้ <b>${esc(emp?emp.name:ownerState.emp)}</b> (${esc(ownerState.emp)}) ณ เวลาปัจจุบัน?`, {okText:label})) return;
+  try{ const d=await api("admin_record_attendance",{employeeId:ownerState.emp, eventType, reviewer:state.reviewer||"Admin"});
+    toast(d.message||"บันทึกแล้ว","good"); renderOwner();
+  }catch(err){ toast(err.message,"bad"); }
 }
 
 function settingsDialog(s){

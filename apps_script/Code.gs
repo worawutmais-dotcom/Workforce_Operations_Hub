@@ -49,6 +49,7 @@ function doPost(e) {
     if (action === 'admin_save_settings') return adminSaveSettings_(payload);
     if (action === 'admin_attendance_days') return adminAttendanceDays_(payload);
     if (action === 'admin_owner_overview') return adminOwnerOverview_(payload);
+    if (action === 'admin_record_attendance') return adminRecordAttendance_(payload);
     return reply_(false, 'Unsupported action');
   } catch (error) {
     console.error(error && error.stack ? error.stack : error);
@@ -173,6 +174,28 @@ function recordAttendance_(payload) {
     touchMobileToken_(payload.mobileToken);
   } finally { lock.releaseLock(); }
   return reply_(accepted, accepted ? 'Attendance recorded' : 'Outside permitted radius or GPS accuracy is too low', { decision: accepted ? 'accepted' : 'rejected', locationRequired: employee.locationRequired, distanceMetres: distance === null ? null : Math.round(distance), allowedRadiusMetres: site ? site.radius : null });
+}
+
+// Admin records a check-in/out on behalf of an employee (manual, no GPS). Same
+// per-business-day duplicate/order guards. Logged as admin_manual for the audit trail.
+function adminRecordAttendance_(payload) {
+  requireAdmin_(payload);
+  const employeeId = String(payload.employeeId || '').trim().toUpperCase();
+  const employee = findEmployee_(employeeId);
+  if (!employee) return reply_(false, 'ไม่พบพนักงาน');
+  if (employee.status !== 'active') return reply_(false, 'พนักงานนี้ถูกปิดใช้งาน');
+  const eventType = String(payload.eventType || '');
+  if (eventType !== 'check_in' && eventType !== 'check_out') return reply_(false, 'ประเภทการลงเวลาไม่ถูกต้อง');
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const log = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.attendance);
+    const todayState = attendanceStateForToday_(log, employee.id, new Date());
+    if (eventType === 'check_in' && todayState.checkedIn) return reply_(false, 'พนักงานคนนี้บันทึกเข้างานวันนี้แล้ว', todayState);
+    if (eventType === 'check_out' && !todayState.checkedIn) return reply_(false, 'ต้องบันทึกเข้างานก่อนจึงจะบันทึกออกงานได้', todayState);
+    if (eventType === 'check_out' && todayState.checkedOut) return reply_(false, 'พนักงานคนนี้บันทึกออกงานวันนี้แล้ว', todayState);
+    log.appendRow([Utilities.getUuid(), employee.id, employee.siteId, eventType, new Date(), '', '', '', '', 'accepted', '', 'admin_manual:' + String(payload.reviewer || 'Admin'), 'accepted', new Date()]);
+  } finally { lock.releaseLock(); }
+  return reply_(true, eventType === 'check_in' ? 'ลงเวลาเข้างานแล้ว' : 'ลงเวลาออกงานแล้ว');
 }
 
 function adminDashboard_(payload) {
