@@ -1,4 +1,8 @@
 -- =====================================================================
+-- SUPERSEDED: the runnable backend now lives in supabase/migrations/
+-- (0001_schema.sql + 0002_rpc.sql) with the admin-employee Edge Function.
+-- This file is kept as a readable single-file reference only.
+-- =====================================================================
 -- BVN Package — full Postgres/Supabase schema (supersedes SUPABASE_SCHEMA.sql)
 -- Review with the data owner before running. Run top-to-bottom in the
 -- Supabase SQL editor. Mirrors every table/behaviour in apps_script/Code.gs.
