@@ -23,7 +23,7 @@ This is an internal operational tool, **not** a legally complete payroll/account
 
 | Item | Current value |
 |---|---|
-| Project root | `C:\Users\M_S_I\OneDrive\Desktop\Cowork\Workforce_Operations_Hub` |
+| Project root | `D:\Cowork\Workforce_Operations_Hub` |
 | Google Sheet ID in local `Code.gs` | `IDKzV-19nTgG7rLB6Cbg29ml9cVECWOisFTEoZEWQEU` |
 | Deployed Apps Script endpoint | `https://script.google.com/macros/s/AKfycbwWCdTJkadi93Pst2_uBSRkU8uYmGODqoaV0kuy6HtAnO5l31nW1jmHsKEkX8TIYyqp/exec` |
 | Work site | BVN Package, latitude `13.762962071350593`, longitude `100.5582875856417` |
