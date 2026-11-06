@@ -7,7 +7,7 @@ const SPREADSHEET_ID = '1-deVDtN8sZQmDyXTH7cR2TtmXgmm4RHOkONRk-HFdT4';
 const SHEETS = Object.freeze({
   sites: 'Work_Sites', employees: 'Employees', attendance: 'Attendance_Log',
   payroll: 'Payroll_Periods', payrollLines: 'Payroll_Lines', payrollRules: 'Payroll_Rules', invoices: 'Invoices', tokens: 'Mobile_Access', leaves: 'Leave_Requests', timeRequests: 'Time_Requests',
-  settings: 'Settings', advances: 'Advances', pwRequests: 'Password_Requests', adminUsers: 'Admin_Users', audit: 'Audit_Log',
+  settings: 'Settings', advances: 'Advances', pwRequests: 'Password_Requests', adminUsers: 'Admin_Users', audit: 'Audit_Log', holidays: 'Holidays',
 });
 const ICT = 'Asia/Bangkok';
 const MAX_ACCURACY_METRES = 100;
@@ -29,6 +29,10 @@ function doPost(e) {
     if (action === 'employee_time_requests') return employeeTimeRequests_(payload);
     if (action === 'employee_profile') return employeeProfile_(payload);
     if (action === 'sites') return employeeSites_(payload);
+    if (action === 'employee_month') return employeeMonth_(payload);
+    if (action === 'admin_list_holidays') return adminListHolidays_(payload);
+    if (action === 'admin_save_holiday') return adminSaveHoliday_(payload);
+    if (action === 'admin_delete_holiday') return adminDeleteHoliday_(payload);
     if (action === 'employee_directory') return employeeDirectory_();
     if (action === 'employee_login') return employeeLogin_(payload);
     if (action === 'admin_list_employees') return adminListEmployees_(payload);
@@ -564,7 +568,7 @@ function adminGetPayroll_(payload) {
 }
 
 /* =========================== Owner settings & analytics =========================== */
-var SETTINGS_DEFAULTS = { pay_frequency: 'monthly', pay_day_1: 'end', pay_day_2: '15', workdays: '1,2,3,4,5', sso_enabled: 'false', sso_rate: '5', sso_cap: '750', quota_sick: '30', quota_personal: '6', quota_vacation: '6' };
+var SETTINGS_DEFAULTS = { pay_frequency: 'monthly', pay_day_1: 'end', pay_day_2: '15', workdays: '1,2,3,4,5', sso_enabled: 'false', sso_rate: '5', sso_cap: '750', quota_sick: '30', quota_personal: '6', quota_vacation: '6', shift_start: '09:00', shift_grace_min: '5', lunch_break_min: '60', ot_threshold_hours: '8', holiday_ot_enabled: 'false' };
 var TH_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
 
 function initializeSettingsSheet() {
@@ -604,6 +608,10 @@ function adminSaveSettings_(payload) {
   if (incoming.sso_rate != null) { const r = finiteNumber_(incoming.sso_rate); if (r === null || r < 0 || r > 100) return reply_(false, 'อัตราประกันสังคมไม่ถูกต้อง'); next.sso_rate = String(r); }
   if (incoming.sso_cap != null) { const c = finiteNumber_(incoming.sso_cap); if (c === null || c < 0) return reply_(false, 'เพดานประกันสังคมไม่ถูกต้อง'); next.sso_cap = String(c); }
   ['quota_sick', 'quota_personal', 'quota_vacation'].forEach(k => { if (incoming[k] != null) { const q = finiteNumber_(incoming[k]); if (q !== null && q >= 0) next[k] = String(q); } });
+  if (incoming.shift_start != null) { const t = String(incoming.shift_start).trim(); if (!/^\d{1,2}:\d{2}$/.test(t)) return reply_(false, 'เวลาเข้างานต้องเป็น HH:MM'); next.shift_start = t.length === 4 ? '0' + t : t; }
+  ['shift_grace_min', 'lunch_break_min'].forEach(k => { if (incoming[k] != null) { const n = finiteNumber_(incoming[k]); if (n !== null && n >= 0) next[k] = String(Math.round(n)); } });
+  if (incoming.ot_threshold_hours != null) { const h = finiteNumber_(incoming.ot_threshold_hours); if (h !== null && h > 0 && h <= 24) next.ot_threshold_hours = String(h); }
+  if (incoming.holiday_ot_enabled != null) next.holiday_ot_enabled = (incoming.holiday_ot_enabled === true || normalise_(incoming.holiday_ot_enabled) === 'true') ? 'true' : 'false';
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.settings), rows = values_(sheet);
   Object.keys(next).forEach(key => {
     const idx = rows.slice(1).findIndex(r => String(r[0]) === key);
@@ -1176,6 +1184,107 @@ function activeSites_() {
 function employeeSites_(payload) {
   if (!authenticateMobile_(payload.mobileToken)) return reply_(false, 'Mobile authentication failed');
   return reply_(true, 'Sites loaded', { sites: activeSites_() });
+}
+
+/* =========================== Holidays =========================== */
+function initializeHolidaysSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  if (!ss.getSheetByName(SHEETS.holidays)) { const s = ss.insertSheet(SHEETS.holidays); s.appendRow(['Date', 'Name']); s.setFrozenRows(1); }
+}
+function holidayMap_() {
+  initializeHolidaysSheet();
+  return values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.holidays)).slice(1).reduce(function (m, r) {
+    const d = r[0] ? Utilities.formatDate(new Date(r[0]), ICT, 'yyyy-MM-dd') : ''; if (d) m[d] = String(r[1] || 'วันหยุด'); return m;
+  }, {});
+}
+function adminListHolidays_(payload) {
+  requireAdmin_(payload);
+  const map = holidayMap_();
+  const rows = Object.keys(map).sort().map(function (d) { return { date: d, name: map[d] }; });
+  return reply_(true, 'Holidays loaded', { holidays: rows });
+}
+function adminSaveHoliday_(payload) {
+  requireAdmin_(payload); initializeHolidaysSheet();
+  const date = String(payload.date || '').trim(), name = String(payload.name || 'วันหยุด').trim();
+  if (!parseIsoDate_(date)) return reply_(false, 'วันที่ต้องเป็น YYYY-MM-DD');
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.holidays), rows = values_(sheet);
+  const idx = rows.slice(1).findIndex(function (r) { return r[0] && Utilities.formatDate(new Date(r[0]), ICT, 'yyyy-MM-dd') === date; });
+  if (idx >= 0) sheet.getRange(idx + 2, 1, 1, 2).setValues([[date, name]]); else sheet.appendRow([date, name]);
+  audit_(String(payload.reviewer || 'Admin'), 'holiday_saved', date, name);
+  return reply_(true, 'บันทึกวันหยุดแล้ว', { date: date, name: name });
+}
+function adminDeleteHoliday_(payload) {
+  requireAdmin_(payload); initializeHolidaysSheet();
+  const date = String(payload.date || '').trim();
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.holidays), rows = values_(sheet);
+  const idx = rows.slice(1).findIndex(function (r) { return r[0] && Utilities.formatDate(new Date(r[0]), ICT, 'yyyy-MM-dd') === date; });
+  if (idx < 0) return reply_(false, 'ไม่พบวันหยุดนี้');
+  sheet.deleteRow(idx + 2);
+  audit_(String(payload.reviewer || 'Admin'), 'holiday_deleted', date, '');
+  return reply_(true, 'ลบวันหยุดแล้ว', { date: date });
+}
+
+/* =========================== Employee monthly attendance (calendar) =========================== */
+// Returns per-day status for one employee across a month, applying the shift-start
+// (late), lunch deduction + 8h OT threshold, holidays, and approved leaves.
+function employeeMonth_(payload) {
+  const employeeId = authenticateMobile_(payload.mobileToken);
+  if (!employeeId) return reply_(false, 'Mobile authentication failed');
+  const today = new Date();
+  let year = parseInt(payload.year, 10), month = parseInt(payload.month, 10); // month 1-12
+  if (!year || !month || month < 1 || month > 12) { year = Number(Utilities.formatDate(today, ICT, 'yyyy')); month = Number(Utilities.formatDate(today, ICT, 'MM')); }
+  const settings = readSettings_();
+  const shiftParts = String(settings.shift_start || '09:00').split(':');
+  const shiftMinutes = (Number(shiftParts[0]) || 9) * 60 + (Number(shiftParts[1]) || 0);
+  const grace = Number(settings.shift_grace_min || 5), lunch = Number(settings.lunch_break_min || 60);
+  const otThreshold = Number(settings.ot_threshold_hours || 8) * 60, holidayOt = normalise_(settings.holiday_ot_enabled) === 'true';
+  const workdays = String(settings.workdays || '1,2,3,4,5').split(',').map(function (s) { return s.trim(); });
+  const holidays = holidayMap_();
+  // approved leaves overlapping this month → date -> type
+  const leaveByDate = {};
+  initializeLeaveRequestsSheet();
+  values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.leaves)).slice(1).forEach(function (r) {
+    if (String(r[1]) !== employeeId || normalise_(r[6]) !== 'approved') return;
+    var d = new Date(r[3]), end = new Date(r[4]); if (isNaN(d) || isNaN(end)) return;
+    for (; d <= end; d.setDate(d.getDate() + 1)) { if (d.getFullYear() === year && (d.getMonth() + 1) === month) leaveByDate[Utilities.formatDate(d, ICT, 'yyyy-MM-dd')] = String(r[2] || 'ลา'); }
+  });
+  // attendance grouped by day (accepted)
+  const byDay = {};
+  values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.attendance)).slice(1).forEach(function (r) {
+    if (String(r[1]) !== employeeId || String(r[9]) !== 'accepted') return;
+    const ts = new Date(r[4]); if (ts.getFullYear() !== year || (ts.getMonth() + 1) !== month) return;
+    const day = Utilities.formatDate(ts, ICT, 'yyyy-MM-dd'), it = byDay[day] || { in: null, out: null };
+    if (String(r[3]) === 'check_in') it.in = it.in ? (ts < it.in ? ts : it.in) : ts;
+    if (String(r[3]) === 'check_out') it.out = it.out ? (ts > it.out ? ts : it.out) : ts;
+    byDay[day] = it;
+  });
+  const todayStr = Utilities.formatDate(today, ICT, 'yyyy-MM-dd');
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const days = [];
+  for (let dn = 1; dn <= daysInMonth; dn++) {
+    const dateStr = year + '-' + String(month).padStart(2, '0') + '-' + String(dn).padStart(2, '0');
+    const dow = new Date(dateStr + 'T00:00:00+07:00').getDay();
+    const rec = byDay[dateStr], isHoliday = !!holidays[dateStr], leaveType = leaveByDate[dateStr] || '';
+    let status, inStr = '', outStr = '', workedMinutes = 0, otMinutes = 0, late = false;
+    if (rec && rec.in) {
+      inStr = Utilities.formatDate(rec.in, ICT, 'HH:mm');
+      const inMin = rec.in.getHours() * 60 + rec.in.getMinutes();
+      late = !isHoliday && leaveType === '' && inMin > shiftMinutes + grace;
+      if (rec.out && rec.out > rec.in) {
+        outStr = Utilities.formatDate(rec.out, ICT, 'HH:mm');
+        workedMinutes = Math.round((rec.out - rec.in) / 60000);
+        const net = Math.max(0, workedMinutes - lunch);
+        otMinutes = (isHoliday && holidayOt) ? net : Math.max(0, net - otThreshold);
+        status = isHoliday ? 'holiday_work' : (late ? 'late' : 'normal');
+      } else { status = 'incomplete'; }
+    } else if (leaveType) { status = 'leave'; }
+    else if (isHoliday) { status = 'holiday'; }
+    else if (dateStr > todayStr) { status = 'future'; }
+    else if (workdays.indexOf(String(dow)) >= 0) { status = 'absent'; }
+    else { status = 'off'; }
+    days.push({ date: dateStr, day: dn, dow: dow, status: status, checkIn: inStr, checkOut: outStr, workedMinutes: workedMinutes, otMinutes: otMinutes, late: late, holidayName: holidays[dateStr] || '', leaveType: leaveType });
+  }
+  return reply_(true, 'Month loaded', { year: year, month: month, shiftStart: settings.shift_start, lunchBreakMin: lunch, otThresholdHours: Number(settings.ot_threshold_hours || 8), days: days });
 }
 function parsePayload_(e) { if (!e || !e.postData || !e.postData.contents || e.postData.contents.length > 20000) throw new Error('Invalid request body'); const payload = JSON.parse(e.postData.contents); if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('Invalid JSON object'); return payload; }
 function values_(sheet) { if (!sheet) throw new Error('Required spreadsheet tab is missing'); return sheet.getDataRange().getValues(); }
