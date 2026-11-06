@@ -181,16 +181,47 @@ function recordAttendance_(payload) {
   const accepted = employee.locationRequired ? accuracy <= MAX_ACCURACY_METRES && distance <= site.radius : true;
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
+  let overtimeInfo = null;
   try {
     const log = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.attendance);
     const todayState = attendanceStateForToday_(log, employee.id, new Date());
     if (eventType === 'check_in' && todayState.checkedIn) return reply_(false, 'วันนี้คุณบันทึกเข้างานแล้ว', todayState);
     if (eventType === 'check_out' && !todayState.checkedIn) return reply_(false, 'ต้องบันทึกเข้างานก่อนจึงจะบันทึกออกงานได้', todayState);
     if (eventType === 'check_out' && todayState.checkedOut) return reply_(false, 'วันนี้คุณบันทึกออกงานแล้ว', todayState);
-    log.appendRow([Utilities.getUuid(), employee.id, site ? site.id : employee.siteId, eventType, new Date(), latitude === null ? '' : latitude, longitude === null ? '' : longitude, accuracy === null ? '' : accuracy, distance === null ? '' : Math.round(distance * 100) / 100, accepted ? 'accepted' : 'rejected', String(payload.deviceTimezone || ''), employee.locationRequired ? 'mobile_api_location' : 'mobile_api_no_location', accepted ? 'pending' : 'rejected', new Date()]);
+    const now = new Date();
+    log.appendRow([Utilities.getUuid(), employee.id, site ? site.id : employee.siteId, eventType, now, latitude === null ? '' : latitude, longitude === null ? '' : longitude, accuracy === null ? '' : accuracy, distance === null ? '' : Math.round(distance * 100) / 100, accepted ? 'accepted' : 'rejected', String(payload.deviceTimezone || ''), employee.locationRequired ? 'mobile_api_location' : 'mobile_api_no_location', accepted ? 'pending' : 'rejected', new Date()]);
     touchMobileToken_(payload.mobileToken);
+    // Auto-detect overtime on check-out: if the worked time exceeds the employee's
+    // standard hours, submit a PENDING overtime request for the admin to approve.
+    if (eventType === 'check_out' && accepted) overtimeInfo = autoCreateOvertime_(employee.id, now);
   } finally { lock.releaseLock(); }
-  return reply_(accepted, accepted ? 'Attendance recorded' : 'Outside permitted radius or GPS accuracy is too low', { decision: accepted ? 'accepted' : 'rejected', locationRequired: employee.locationRequired, distanceMetres: distance === null ? null : Math.round(distance), allowedRadiusMetres: site ? site.radius : null });
+  return reply_(accepted, accepted ? 'Attendance recorded' : 'Outside permitted radius or GPS accuracy is too low', { decision: accepted ? 'accepted' : 'rejected', locationRequired: employee.locationRequired, distanceMetres: distance === null ? null : Math.round(distance), allowedRadiusMetres: site ? site.radius : null, overtime: overtimeInfo });
+}
+
+// If a check-out means the employee worked past their standard hours (by more than
+// a grace window), create a pending overtime request so the admin can approve it.
+// Returns a small summary for the app, or null when there is no overtime.
+function autoCreateOvertime_(employeeId, checkoutTime) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  initializePayrollRulesSheet();
+  const rule = values_(ss.getSheetByName(SHEETS.payrollRules)).slice(1).find(r => String(r[0]).trim().toUpperCase() === String(employeeId).trim().toUpperCase());
+  if (!rule || String(rule[4]) !== 'true') return null; // no rule, or OT disabled
+  const standardMinutes = Number(rule[3] || 8) * 60;
+  const today = Utilities.formatDate(checkoutTime, ICT, 'yyyy-MM-dd');
+  const logs = values_(ss.getSheetByName(SHEETS.attendance)).slice(1)
+    .filter(r => String(r[1]) === employeeId && String(r[9]) === 'accepted' && String(r[3]) === 'check_in' && Utilities.formatDate(new Date(r[4]), ICT, 'yyyy-MM-dd') === today);
+  if (!logs.length) return null;
+  const inMs = Math.min.apply(null, logs.map(r => new Date(r[4]).getTime()));
+  const worked = Math.round((checkoutTime.getTime() - inMs) / 60000);
+  const overage = worked - standardMinutes;
+  const GRACE_MINUTES = 15;
+  if (overage < GRACE_MINUTES) return null;
+  initializeTimeRequestsSheet();
+  const trSheet = ss.getSheetByName(SHEETS.timeRequests);
+  const already = values_(trSheet).slice(1).some(r => String(r[1]) === employeeId && String(r[2]) === 'overtime' && Utilities.formatDate(new Date(r[3]), ICT, 'yyyy-MM-dd') === today);
+  if (already) return { overtimeMinutes: overage, status: 'already_requested' };
+  trSheet.appendRow([Utilities.getUuid(), employeeId, 'overtime', new Date(today + 'T00:00:00+07:00'), overage, 'อัตโนมัติ: ทำเกินเวลามาตรฐาน ' + overage + ' นาที', 'pending', new Date(), '', '', '']);
+  return { overtimeMinutes: overage, status: 'pending' };
 }
 
 // Admin records a check-in/out on behalf of an employee (manual, no GPS). Same

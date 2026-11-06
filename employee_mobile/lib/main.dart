@@ -328,7 +328,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
           ),
         );
       }
-      await BvnApi().attendance(
+      final res = await BvnApi().attendance(
         token: widget.token,
         eventType: type,
         latitude: p?.latitude ?? 0,
@@ -337,9 +337,21 @@ class _EmployeeShellState extends State<EmployeeShell> {
       );
       await _refresh();
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('บันทึกเวลาเข้าระบบแล้ว')));
+        final ot = (res['data'] as Map<String, dynamic>?)?['overtime']
+            as Map<String, dynamic>?;
+        final otMin = (ot?['overtimeMinutes'] as num?)?.round() ?? 0;
+        String msg = 'บันทึกเวลาเข้าระบบแล้ว';
+        if (type == 'check_out' && otMin > 0) {
+          final h = otMin ~/ 60, m = otMin % 60;
+          final dur = h > 0 ? '$h ชม. ${m > 0 ? '$m นาที' : ''}'.trim() : '$m นาที';
+          msg = ot?['status'] == 'already_requested'
+              ? 'บันทึกออกงานแล้ว • ทำเกินเวลา ~$dur (ส่งขออนุมัติ OT ไว้แล้ว)'
+              : 'บันทึกออกงานแล้ว • ตรวจพบ OT ~$dur ส่งขออนุมัติให้แอดมินแล้ว ✅';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(msg),
+          duration: const Duration(seconds: 4),
+        ));
       }
     } on BvnApiException catch (e) {
       if (mounted) {
