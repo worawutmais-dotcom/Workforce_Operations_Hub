@@ -804,6 +804,19 @@ async function renderPayroll(){
   loadPayrollHistory();
 }
 
+// Build a "forgot to check out" warning from preview/overview incompleteDays.
+function incompleteWarningHtml(incompleteDays){
+  const inc=incompleteDays||[];
+  if(!inc.length) return "";
+  const issueLabel=i=> i==="no_checkout"?"ลืมเช็กเอาต์" : i==="no_checkin"?"ไม่มีเช็กอิน" : "เวลาไม่ถูกต้อง";
+  const rows=inc.slice(0,40).map(d=>`<li><b>${esc(d.name)}</b> <span class="sub">(${esc(d.employeeId)})</span> · ${fmtDate(d.date)} · <span style="color:#b45309">${issueLabel(d.issue)}</span>${d.checkIn?` · เข้า ${esc(d.checkIn)}`:""}${d.checkOut?` · ออก ${esc(d.checkOut)}`:""}</li>`).join("");
+  return `<div class="notice" style="flex-direction:column;align-items:stretch">
+    <div><b>⚠️ มี ${fmtInt(inc.length)} วันที่เวลาไม่ครบ — ไม่ถูกนำไปคิดเงินเดือน</b> (ส่วนใหญ่คือลืมกดเช็กเอาต์)</div>
+    <ul style="margin:8px 0 0;padding-left:20px;font-size:13px;line-height:1.7">${rows}${inc.length>40?`<li class="sub">… และอีก ${fmtInt(inc.length-40)} วัน</li>`:""}</ul>
+    <div class="sub" style="margin-top:6px">แก้ได้โดยให้พนักงานกดเช็กเอาต์ หรือแอดมินลงเวลาแทนในหน้า “เจ้าของธุรกิจ”</div>
+  </div>`;
+}
+
 async function doPreview(btn){
   const startDate=$("#pStart").value, endDate=$("#pEnd").value;
   if(!startDate||!endDate){ toast("เลือกช่วงวันที่ก่อน","bad"); return; }
@@ -813,8 +826,9 @@ async function doPreview(btn){
       const data=await api("admin_preview_payroll",{startDate, endDate});
       lastPreview={startDate:data.startDate, endDate:data.endDate, lines:data.lines, totalGross:data.totalGross, totalAdvance:data.totalAdvance, totalNet:data.totalNet, period:{start:data.startDate, end:data.endDate, label:""}};
       const box=$("#previewResult");
-      if(!data.lines.length){ box.innerHTML=`<div class="empty">ไม่มีข้อมูลค่าแรงในช่วงนี้ (ต้องมีวันทำงานที่เช็กอิน/ออกครบ และตั้งเรตค่าจ้างแล้ว)</div>`; return; }
-      box.innerHTML=`
+      const incWarn=incompleteWarningHtml(data.incompleteDays);
+      if(!data.lines.length){ box.innerHTML=incWarn+`<div class="empty">ไม่มีข้อมูลค่าแรงในช่วงนี้ (ต้องมีวันทำงานที่เช็กอิน/ออกครบ และตั้งเรตค่าจ้างแล้ว)</div>`; return; }
+      box.innerHTML=incWarn+`
         <table><thead><tr><th>พนักงาน</th><th class="num">วันทำงาน</th><th class="num">ชม.ปกติ</th><th class="num">OT</th>
           <th class="num">ฐาน</th><th class="num">OT (เงิน)</th><th class="num">รวม gross</th><th class="num">หักเบิก</th><th class="num">สุทธิ</th><th></th></tr></thead>
         <tbody>${data.lines.map((l,idx)=>`
@@ -1031,6 +1045,7 @@ async function renderOwner(){
           <tfoot><tr><td colspan="6" class="num"><b>ยอดรวมทั้งสิ้น</b></td><td class="num">${fmtBaht(data.totalGross)}</td><td class="num">${(data.totalAdvance||0)?"-"+fmtBaht(data.totalAdvance):"—"}</td><td class="num"><b>${fmtBaht(data.totalNet!=null?data.totalNet:data.totalGross)}</b></td><td></td></tr></tfoot>
         </table></div>
       </div>
+      ${incompleteWarningHtml(data.incompleteDays)}
       <div class="panel"><div class="head"><b>บันทึกเวลาเข้า-ออก</b> <span class="sub">(บรรทัดเดียวต่อวัน)</span><div class="spacer"></div>
         <select id="ownEmp" style="padding:7px 10px;border:1px solid #d7dce5;border-radius:8px;font:inherit"></select>
         <button class="btn ok sm" id="ownIn" style="margin-left:8px">ลงเวลาเข้า</button>

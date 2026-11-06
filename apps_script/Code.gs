@@ -371,6 +371,21 @@ function adminPreviewPayroll_(payload) {
   const approvedOt = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.timeRequests)).slice(1).filter(row => String(row[2]) === 'overtime' && normalise_(row[6]) === 'approved');
   const byEmployeeDay = {};
   logs.forEach(row => { const day = Utilities.formatDate(new Date(row[4]), ICT, 'yyyy-MM-dd'); if (day < startText || day > endText) return; const key = String(row[1]) + '|' + day; const item = byEmployeeDay[key] || { employeeId: String(row[1]), day: day, in: null, out: null }; if (String(row[3]) === 'check_in') item.in = item.in || new Date(row[4]); if (String(row[3]) === 'check_out') item.out = new Date(row[4]); byEmployeeDay[key] = item; });
+  // Detect days that were started but never completed (forgot to check out, or an
+  // orphan check-out). These days are NOT paid, so surface them as warnings.
+  const nameMap = employeeNameMap_();
+  const incompleteDays = [];
+  const incompleteByEmp = {};
+  Object.values(byEmployeeDay).forEach(item => {
+    if (item.in && item.out && item.out > item.in) return; // complete day
+    const issue = item.in && !item.out ? 'no_checkout' : (!item.in && item.out ? 'no_checkin' : 'invalid');
+    incompleteDays.push({
+      employeeId: item.employeeId, name: (nameMap[item.employeeId] || {}).name || item.employeeId, date: item.day, issue: issue,
+      checkIn: item.in ? Utilities.formatDate(item.in, ICT, 'HH:mm') : '', checkOut: item.out ? Utilities.formatDate(item.out, ICT, 'HH:mm') : ''
+    });
+    incompleteByEmp[item.employeeId] = (incompleteByEmp[item.employeeId] || 0) + 1;
+  });
+  incompleteDays.sort((a, b) => a.date < b.date ? 1 : -1);
   const result = {};
   Object.values(byEmployeeDay).forEach(item => { if (!item.in || !item.out || item.out <= item.in || !rules[item.employeeId]) return; const line = result[item.employeeId] || { employeeId: item.employeeId, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0, grossPay: 0, warnings: [] }; const rule = rules[item.employeeId], basis = normalise_(rule[1]), rate = Number(rule[2] || 0), standardMinutes = Number(rule[3] || 8) * 60; const minutes = Math.round((item.out - item.in) / 60000); line.workDays += 1; line.regularMinutes += Math.min(minutes, standardMinutes); if (basis === 'daily') line.baseGross += rate; else line.baseGross += Math.min(minutes, standardMinutes) / 60 * rate; result[item.employeeId] = line; });
   approvedOt.forEach(row => { const day = Utilities.formatDate(new Date(row[3]), ICT, 'yyyy-MM-dd'), employeeId = String(row[1]); if (day < startText || day > endText || !rules[employeeId]) return; const line = result[employeeId] || { employeeId: employeeId, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0, grossPay: 0, warnings: ['Approved OT has no accepted complete attendance day'] }; const rule = rules[employeeId], baseHourly = normalise_(rule[1]) === 'daily' ? Number(rule[2] || 0) / Number(rule[3] || 8) : Number(rule[2] || 0), multiplier = String(rule[4]) === 'true' ? Number(rule[5] || 1.5) : 0, minutes = Number(row[4] || 0); line.otMinutes += minutes; line.otGross += minutes / 60 * baseHourly * multiplier; result[employeeId] = line; });
@@ -378,9 +393,10 @@ function adminPreviewPayroll_(payload) {
   const lines = Object.values(result).map(line => {
     const grossPay = roundMoney_(line.baseGross + line.otGross);
     const fit = advanceFit_(outstanding[line.employeeId], grossPay);
+    if (incompleteByEmp[line.employeeId]) line.warnings.push('ลืมเช็กเอาต์/เวลาไม่ครบ ' + incompleteByEmp[line.employeeId] + ' วัน (ไม่ถูกคิดเงิน)');
     return { ...line, baseGross: roundMoney_(line.baseGross), otGross: roundMoney_(line.otGross), grossPay: grossPay, advanceDeduction: fit.deduction, netPay: roundMoney_(grossPay - fit.deduction) };
   });
-  return reply_(true, 'Gross-pay preview loaded', { startDate: startText, endDate: endText, status: 'preview', disclaimer: 'Gross-pay preview only. Tax, SSO, withholding and payment are excluded. Net = gross minus unsettled advances already paid out, capped at gross.', lines: lines, totalGross: roundMoney_(lines.reduce((sum, line) => sum + line.grossPay, 0)), totalAdvance: roundMoney_(lines.reduce((sum, line) => sum + line.advanceDeduction, 0)), totalNet: roundMoney_(lines.reduce((sum, line) => sum + line.netPay, 0)) });
+  return reply_(true, 'Gross-pay preview loaded', { startDate: startText, endDate: endText, status: 'preview', disclaimer: 'Gross-pay preview only. Tax, SSO, withholding and payment are excluded. Net = gross minus unsettled advances already paid out, capped at gross.', lines: lines, incompleteDays: incompleteDays, totalGross: roundMoney_(lines.reduce((sum, line) => sum + line.grossPay, 0)), totalAdvance: roundMoney_(lines.reduce((sum, line) => sum + line.advanceDeduction, 0)), totalNet: roundMoney_(lines.reduce((sum, line) => sum + line.netPay, 0)) });
 }
 
 // Outstanding advances per employee = money already handed out (status 'paid') that
@@ -583,7 +599,7 @@ function adminOwnerOverview_(payload) {
   const pending = advances.filter(a => a.status === 'pending'), approvedUnpaid = advances.filter(a => a.status === 'approved'), paidUnsettled = advances.filter(a => a.status === 'paid');
   return reply_(true, 'Owner overview loaded', {
     settings: settings, period: range, nextPayday: nextPayday_(settings),
-    lines: lines, totalGross: preview.data.totalGross, totalAdvance: preview.data.totalAdvance, totalNet: preview.data.totalNet, paidCount: lines.length, activeEmployees: activeCount,
+    lines: lines, incompleteDays: preview.data.incompleteDays || [], totalGross: preview.data.totalGross, totalAdvance: preview.data.totalAdvance, totalNet: preview.data.totalNet, paidCount: lines.length, activeEmployees: activeCount,
     advancesPending: { count: pending.length, total: sumAmt(pending) },
     advancesApprovedUnpaid: { count: approvedUnpaid.length, total: sumAmt(approvedUnpaid) },
     advancesPaidUnsettled: { count: paidUnsettled.length, total: sumAmt(paidUnsettled) }
