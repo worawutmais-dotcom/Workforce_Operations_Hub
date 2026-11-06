@@ -374,21 +374,36 @@ function adminPreviewPayroll_(payload) {
   const result = {};
   Object.values(byEmployeeDay).forEach(item => { if (!item.in || !item.out || item.out <= item.in || !rules[item.employeeId]) return; const line = result[item.employeeId] || { employeeId: item.employeeId, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0, grossPay: 0, warnings: [] }; const rule = rules[item.employeeId], basis = normalise_(rule[1]), rate = Number(rule[2] || 0), standardMinutes = Number(rule[3] || 8) * 60; const minutes = Math.round((item.out - item.in) / 60000); line.workDays += 1; line.regularMinutes += Math.min(minutes, standardMinutes); if (basis === 'daily') line.baseGross += rate; else line.baseGross += Math.min(minutes, standardMinutes) / 60 * rate; result[item.employeeId] = line; });
   approvedOt.forEach(row => { const day = Utilities.formatDate(new Date(row[3]), ICT, 'yyyy-MM-dd'), employeeId = String(row[1]); if (day < startText || day > endText || !rules[employeeId]) return; const line = result[employeeId] || { employeeId: employeeId, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0, grossPay: 0, warnings: ['Approved OT has no accepted complete attendance day'] }; const rule = rules[employeeId], baseHourly = normalise_(rule[1]) === 'daily' ? Number(rule[2] || 0) / Number(rule[3] || 8) : Number(rule[2] || 0), multiplier = String(rule[4]) === 'true' ? Number(rule[5] || 1.5) : 0, minutes = Number(row[4] || 0); line.otMinutes += minutes; line.otGross += minutes / 60 * baseHourly * multiplier; result[employeeId] = line; });
-  const advanceMap = approvedUnpaidAdvanceMap_();
+  const outstanding = outstandingAdvancesByEmployee_();
   const lines = Object.values(result).map(line => {
     const grossPay = roundMoney_(line.baseGross + line.otGross);
-    const advanceDeduction = roundMoney_(advanceMap[line.employeeId] || 0);
-    return { ...line, baseGross: roundMoney_(line.baseGross), otGross: roundMoney_(line.otGross), grossPay: grossPay, advanceDeduction: advanceDeduction, netPay: roundMoney_(grossPay - advanceDeduction) };
+    const fit = advanceFit_(outstanding[line.employeeId], grossPay);
+    return { ...line, baseGross: roundMoney_(line.baseGross), otGross: roundMoney_(line.otGross), grossPay: grossPay, advanceDeduction: fit.deduction, netPay: roundMoney_(grossPay - fit.deduction) };
   });
-  return reply_(true, 'Gross-pay preview loaded', { startDate: startText, endDate: endText, status: 'preview', disclaimer: 'Gross-pay preview only. Tax, SSO, withholding and payment are excluded. Net = gross minus approved unpaid advances.', lines: lines, totalGross: roundMoney_(lines.reduce((sum, line) => sum + line.grossPay, 0)), totalAdvance: roundMoney_(lines.reduce((sum, line) => sum + line.advanceDeduction, 0)), totalNet: roundMoney_(lines.reduce((sum, line) => sum + line.netPay, 0)) });
+  return reply_(true, 'Gross-pay preview loaded', { startDate: startText, endDate: endText, status: 'preview', disclaimer: 'Gross-pay preview only. Tax, SSO, withholding and payment are excluded. Net = gross minus unsettled advances already paid out, capped at gross.', lines: lines, totalGross: roundMoney_(lines.reduce((sum, line) => sum + line.grossPay, 0)), totalAdvance: roundMoney_(lines.reduce((sum, line) => sum + line.advanceDeduction, 0)), totalNet: roundMoney_(lines.reduce((sum, line) => sum + line.netPay, 0)) });
 }
 
-// Per-employee total of advances that are approved but not yet paid — the amount
-// to subtract from gross pay to get net pay at month end.
-function approvedUnpaidAdvanceMap_() {
+// Outstanding advances per employee = money already handed out (status 'paid') that
+// has NOT yet been recovered from salary (not 'settled'). Oldest first (sheet order),
+// each with its sheet row so lock can mark exactly these as settled — this is what
+// stops the same advance from being deducted again every month.
+function outstandingAdvancesByEmployee_() {
   initializeAdvancesSheet();
-  const rows = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.advances)).slice(1).map(advanceFromRow_);
-  return rows.reduce((map, a) => { if (a.advanceId && a.status === 'approved') map[a.employeeId] = (map[a.employeeId] || 0) + a.amount; return map; }, {});
+  const rows = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.advances));
+  const map = {};
+  rows.slice(1).forEach((r, i) => {
+    const a = advanceFromRow_(r);
+    if (a.advanceId && a.status === 'paid') (map[a.employeeId] = map[a.employeeId] || []).push({ sheetRow: i + 2, amount: a.amount });
+  });
+  return map;
+}
+
+// Greedy fit: include whole advances (oldest first) while they still fit within gross,
+// so net pay never goes negative and the remainder carries to the next period.
+function advanceFit_(list, gross) {
+  let deduction = 0; const sheetRows = [];
+  (list || []).forEach(it => { if (deduction + it.amount <= gross) { deduction += it.amount; sheetRows.push(it.sheetRow); } });
+  return { deduction: roundMoney_(deduction), sheetRows: sheetRows };
 }
 
 function adminLockPayroll_(payload) {
@@ -399,8 +414,22 @@ function adminLockPayroll_(payload) {
   const periods = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.payroll), existing = values_(periods).slice(1).find(row => String(row[0]) === payrollId);
   if (existing) return reply_(false, 'Payroll period is already locked');
   const lock = LockService.getScriptLock(); lock.waitLock(10000);
-  try { periods.appendRow([payrollId, data.startDate, data.endDate, 'locked', new Date(), String(payload.lockedBy || 'Admin')]); const lines = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.payrollLines); data.lines.forEach(line => lines.appendRow([payrollId, line.employeeId, line.regularMinutes, line.otMinutes, line.baseGross, line.otGross, line.grossPay, new Date()])); } finally { lock.releaseLock(); }
-  return reply_(true, 'Payroll period locked', { payrollId: payrollId, totalGross: data.totalGross });
+  let settledCount = 0;
+  try {
+    periods.appendRow([payrollId, data.startDate, data.endDate, 'locked', new Date(), String(payload.lockedBy || 'Admin')]);
+    const lines = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.payrollLines);
+    const advanceSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.advances);
+    const outstanding = outstandingAdvancesByEmployee_();
+    data.lines.forEach(line => {
+      // Store the frozen snapshot INCLUDING advance deduction and net pay.
+      lines.appendRow([payrollId, line.employeeId, line.regularMinutes, line.otMinutes, line.baseGross, line.otGross, line.grossPay, line.advanceDeduction || 0, line.netPay != null ? line.netPay : line.grossPay, new Date()]);
+      // Recover exactly the advances this paycheck covered → mark them 'settled' so
+      // they are never deducted again in a future period.
+      const fit = advanceFit_(outstanding[line.employeeId], line.grossPay);
+      fit.sheetRows.forEach(rowNo => { advanceSheet.getRange(rowNo, 6).setValue('settled'); advanceSheet.getRange(rowNo, 11).setValue(payrollId); settledCount++; });
+    });
+  } finally { lock.releaseLock(); }
+  return reply_(true, 'Payroll period locked', { payrollId: payrollId, totalGross: data.totalGross, totalNet: data.totalNet, advancesSettled: settledCount });
 }
 
 function adminListPayrolls_(payload) {
@@ -418,9 +447,15 @@ function adminGetPayroll_(payload) {
   const period = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.payroll)).slice(1).find(row => String(row[0]) === payrollId);
   if (!period) return reply_(false, 'Payroll period not found');
   const names = employeeNameMap_();
-  const advanceMap = approvedUnpaidAdvanceMap_();
   const lines = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.payrollLines)).slice(1).filter(row => String(row[0]) === payrollId)
-    .map(row => { const employeeId = String(row[1]); const grossPay = Number(row[6] || 0); const advanceDeduction = roundMoney_(advanceMap[employeeId] || 0); return { employeeId: employeeId, name: (names[employeeId] || {}).name || employeeId, role: (names[employeeId] || {}).role || '', regularMinutes: Number(row[2] || 0), otMinutes: Number(row[3] || 0), baseGross: Number(row[4] || 0), otGross: Number(row[5] || 0), grossPay: grossPay, advanceDeduction: advanceDeduction, netPay: roundMoney_(grossPay - advanceDeduction) }; });
+    .map(row => {
+      const employeeId = String(row[1]); const grossPay = Number(row[6] || 0);
+      // New rows (length >= 9) store the frozen advance deduction + net pay; old rows do not.
+      const hasSnapshot = row.length >= 9;
+      const advanceDeduction = hasSnapshot ? roundMoney_(Number(row[7] || 0)) : 0;
+      const netPay = hasSnapshot ? roundMoney_(Number(row[8] || grossPay)) : grossPay;
+      return { employeeId: employeeId, name: (names[employeeId] || {}).name || employeeId, role: (names[employeeId] || {}).role || '', regularMinutes: Number(row[2] || 0), otMinutes: Number(row[3] || 0), baseGross: Number(row[4] || 0), otGross: Number(row[5] || 0), grossPay: grossPay, advanceDeduction: advanceDeduction, netPay: netPay };
+    });
   return reply_(true, 'Payroll snapshot loaded', { payrollId: payrollId, startDate: Utilities.formatDate(new Date(period[1]), ICT, 'yyyy-MM-dd'), endDate: Utilities.formatDate(new Date(period[2]), ICT, 'yyyy-MM-dd'), status: String(period[3]), lines: lines, totalGross: roundMoney_(lines.reduce((sum, line) => sum + line.grossPay, 0)), totalAdvance: roundMoney_(lines.reduce((sum, line) => sum + line.advanceDeduction, 0)), totalNet: roundMoney_(lines.reduce((sum, line) => sum + line.netPay, 0)) });
 }
 
@@ -545,12 +580,13 @@ function adminOwnerOverview_(payload) {
   initializeAdvancesSheet();
   const advances = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.advances)).slice(1).map(advanceFromRow_).filter(a => a.advanceId);
   const sumAmt = (arr) => roundMoney_(arr.reduce((s, a) => s + a.amount, 0));
-  const pending = advances.filter(a => a.status === 'pending'), approvedUnpaid = advances.filter(a => a.status === 'approved');
+  const pending = advances.filter(a => a.status === 'pending'), approvedUnpaid = advances.filter(a => a.status === 'approved'), paidUnsettled = advances.filter(a => a.status === 'paid');
   return reply_(true, 'Owner overview loaded', {
     settings: settings, period: range, nextPayday: nextPayday_(settings),
     lines: lines, totalGross: preview.data.totalGross, totalAdvance: preview.data.totalAdvance, totalNet: preview.data.totalNet, paidCount: lines.length, activeEmployees: activeCount,
     advancesPending: { count: pending.length, total: sumAmt(pending) },
-    advancesApprovedUnpaid: { count: approvedUnpaid.length, total: sumAmt(approvedUnpaid) }
+    advancesApprovedUnpaid: { count: approvedUnpaid.length, total: sumAmt(approvedUnpaid) },
+    advancesPaidUnsettled: { count: paidUnsettled.length, total: sumAmt(paidUnsettled) }
   });
 }
 
@@ -584,7 +620,7 @@ function adminSaveSite_(payload) {
 /* =========================== Salary advance (เบิกเงินล่วงหน้า) =========================== */
 function initializeAdvancesSheet() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  if (!ss.getSheetByName(SHEETS.advances)) { const s = ss.insertSheet(SHEETS.advances); s.appendRow(['Advance ID', 'Employee ID', 'Amount', 'Reason', 'Request date', 'Status', 'Reviewer', 'Decided at', 'Paid at', 'Created at']); s.setFrozenRows(1); }
+  if (!ss.getSheetByName(SHEETS.advances)) { const s = ss.insertSheet(SHEETS.advances); s.appendRow(['Advance ID', 'Employee ID', 'Amount', 'Reason', 'Request date', 'Status', 'Reviewer', 'Decided at', 'Paid at', 'Created at', 'Settled payroll']); s.setFrozenRows(1); }
 }
 function advanceFromRow_(r) {
   const dt = (v) => v ? Utilities.formatDate(new Date(v), ICT, "yyyy-MM-dd'T'HH:mm:ssXXX") : '';

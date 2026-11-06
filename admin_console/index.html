@@ -1018,9 +1018,10 @@ async function renderOwner(){
         <div class="body"><div id="ownSiteBody" class="sub">กำลังโหลด…</div></div>
       </div>
       <div class="panel"><div class="head"><b>เบิกเงินล่วงหน้า</b><div class="spacer"></div><button class="btn sub" id="ownGoAdv">ไปหน้าเบิกเงิน</button></div>
-        <div class="body"><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:18px">
+        <div class="body"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
           <div><div class="label">รออนุมัติ</div><div style="font-size:17px;font-weight:600;margin-top:3px">${fmtInt((data.advancesPending||{}).count||0)} รายการ · ${fmtBaht((data.advancesPending||{}).total||0)}</div></div>
-          <div><div class="label">อนุมัติแล้ว รอจ่าย</div><div style="font-size:17px;font-weight:600;margin-top:3px">${fmtInt((data.advancesApprovedUnpaid||{}).count||0)} รายการ · ${fmtBaht((data.advancesApprovedUnpaid||{}).total||0)}</div></div>
+          <div><div class="label">อนุมัติแล้ว รอจ่ายเงิน</div><div style="font-size:17px;font-weight:600;margin-top:3px">${fmtInt((data.advancesApprovedUnpaid||{}).count||0)} รายการ · ${fmtBaht((data.advancesApprovedUnpaid||{}).total||0)}</div></div>
+          <div><div class="label">จ่ายแล้ว รอหักเงินเดือน</div><div style="font-size:17px;font-weight:600;margin-top:3px;color:#b45309">${fmtInt((data.advancesPaidUnsettled||{}).count||0)} รายการ · ${fmtBaht((data.advancesPaidUnsettled||{}).total||0)}</div></div>
         </div></div>
       </div>
       <div class="panel"><div class="head"><b>ต้องจ่ายใครบ้างในงวดนี้</b><div class="spacer"></div><button class="btn" id="ownLock">ล็อกงวด + บันทึก snapshot</button></div>
@@ -1152,19 +1153,21 @@ async function siteDialog(site){
   openModal("ตั้งค่าตำแหน่งร้าน (GPS)", body, [cancel, save]);
 }
 
-const ADV_BADGE={pending:"blue",approved:"",paid:"grey",rejected:"red"};
-const ADV_LABEL={pending:"รออนุมัติ",approved:"อนุมัติแล้ว · รอจ่าย",paid:"จ่ายแล้ว",rejected:"ปฏิเสธ"};
+const ADV_BADGE={pending:"blue",approved:"",paid:"amber",settled:"grey",rejected:"red"};
+const ADV_LABEL={pending:"รออนุมัติ",approved:"อนุมัติแล้ว · รอจ่ายเงิน",paid:"จ่ายแล้ว · รอหักเงินเดือน",settled:"หักจากเงินเดือนแล้ว",rejected:"ปฏิเสธ"};
 async function renderAdvances(){
   const node=$("#page-advances"); skeleton(node);
   try{
     const data=await api("admin_list_advances");
     const adv=data.advances||[];
-    const pending=adv.filter(a=>a.status==="pending"), approved=adv.filter(a=>a.status==="approved");
+    const pending=adv.filter(a=>a.status==="pending"), approved=adv.filter(a=>a.status==="approved"), paid=adv.filter(a=>a.status==="paid");
     const sum=(arr)=>arr.reduce((s,a)=>s+Number(a.amount||0),0);
     node.innerHTML=`
+      <div class="notice blue">ขั้นตอน: <b>อนุมัติ</b> → <b>บันทึกจ่ายแล้ว</b> (ยื่นเงินให้ลูกน้อง) → ระบบจะ<b>หักจากเงินเดือน</b>อัตโนมัติเมื่อล็อกงวด แล้วเปลี่ยนเป็น “หักแล้ว” (หักครั้งเดียว ไม่ซ้ำ)</div>
       <div class="cards">
         <div class="card"><div class="label">รออนุมัติ</div><div class="value">${fmtInt(pending.length)}</div><div class="note ${pending.length?"bad":""}">${fmtBaht(sum(pending))}</div></div>
-        <div class="card"><div class="label">อนุมัติแล้ว รอจ่าย</div><div class="value">${fmtBaht(sum(approved))}</div><div class="note">${fmtInt(approved.length)} รายการ</div></div>
+        <div class="card"><div class="label">อนุมัติแล้ว รอจ่ายเงิน</div><div class="value">${fmtBaht(sum(approved))}</div><div class="note">${fmtInt(approved.length)} รายการ</div></div>
+        <div class="card"><div class="label">จ่ายแล้ว รอหักเงินเดือน</div><div class="value">${fmtBaht(sum(paid))}</div><div class="note">${fmtInt(paid.length)} รายการ · จะถูกหักเมื่อล็อกงวด</div></div>
         <div class="card"><div class="label">คำขอทั้งหมด</div><div class="value">${fmtInt(adv.length)}</div><div class="note">ทุกสถานะ</div></div>
       </div>
       <div class="panel"><div class="head"><b>คำขอเบิกเงินล่วงหน้า</b></div>
