@@ -42,7 +42,6 @@
 | `admin_console/` | หน้า Admin เว็บ (single-file `index.html` วานิลลา JS) + `run.bat` |
 | `admin_desktop/` | หน้า Admin เดสก์ท็อป (Python/PyInstaller) + EXE ที่ build แล้วใน `dist/` |
 | `employee_mobile/` | แอปพนักงาน Flutter (Android) — `lib/main.dart`, `lib/bvn_api.dart` |
-| `supabase/` | สคีมา/สคริปต์ทางเลือก (สำรอง) |
 | `tools/`, `docs/` | เครื่องมือช่วยและเอกสารประกอบ |
 | `*.md` | เอกสารออกแบบ/แผนงาน — `SYSTEM_DESIGN_PLAN.md`, `IMPLEMENTATION_PLAN.md`, `AI_COLLAB_BRIEF.md` (changelog หลัก), `CLAUDE_HANDOFF.md` |
 
