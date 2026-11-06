@@ -1366,10 +1366,12 @@ function settingsDialog(s){
   const freqField=el(`<div class="field"><label>รอบการจ่าย</label><select id="sFreq" style="width:100%;padding:9px 10px;border:1px solid #d7dce5;border-radius:8px;font:inherit">
     <option value="monthly">รายเดือน (เดือนละครั้ง)</option><option value="semimonthly">เดือนละ 2 ครั้ง</option><option value="weekly">รายสัปดาห์ (จ่ายทุกวันศุกร์)</option></select></div>`);
   body.append(freqField); freqField.querySelector("#sFreq").value=s.pay_frequency||"monthly";
+  const payDayOpts=(sel)=>{ let o=`<option value="end"${String(sel)==="end"?" selected":""}>สิ้นเดือน</option>`;
+    for(let d=1;d<=31;d++) o+=`<option value="${d}"${String(sel)===String(d)?" selected":""}>วันที่ ${d}</option>`; return o; };
   const g=el(`<div class="grid2"></div>`);
   g.append(
-    field("วันจ่าย (หลัก)", `<input id="sPay1" type="text" value="${esc(s.pay_day_1||"end")}" placeholder="30 หรือ end">`, "ใส่เลขวันที่ หรือ end = สิ้นเดือน"),
-    field("วันจ่ายรอบ 2 (เฉพาะเดือนละ 2 ครั้ง)", `<input id="sPay2" type="text" value="${esc(s.pay_day_2||"15")}" placeholder="15">`),
+    field("วันจ่าย (หลัก)", `<select id="sPay1">${payDayOpts(s.pay_day_1||"end")}</select>`),
+    field("วันจ่ายรอบ 2 (เฉพาะเดือนละ 2 ครั้ง)", `<select id="sPay2">${payDayOpts(s.pay_day_2||"15")}</select>`),
   );
   body.append(g);
   const wd=el(`<div class="field"><label>วันทำงาน (เลือกวันที่พนักงานต้องมาทำงาน)</label><div id="sWd" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px"></div></div>`);
