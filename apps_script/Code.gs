@@ -33,6 +33,7 @@ function doPost(e) {
     if (action === 'admin_list_holidays') return adminListHolidays_(payload);
     if (action === 'admin_save_holiday') return adminSaveHoliday_(payload);
     if (action === 'admin_delete_holiday') return adminDeleteHoliday_(payload);
+    if (action === 'admin_import_holidays') return adminImportHolidays_(payload);
     if (action === 'employee_directory') return employeeDirectory_();
     if (action === 'employee_login') return employeeLogin_(payload);
     if (action === 'admin_list_employees') return adminListEmployees_(payload);
@@ -1238,6 +1239,24 @@ function adminDeleteHoliday_(payload) {
   sheet.deleteRow(idx + 2);
   audit_(String(payload.reviewer || 'Admin'), 'holiday_deleted', date, '');
   return reply_(true, 'ลบวันหยุดแล้ว', { date: date });
+}
+
+// Import Thai public holidays for a year from a free source (date.nager.at), skipping any already present.
+function adminImportHolidays_(payload) {
+  requireAdmin_(payload); initializeHolidaysSheet();
+  const year = parseInt(payload.year, 10) || Number(Utilities.formatDate(new Date(), ICT, 'yyyy'));
+  let added = 0;
+  try {
+    const res = UrlFetchApp.fetch('https://date.nager.at/api/v3/PublicHolidays/' + year + '/TH', { muteHttpExceptions: true });
+    if (res.getResponseCode() !== 200) return reply_(false, 'ดึงข้อมูลวันหยุดไม่สำเร็จ (HTTP ' + res.getResponseCode() + ')');
+    const list = JSON.parse(res.getContentText());
+    if (!Array.isArray(list)) return reply_(false, 'รูปแบบข้อมูลวันหยุดไม่ถูกต้อง');
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.holidays);
+    const existing = holidayMap_();
+    list.forEach(function (h) { const d = String(h.date || ''); const name = String(h.localName || h.name || 'วันหยุด'); if (d && !existing[d]) { sheet.appendRow([d, name]); existing[d] = name; added++; } });
+  } catch (e) { return reply_(false, 'ดึงข้อมูลไม่สำเร็จ: ' + e.message); }
+  audit_(String(payload.reviewer || 'Admin'), 'holidays_imported', String(year), 'added ' + added);
+  return reply_(true, 'ดึงวันหยุดราชการปี ' + year + ' แล้ว (เพิ่ม ' + added + ' วัน)', { year: year, added: added });
 }
 
 /* =========================== Employee monthly attendance (calendar) =========================== */

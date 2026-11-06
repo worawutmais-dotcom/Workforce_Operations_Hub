@@ -1847,7 +1847,7 @@ async function renderSettings(){
       </table></div>
     </div>
     <div class="panel"><div class="head"><h2>วันหยุด</h2><span class="sub" style="margin-left:8px">ใช้กับปฏิทินพนักงาน + คิด OT วันหยุด</span>
-      <div class="spacer"></div><button class="btn ok sm" id="addHoliday">➕ เพิ่มวันหยุด</button></div>
+      <div class="spacer"></div><button class="btn sub sm" id="importHoliday">⬇ ดึงวันหยุดราชการ</button><button class="btn ok sm" id="addHoliday">➕ เพิ่มวันหยุด</button></div>
       <div class="body flush"><table id="holTable"><thead><tr><th>วันที่</th><th>ชื่อวันหยุด</th><th data-nosort></th></tr></thead>
       <tbody id="holRows"><tr><td colspan="3"><div class="empty">กำลังโหลด…</div></td></tr></tbody></table></div>
     </div>`;
@@ -1856,7 +1856,18 @@ async function renderSettings(){
     state.endpoint=v; LS.setItem("bvn_endpoint", v); toast("บันทึก endpoint แล้ว","good"); };
   $("#addAdmin").onclick=()=>adminUserDialog(null);
   $("#addHoliday").onclick=()=>holidayDialog();
+  $("#importHoliday").onclick=(e)=>importHolidays(e.target);
   loadAdminUsers(); loadHolidays();
+}
+async function importHolidays(btn){
+  const yNow=new Date().getFullYear();
+  const y=prompt("ดึงวันหยุดราชการไทยของปี (ค.ศ.):", String(yNow));
+  if(!y) return;
+  await withBtn(btn, async ()=>{
+    try{ const r=await api("admin_import_holidays",{year:parseInt(y,10)||yNow, reviewer:state.reviewer||"Admin"});
+      toast(r.message||("เพิ่ม "+(r.added||0)+" วัน"),"good"); loadHolidays();
+    }catch(err){ toast(err.message,"bad"); }
+  });
 }
 async function loadHolidays(){
   const tb=$("#holRows"); if(!tb) return;
@@ -1992,10 +2003,12 @@ function closeRowMenu(){ const m=$(".ctxmenu"); if(m) m.remove(); }
 /* =================================================================
    BOOT
    ================================================================= */
-// Auto-heal: a known-stale /exec URL saved from before → move it to the current default.
+// Auto-heal: any saved Apps Script /exec URL that isn't the current default → migrate
+// it to the default. The owner never overrides the endpoint intentionally, so this
+// guarantees the console always points at the latest deployment baked into this file.
 try{
-  const saved=LS.getItem("bvn_endpoint"), OLD=["zu9KzeCGU","WBW-2","DODafxnL","YKKI4tRSAM"];
-  if(saved && saved!==DEFAULT_ENDPOINT && OLD.some(x=>saved.indexOf(x)>=0)){
+  const saved=LS.getItem("bvn_endpoint");
+  if(saved && saved!==DEFAULT_ENDPOINT && /script\.google\.com\/macros\/s\/.+\/exec/.test(saved)){
     LS.setItem("bvn_endpoint", DEFAULT_ENDPOINT);
   }
 }catch(_){}
