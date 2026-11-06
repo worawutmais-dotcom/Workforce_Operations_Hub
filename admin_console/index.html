@@ -128,6 +128,29 @@
   .subtabs button.active{background:linear-gradient(180deg,#3d76ff,#2f6bff);color:#fff;box-shadow:0 4px 12px rgba(47,107,255,.32)}
   .pilln{background:var(--red);color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:0 7px;min-width:18px;text-align:center}
 
+  /* ---------- Dashboard viz ---------- */
+  .ring{--p:0;width:72px;height:72px;border-radius:50%;flex:none;
+    background:conic-gradient(var(--blue) calc(var(--p)*1%),var(--line) 0);display:grid;place-items:center}
+  .ring-in{width:54px;height:54px;border-radius:50%;background:var(--card);display:grid;place-items:center;text-align:center;line-height:1.05}
+  .ring-in b{font-size:17px;color:var(--navy);font-weight:800}
+  .ring-in small{display:block;font-size:11px;color:var(--muted)}
+  .track{height:10px;border-radius:999px;background:var(--line-soft);overflow:hidden}
+  .track .fill{height:100%;border-radius:999px;transition:width .4s ease}
+  @media(max-width:820px){.dash-grid{grid-template-columns:1fr!important}}
+  th.sortable:hover{color:var(--ink)}
+  th .sort-ar{color:var(--blue);font-size:10px}
+  .pager{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:10px 16px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+  .pager button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:5px 11px}
+  .pager button:disabled{opacity:.4;cursor:not-allowed}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .cal-head{text-align:center;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;padding:4px 0}
+  .cal-cell{position:relative;min-height:46px;border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:var(--card)}
+  .cal-cell.empty-cell{border:0;background:transparent}
+  .cal-cell .cal-d{font-size:12px;color:var(--muted)}
+  .cal-cell.today{border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue)}
+  .cal-cell.has{background:var(--blue-soft);border-color:#c9ddff}
+  .cal-cell .cal-n{position:absolute;right:6px;bottom:6px;background:var(--blue);color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:0 7px}
+
   /* ---------- Cards ---------- */
   .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
   .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);transition:transform .15s,box-shadow .15s;overflow:hidden}
@@ -289,6 +312,7 @@
       </div>
       <div class="spacer"></div>
       <div class="asof" id="asof"></div>
+      <button class="btn sm" id="quickBtn">+ สร้าง</button>
       <button class="btn sub sm icon-btn" id="themeBtn" title="สลับโหมดสว่าง/มืด" aria-label="สลับธีม">🌙</button>
       <button class="btn sub sm" id="refreshBtn">↻ รีเฟรช</button>
     </div>
@@ -509,42 +533,87 @@ function empName(id){ const e=state.empById[id]; return e?e.name:id; }
 /* =================================================================
    DASHBOARD
    ================================================================= */
+function ring(pct,label){
+  pct=Math.max(0,Math.min(100,Math.round(pct)));
+  return `<div class="ring" style="--p:${pct}"><div class="ring-in">${label}</div></div>`;
+}
 async function renderDashboard(data){
   const node=$("#page-dashboard");
   try{
-    if(!data){ skeleton(node); data=await api("dashboard"); }
+    skeleton(node);
+    // Pull the headline stats plus richer context in parallel (frontend-only).
+    const [dash, owner, leaveD, timeD] = await Promise.all([
+      data ? Promise.resolve(data) : api("dashboard"),
+      api("admin_owner_overview").catch(()=>({})),
+      api("admin_list_leave_requests").catch(()=>({requests:[]})),
+      api("admin_list_time_requests").catch(()=>({requests:[]})),
+    ]);
+    data=dash;
     $("#asof").innerHTML = "ข้อมูลล่าสุด<br>"+fmtDateTime(data.asOf);
     const present=Number(data.present||0), total=Number(data.totalEmployees||0);
+    const absent=Math.max(0,total-present);
+    const presentPct = total? present/total*100 : 0;
+    const leaves=(leaveD.requests||[]), times=(timeD.requests||[]);
+    const pendL=leaves.filter(r=>r.status==="pending"), pendT=times.filter(r=>r.status==="pending");
+    const totalNet = owner.totalNet!=null?owner.totalNet:(owner.totalGross||0);
+    const pendingList=[
+      ...pendL.map(r=>({type:"ลา",name:empName(r.employeeId),detail:`${r.leaveType} · ${fmtDate(r.startDate)}`,nav:"approvals"})),
+      ...pendT.map(r=>({type:r.requestType==="overtime"?"OT":"แก้เวลา",name:empName(r.employeeId),detail:`${fmtDate(r.workDate)} · ${fmtHours(r.requestedMinutes)}`,nav:"approvals"})),
+    ].slice(0,6);
     node.innerHTML=`
       <div class="cards">
         <div class="card"><div class="label">มาทำงานวันนี้</div>
-          <div class="value">${fmtInt(present)} <span style="font-size:15px;color:var(--muted)">/ ${fmtInt(total)}</span></div>
-          <div class="note">พนักงานที่ active ทั้งหมด ${fmtInt(total)} คน</div></div>
+          <div style="display:flex;align-items:center;gap:14px;margin-top:6px">
+            ${ring(presentPct, `<b>${fmtInt(present)}</b><small>/${fmtInt(total)}</small>`)}
+            <div><div class="value" style="font-size:22px;margin:0">${fmtInt(Math.round(presentPct))}%</div><div class="note">ยังไม่เช็กอิน ${fmtInt(absent)} คน</div></div>
+          </div></div>
+        <div class="card"><div class="label">ยอดสุทธิต้องจ่ายงวดนี้</div>
+          <div class="value">${fmtBaht(totalNet)}</div>
+          <div class="note">gross ${fmtBaht(owner.totalGross||0)} · ${fmtInt(owner.paidCount||0)} คน</div></div>
         <div class="card"><div class="label">รอการอนุมัติ</div>
           <div class="value">${fmtInt(data.pendingApprovals)}</div>
-          <div class="note ${Number(data.pendingApprovals)>0?"warn":""}">ลา + OT/แก้เวลา รวมกัน</div></div>
-        <div class="card"><div class="label">รายการเวลาที่ผิดปกติ</div>
-          <div class="value">${fmtInt(data.exceptions)}</div>
-          <div class="note ${Number(data.exceptions)>0?"warn":""}">ต้องเคลียร์ก่อนรอบ payroll</div></div>
+          <div class="note ${Number(data.pendingApprovals)>0?"warn":""}">ลา ${fmtInt(pendL.length)} · OT/เวลา ${fmtInt(pendT.length)}</div></div>
         <div class="card"><div class="label">Invoice เกินกำหนด</div>
           <div class="value">${fmtBaht(data.overdueInvoices)}</div>
           <div class="note ${Number(data.overdueInvoices)>0?"bad":""}">ยอดที่ยัง issued และเลยกำหนด</div></div>
       </div>
-      <div class="panel"><div class="head"><h2>ทางลัด</h2></div>
-        <div class="body toolbar">
-          <button class="btn ghost" data-nav="approvals">ไปที่คิวอนุมัติ</button>
-          <button class="btn ghost" data-nav="payroll">พรีวิวเงินเดือน</button>
-          <button class="btn ghost" data-nav="employees">เพิ่มพนักงาน</button>
-          <button class="btn ghost" data-nav="invoices">สร้างใบแจ้งหนี้</button>
+
+      <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:18px;margin-top:18px" class="dash-grid">
+        <div class="panel" style="margin:0"><div class="head"><b>สถานะวันนี้</b><span class="sub" style="margin-left:8px">${fmtDate(todayISO())}</span></div>
+          <div class="body">
+            ${bar("มาทำงานแล้ว", present, total, "var(--green)")}
+            ${bar("ยังไม่เช็กอิน", absent, total, "var(--amber)")}
+            ${bar("เวลาผิดปกติ (ค้างเคลียร์)", Number(data.exceptions||0), total, "var(--red)")}
+          </div>
+        </div>
+        <div class="panel" style="margin:0"><div class="head"><b>คำขอรออนุมัติ</b><div class="spacer"></div><button class="btn sub sm" data-nav="approvals">ดูทั้งหมด</button></div>
+          <div class="body flush">${pendingList.length? `<table><tbody>${pendingList.map(r=>`
+            <tr><td><span class="badge ${r.type==="ลา"?"blue":"amber"}">${esc(r.type)}</span></td>
+              <td class="person">${esc(r.name)}</td><td class="sub">${esc(r.detail)}</td></tr>`).join("")}</tbody></table>`
+            : `<div class="empty">ไม่มีคำขอค้าง 🎉</div>`}</div>
         </div>
       </div>
-      <div class="panel"><div class="head"><h2>งวดเงินเดือนล่าสุด</h2></div>
-        <div class="body">${data.latestPayrollId
-          ? `<b>${esc(data.latestPayrollId)}</b> — สถานะ <span class="badge ${data.latestPayrollStatus==="locked"?"blue":"grey"}">${esc(data.latestPayrollStatus||"—")}</span>`
-          : `<span style="color:var(--muted)">ยังไม่มีงวดที่ล็อก</span>`}</div>
+
+      <div class="panel"><div class="head"><b>ทางลัด</b></div>
+        <div class="body toolbar">
+          <button class="btn ghost" data-act="emp">+ เพิ่มพนักงาน</button>
+          <button class="btn ghost" data-act="ot">บันทึก OT</button>
+          <button class="btn ghost" data-act="inv">ออกใบแจ้งหนี้</button>
+          <button class="btn ghost" data-nav="payroll">พรีวิวเงินเดือน</button>
+          <div class="spacer"></div>
+          <span class="sub">งวดล่าสุด: ${data.latestPayrollId?`<b>${esc(data.latestPayrollId)}</b> <span class="badge ${data.latestPayrollStatus==="locked"?"blue":"grey"}">${esc(data.latestPayrollStatus||"—")}</span>`:"ยังไม่มีงวดที่ล็อก"}</span>
+        </div>
       </div>`;
     node.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>go(b.dataset.nav));
+    node.querySelector('[data-act="emp"]').onclick=()=>employeeDialog(null);
+    node.querySelector('[data-act="ot"]').onclick=()=>addOvertimeDialog();
+    node.querySelector('[data-act="inv"]').onclick=()=>newInvoiceDialog();
   }catch(err){ errorBox(node, err, ()=>renderDashboard()); }
+}
+function bar(label,val,total,color){
+  const pct=total?Math.round(val/total*100):0;
+  return `<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span>${esc(label)}</span><b>${fmtInt(val)}</b></div>
+    <div class="track"><div class="fill" style="width:${pct}%;background:${color}"></div></div></div>`;
 }
 
 async function refreshApprovalBadge(){
@@ -573,18 +642,28 @@ async function renderEmployees(){
           <div class="spacer"></div>
           <button class="btn" id="addEmpBtn">+ เพิ่มพนักงาน</button>
         </div>
-        <div class="body flush"><table>
-          <thead><tr><th>พนักงาน</th><th>ตำแหน่ง / แผนก</th><th>ไซต์</th><th>GPS</th><th>รหัสผ่าน</th><th>สถานะ</th><th></th></tr></thead>
+        <div class="body flush"><table id="empTable">
+          <thead><tr><th>พนักงาน</th><th>ตำแหน่ง / แผนก</th><th>ไซต์</th><th>GPS</th><th data-nosort>รหัสผ่าน</th><th>สถานะ</th><th data-nosort></th></tr></thead>
           <tbody id="empRows"></tbody></table>
+          <div class="pager" id="empPager" style="display:none"></div>
         </div>
       </div>`;
+    const PAGE=15; let page=1;
     const draw=(q="")=>{
       q=q.trim().toLowerCase();
-      const rows=state.employees
+      const all=state.employees
         .filter(e=>!q || (e.id+e.name+(e.role||"")+(e.siteId||"")).toLowerCase().includes(q))
         .sort((a,b)=> (a.status===b.status)? a.id.localeCompare(b.id) : (a.status==="active"?-1:1));
-      const tb=$("#empRows");
-      if(!rows.length){ tb.innerHTML=`<tr><td colspan="7"><div class="empty">ไม่พบพนักงาน</div></td></tr>`; return; }
+      const tb=$("#empRows"), pager=$("#empPager");
+      if(!all.length){ tb.innerHTML=`<tr><td colspan="7"><div class="empty">ไม่พบพนักงาน</div></td></tr>`; pager.style.display="none"; return; }
+      const pages=Math.ceil(all.length/PAGE); if(page>pages)page=pages; if(page<1)page=1;
+      const rows=all.slice((page-1)*PAGE, page*PAGE);
+      if(pages>1){ pager.style.display="flex";
+        pager.innerHTML=`<span>แสดง ${(page-1)*PAGE+1}–${Math.min(page*PAGE,all.length)} จาก ${all.length} คน</span>
+          <button id="empPrev" ${page<=1?"disabled":""}>‹ ก่อนหน้า</button><span>หน้า ${page}/${pages}</span><button id="empNext" ${page>=pages?"disabled":""}>ถัดไป ›</button>`;
+        pager.querySelector("#empPrev").onclick=()=>{page--;draw(q);};
+        pager.querySelector("#empNext").onclick=()=>{page++;draw(q);};
+      } else pager.style.display="none";
       tb.innerHTML=rows.map(e=>`
         <tr data-id="${esc(e.id)}">
           <td class="person">${esc(e.name)}<span class="sub">${esc(e.id)}</span></td>
@@ -609,9 +688,10 @@ async function renderEmployees(){
           ...(e.status==="active"?[{label:"⛔ ปิดใช้งาน", danger:true, fn:()=>deactivate(e)}]:[]),
         ]);
       });
+      attachSort($("#empTable"));
     };
     draw();
-    $("#empSearch").oninput=e=>draw(e.target.value);
+    $("#empSearch").oninput=e=>{ page=1; draw(e.target.value); };
     $("#addEmpBtn").onclick=()=>employeeDialog(null);
     loadPwRequests();
   }catch(err){ errorBox(node, err, renderEmployees); }
@@ -739,9 +819,11 @@ async function renderApprovals(){
         <div class="body flush"><table><thead><tr><th>พนักงาน</th><th>ประเภท</th><th>วันที่</th><th>จำนวน</th><th>เหตุผล</th><th>สถานะ</th><th></th></tr></thead>
         <tbody id="timeRows"></tbody></table></div>
       </div>
-      <div class="panel"><div class="head"><h2>📅 ใครลาวันไหน</h2><span class="sub" style="margin-left:8px">ประวัติการลา (อนุมัติแล้ว)</span><div class="spacer"></div>
-        <label class="check" style="margin:0"><input type="checkbox" id="leaveLogAll"> รวมที่รออนุมัติ/ปฏิเสธ</label></div>
-        <div class="body flush"><table><thead><tr><th>ช่วงวันลา</th><th>พนักงาน</th><th>ประเภท</th><th class="num">จำนวนวัน</th><th>เหตุผล</th><th>สถานะ</th></tr></thead>
+      <div class="panel"><div class="head"><h2>📅 ใครลาวันไหน</h2><span class="sub" style="margin-left:8px">ปฏิทิน + ประวัติการลา (อนุมัติแล้ว)</span><div class="spacer"></div>
+        <button class="btn sub sm" id="calPrev">‹</button><span id="calLabel" style="min-width:120px;text-align:center;font-weight:600"></span><button class="btn sub sm" id="calNext">›</button>
+        <label class="check" style="margin:0 0 0 12px"><input type="checkbox" id="leaveLogAll"> รวมที่รออนุมัติ/ปฏิเสธ</label></div>
+        <div class="body" id="leaveCalWrap"></div>
+        <div class="body flush" style="border-top:1px solid var(--line)"><table><thead><tr><th>ช่วงวันลา</th><th>พนักงาน</th><th>ประเภท</th><th class="num">จำนวนวัน</th><th>เหตุผล</th><th>สถานะ</th></tr></thead>
         <tbody id="leaveLogRows"></tbody></table></div>
       </div>`;
 
@@ -792,7 +874,27 @@ async function renderApprovals(){
           <td style="max-width:240px">${esc(r.reason||"—")}</td><td>${statusBadge(r.status)}</td></tr>`).join("")
         : `<tr><td colspan="6"><div class="empty">ยังไม่มีประวัติการลา</div></td></tr>`;
     };
-    drawLeave(); drawTime(); drawLeaveLog();
+    let calBase=new Date();
+    const drawCal=()=>{
+      const y=calBase.getFullYear(), m=calBase.getMonth();
+      $("#calLabel").textContent=["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"][m]+" "+(y+543);
+      // map day -> [{name,type}] from approved leaves overlapping this month
+      const byDay={};
+      leaves.filter(r=>r.status==="approved").forEach(r=>{
+        let d=new Date(r.startDate+"T00:00:00+07:00"); const end=new Date((r.endDate||r.startDate)+"T00:00:00+07:00");
+        if(isNaN(d)||isNaN(end)) return;
+        for(;d<=end;d.setDate(d.getDate()+1)){ if(d.getFullYear()===y&&d.getMonth()===m){ const k=d.getDate(); (byDay[k]=byDay[k]||[]).push(empName(r.employeeId)+" ("+r.leaveType+")"); } }
+      });
+      const first=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate(), todayISOv=todayISO();
+      let cells=""; for(let i=0;i<first;i++) cells+=`<div class="cal-cell empty-cell"></div>`;
+      for(let dn=1;dn<=days;dn++){ const iso=`${y}-${String(m+1).padStart(2,"0")}-${String(dn).padStart(2,"0")}`; const list=byDay[dn]||[];
+        cells+=`<div class="cal-cell${iso===todayISOv?" today":""}${list.length?" has":""}" ${list.length?`title="${esc(list.join(", "))}"`:""}>
+          <span class="cal-d">${dn}</span>${list.length?`<span class="cal-n">${list.length}</span>`:""}</div>`; }
+      $("#leaveCalWrap").innerHTML=`<div class="cal-grid">${["อา","จ","อ","พ","พฤ","ศ","ส"].map(d=>`<div class="cal-head">${d}</div>`).join("")}${cells}</div>`;
+    };
+    $("#calPrev").onclick=()=>{calBase.setMonth(calBase.getMonth()-1);drawCal();};
+    $("#calNext").onclick=()=>{calBase.setMonth(calBase.getMonth()+1);drawCal();};
+    drawLeave(); drawTime(); drawLeaveLog(); drawCal();
     $("#leaveAll").onchange=drawLeave; $("#timeAll").onchange=drawTime; $("#leaveLogAll").onchange=drawLeaveLog;
     $("#addOtBtn").onclick=()=>addOvertimeDialog();
   }catch(err){ errorBox(node, err, renderApprovals); }
@@ -999,8 +1101,8 @@ async function renderPayrules(){
     node.innerHTML=`
       <div class="notice blue">ตั้งเรตค่าจ้าง 1 เรต/คน ใช้คำนวณเงินเดือน (ฐาน + OT + วันพิเศษ) — ตั้งแล้ว <b>${fmtInt(withRule)}</b> คน${missing?` · <span style="color:#b45309">ยังไม่ตั้ง ${fmtInt(missing)} คน</span>`:""}</div>
       <div class="panel"><div class="head"><h2>เรตค่าจ้างพนักงาน</h2><span class="sub" style="margin-left:8px">คลิกขวาหรือปุ่ม “ตั้งเรต / แก้ไข” ที่แต่ละแถว</span></div>
-        <div class="body flush"><table>
-          <thead><tr><th>พนักงาน</th><th>รูปแบบ</th><th class="num">อัตราฐาน</th><th class="num">ชม./วัน</th><th>OT</th><th>วันพิเศษ</th><th>สถานะ</th><th></th></tr></thead>
+        <div class="body flush"><table id="ruleTable">
+          <thead><tr><th>พนักงาน</th><th>รูปแบบ</th><th class="num">อัตราฐาน</th><th class="num">ชม./วัน</th><th>OT</th><th>วันพิเศษ</th><th>สถานะ</th><th data-nosort></th></tr></thead>
           <tbody id="ruleRows"></tbody>
         </table></div>
       </div>`;
@@ -1019,6 +1121,7 @@ async function renderPayrules(){
     tb.querySelectorAll("[data-rule]").forEach(b=>b.onclick=()=>payRuleDialog(payRulesCache.find(x=>x.employeeId===b.dataset.rule)));
     tb.querySelectorAll("tr[data-id]").forEach(tr=>{ const r=payRulesCache.find(x=>x.employeeId===tr.dataset.id);
       attachRowMenu(tr, [{label:(r.hasRule?"✏️ แก้ไขเรต":"➕ ตั้งเรต"), fn:()=>payRuleDialog(r)}]); });
+    attachSort($("#ruleTable"));
   }catch(err){ errorBox(node, err, renderPayrules); }
 }
 
@@ -1630,6 +1733,40 @@ async function deleteAdminUser(u){
   catch(err){ toast(err.message,"bad"); }
 }
 
+/* ---------- reusable sortable table ---------- */
+// Click a header to sort the current tbody rows (auto number vs text). Re-callable
+// after a re-render. Add data-nosort on headers that shouldn't sort (action columns).
+function attachSort(table){
+  if(!table) return;
+  const ths=[...table.tHead.rows[0].cells];
+  ths.forEach((th,ci)=>{
+    if(th.hasAttribute("data-nosort")||!th.textContent.trim()) return;
+    th.style.cursor="pointer"; th.classList.add("sortable");
+    th.onclick=()=>{
+      const tb=table.tBodies[0]; const rows=[...tb.rows].filter(r=>r.cells.length>ci && !r.querySelector(".empty"));
+      if(rows.length<2) return;
+      const asc=th.dataset.sort!=="asc";
+      ths.forEach(x=>{x.removeAttribute("data-sort");x.querySelector(".sort-ar")?.remove();});
+      th.dataset.sort=asc?"asc":"desc";
+      const val=(r)=>{ const t=(r.cells[ci].innerText||"").replace(/[,฿\s]/g,"").trim();
+        const n=parseFloat(t); return (t!==""&&!isNaN(n)&&/^-?[\d.]+$/.test(t))?n:(r.cells[ci].innerText||"").trim().toLowerCase(); };
+      rows.sort((a,b)=>{ const x=val(a),y=val(b); if(x<y)return asc?-1:1; if(x>y)return asc?1:-1; return 0; });
+      rows.forEach(r=>tb.appendChild(r));
+      const ar=document.createElement("span"); ar.className="sort-ar"; ar.textContent=asc?" ▲":" ▼"; th.appendChild(ar);
+    };
+  });
+}
+
+/* ---------- global quick-create menu ---------- */
+function quickCreateMenu(btn){
+  const r=btn.getBoundingClientRect();
+  openRowMenu(r.right-176, r.bottom+6, [
+    {label:"➕ เพิ่มพนักงาน", fn:()=>employeeDialog(null)},
+    {label:"🕑 บันทึก OT", fn:()=>addOvertimeDialog()},
+    {label:"🧾 ออกใบแจ้งหนี้", fn:()=>newInvoiceDialog()},
+  ]);
+}
+
 /* ---------- reusable right-click row menu ---------- */
 function attachRowMenu(tr, items){
   tr.addEventListener("contextmenu",(e)=>{ e.preventDefault(); openRowMenu(e.clientX, e.clientY, items); });
@@ -1660,6 +1797,7 @@ function applyTheme(mode){
 }
 applyTheme(LS.getItem("bvn_theme")==="dark" ? "dark" : "light");
 $("#themeBtn") && ($("#themeBtn").onclick=()=>applyTheme(document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark"));
+$("#quickBtn") && ($("#quickBtn").onclick=(e)=>quickCreateMenu(e.currentTarget));
 $("#advToggle").addEventListener("click", (e)=>{ e.preventDefault(); const b=$("#advBox"); const open=b.style.display==="none"; b.style.display=open?"block":"none"; $("#advToggle").textContent="ตั้งค่าการเชื่อมต่อขั้นสูง "+(open?"▴":"▾"); });
 
 // Auto-resume a session token kept in this tab.
