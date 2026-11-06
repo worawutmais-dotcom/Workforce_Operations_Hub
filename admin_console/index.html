@@ -25,7 +25,7 @@
       radial-gradient(700px 500px at -5% 0%,rgba(11,143,98,.05),transparent 55%),
       var(--bg);
     color:var(--ink);
-    font-family:"IBM Plex Sans Thai","Inter",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px;line-height:1.5;
+    font-family:"IBM Plex Sans Thai","Inter",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:13px;line-height:1.45;
     -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
   :focus-visible{outline:none;box-shadow:var(--ring);border-radius:8px}
   .icon-btn{padding:7px 10px;font-size:15px;line-height:1}
@@ -76,7 +76,7 @@
   .field input:hover,.field select:hover,.field textarea:hover{border-color:#cdd6e5}
   .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue);background:#fff;box-shadow:var(--ring)}
   .login-err{margin-top:14px;font-size:13px;color:var(--red);min-height:18px}
-  .btn{border:0;border-radius:11px;padding:11px 17px;background:linear-gradient(180deg,#3d76ff,#2f6bff);color:#fff;font-weight:600;display:inline-flex;align-items:center;gap:8px;justify-content:center;box-shadow:0 3px 10px rgba(47,107,255,.28);transition:filter .15s,transform .06s,box-shadow .15s}
+  .btn{border:0;border-radius:10px;padding:9px 14px;background:linear-gradient(180deg,#3d76ff,#2f6bff);color:#fff;font-weight:600;display:inline-flex;align-items:center;gap:8px;justify-content:center;box-shadow:0 3px 10px rgba(47,107,255,.28);transition:filter .15s,transform .06s,box-shadow .15s}
   .btn:hover{filter:brightness(1.05);box-shadow:0 6px 16px rgba(47,107,255,.34)}
   .btn:active{transform:translateY(1px)}
   .btn.sub,.btn.ghost,.btn.danger,.btn.ok{box-shadow:none;background-image:none}
@@ -90,7 +90,7 @@
   .btn.danger:hover{background:#fbdede;filter:none}
   .btn.ok{background:var(--green-soft);color:#0a7350}
   .btn.ok:hover{background:#d6f2e6;filter:none}
-  .btn.sm{padding:7px 11px;font-size:13px;border-radius:9px}
+  .btn.sm{padding:6px 10px;font-size:12px;border-radius:8px}
 
   /* ---------- Shell ---------- */
   #app{display:none;grid-template-columns:238px 1fr;min-height:100vh}
@@ -114,12 +114,12 @@
   .side .foot a{color:#8fb3ff}
 
   .main{min-width:0;display:flex;flex-direction:column}
-  .topbar{display:flex;align-items:center;gap:14px;padding:15px 26px;background:rgba(255,255,255,.85);backdrop-filter:saturate(1.3) blur(8px);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10;box-shadow:0 1px 0 rgba(17,28,51,.02)}
-  .topbar .page-title{font-size:19px;font-weight:800;letter-spacing:-.3px;color:var(--navy)}
+  .topbar{display:flex;align-items:center;gap:12px;padding:11px 22px;background:rgba(255,255,255,.85);backdrop-filter:saturate(1.3) blur(8px);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10;box-shadow:0 1px 0 rgba(17,28,51,.02)}
+  .topbar .page-title{font-size:16px;font-weight:800;letter-spacing:-.3px;color:var(--navy)}
   .topbar .page-sub{font-size:12px;color:var(--muted);margin-top:2px}
   .topbar .spacer{flex:1}
   .asof{font-size:12px;color:var(--muted);text-align:right}
-  .content{padding:24px 26px 60px;max-width:1360px;width:100%}
+  .content{padding:16px 20px 48px;max-width:1360px;width:100%}
 
   .page{display:none}
   .page.active{display:block}
@@ -137,6 +137,13 @@
   .ring-in{width:54px;height:54px;border-radius:50%;background:var(--card);display:grid;place-items:center;text-align:center;line-height:1.05}
   .ring-in b{font-size:17px;color:var(--navy);font-weight:800}
   .ring-in small{display:block;font-size:11px;color:var(--muted)}
+  .donut{width:130px;height:130px;border-radius:50%;flex:none;display:grid;place-items:center}
+  .donut-in{width:88px;height:88px;border-radius:50%;background:var(--card);display:grid;place-items:center;text-align:center;line-height:1.1}
+  .donut-in b{font-size:26px;font-weight:800;color:var(--navy)} .donut-in small{display:block;font-size:11px;color:var(--muted)}
+  .dleg{display:flex;flex-direction:column;gap:8px;font-size:13px}
+  .dleg .row{display:flex;align-items:center;gap:8px}
+  .dleg .dot2{width:11px;height:11px;border-radius:3px;flex:none}
+  .dleg b{margin-left:auto;font-variant-numeric:tabular-nums}
   .track{height:10px;border-radius:999px;background:var(--line-soft);overflow:hidden}
   .track .fill{height:100%;border-radius:999px;transition:width .4s ease}
   .ops-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center;padding:27px 30px;border-radius:22px;color:#eff6ff;background:linear-gradient(125deg,#092440 0%,#114d79 57%,#246bb3 125%);box-shadow:0 18px 38px rgba(10,49,83,.2)}
@@ -166,22 +173,22 @@
   .cal-cell .cal-n{position:absolute;right:6px;bottom:6px;background:var(--blue);color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:0 7px}
 
   /* ---------- Cards ---------- */
-  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-  .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);transition:transform .15s,box-shadow .15s;overflow:hidden}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow);transition:transform .15s,box-shadow .15s;overflow:hidden}
   .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,#5a8bff,#2f6bff);opacity:0;transition:opacity .15s}
   .card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:#dbe3ef}
   .card:hover::before{opacity:1}
-  .card .label{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.2px;text-transform:uppercase}
-  .card .value{font-size:30px;font-weight:800;margin:10px 0 4px;letter-spacing:-.8px;color:var(--navy);line-height:1.1}
-  .card .note{font-size:12px;color:var(--muted)}
+  .card .label{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.2px;text-transform:uppercase}
+  .card .value{font-size:23px;font-weight:800;margin:6px 0 3px;letter-spacing:-.6px;color:var(--navy);line-height:1.1}
+  .card .note{font-size:11px;color:var(--muted)}
   .card .note.warn{color:var(--amber)}
   .card .note.bad{color:var(--red)}
 
-  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-top:18px;overflow:hidden}
-  .panel .head{display:flex;align-items:center;gap:12px;padding:15px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap;background:linear-gradient(180deg,#fcfdff,#f7f9fd)}
-  .panel .head h2,.panel .head>b{font-size:15px;font-weight:700;letter-spacing:-.2px;color:var(--navy)}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);margin-top:14px;overflow:hidden}
+  .panel .head{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap;background:linear-gradient(180deg,#fcfdff,#f7f9fd)}
+  .panel .head h2,.panel .head>b{font-size:14px;font-weight:700;letter-spacing:-.2px;color:var(--navy)}
   .panel .head .spacer{flex:1}
-  .panel .body{padding:16px 18px}
+  .panel .body{padding:13px 16px}
   .panel .body.flush{padding:0}
 
   .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -191,9 +198,9 @@
 
   /* ---------- Table ---------- */
   table{border-collapse:collapse;width:100%}
-  thead th{background:#f6f8fc;text-align:left;font-size:11px;color:var(--muted);
-    font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:12px 16px;border-bottom:1px solid var(--line);white-space:nowrap}
-  tbody td{padding:13px 16px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+  thead th{background:#f6f8fc;text-align:left;font-size:10px;color:var(--muted);
+    font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+  tbody td{padding:9px 12px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
   tbody tr{transition:background .12s}
   tbody tr:nth-child(even){background:#fafbfe}
   tbody tr:hover{background:var(--blue-soft)}
@@ -557,17 +564,25 @@ function ring(pct,label){
   pct=Math.max(0,Math.min(100,Math.round(pct)));
   return `<div class="ring" style="--p:${pct}"><div class="ring-in">${label}</div></div>`;
 }
+// Donut from segments [{val,color,label}] — conic-gradient, center shows a total.
+function donut(segments,centerTop,centerBot){
+  const tot=segments.reduce((s,x)=>s+x.val,0)||1; let acc=0; const stops=[];
+  segments.forEach(s=>{ const a=acc/tot*100, b=(acc+s.val)/tot*100; stops.push(`${s.color} ${a}% ${b}%`); acc+=s.val; });
+  const grad=stops.length?stops.join(","):"var(--line) 0 100%";
+  return `<div class="donut" style="background:conic-gradient(${grad})"><div class="donut-in"><b>${centerTop}</b><small>${centerBot}</small></div></div>`;
+}
 async function renderDashboard(data){
   const node=$("#page-dashboard");
   try{
     skeleton(node);
     // Pull the headline stats plus richer context in parallel (frontend-only).
-    const [dash, owner, leaveD, timeD, attendanceD] = await Promise.all([
+    const [dash, owner, leaveD, timeD, attendanceD, todayD] = await Promise.all([
       data ? Promise.resolve(data) : api("dashboard"),
       api("admin_owner_overview").catch(()=>({})),
       api("admin_list_leave_requests").catch(()=>({requests:[]})),
       api("admin_list_time_requests").catch(()=>({requests:[]})),
       api("admin_attendance_days").catch(()=>({days:[]})),
+      api("admin_attendance_days",{startDate:todayISO(),endDate:todayISO()}).catch(()=>({days:[]})),
     ]);
     data=dash;
     $("#asof").innerHTML = "ข้อมูลล่าสุด<br>"+fmtDateTime(data.asOf);
@@ -581,6 +596,23 @@ async function renderDashboard(data){
     attendanceDays.forEach(d=>{ const x=attendanceByEmployee[d.employeeId]||{complete:0,incomplete:0}; x[d.status==="complete"?"complete":"incomplete"]++; attendanceByEmployee[d.employeeId]=x; });
     const attendancePeople=(state.employees||[]).filter(e=>String(e.status||"").toLowerCase()==="active").slice(0,12);
     const attendanceCards=attendancePeople.length?attendancePeople.map(e=>{ const a=attendanceByEmployee[e.id]||{complete:0,incomplete:0}; return `<button class="attendance-person" data-calendar="${esc(e.id)}"><span class="ap-head"><span><span class="ap-name">${esc(e.name)}</span><span class="ap-role">${esc(e.role||"พนักงาน")}</span></span><span class="badge ${a.incomplete?"amber":"blue"}">${a.incomplete?"ต้องตรวจ":"ปกติ"}</span></span><span class="ap-count"><b>${fmtInt(a.complete)}</b><span>วันลงเวลาครบ<br>ในเดือนนี้</span></span><span class="ap-status"><span><i></i>ครบ ${fmtInt(a.complete)}</span><span><i class="warn"></i>ไม่ครบ ${fmtInt(a.incomplete)}</span></span></button>`; }).join(""):`<div class="empty">ยังไม่มีรายชื่อพนักงานที่ใช้งานอยู่</div>`;
+    // Today's per-person attendance (check-in/out) + on-time vs late using shift start.
+    const shift=(owner.settings&&owner.settings.shift_start)||"09:00";
+    const grace=Number((owner.settings&&owner.settings.shift_grace_min)||5);
+    const shMin=(()=>{const p=String(shift).split(":");return (+p[0]||9)*60+(+p[1]||0)+grace;})();
+    const todayDays=todayD.days||[];
+    const todayById={}; todayDays.forEach(d=>{ todayById[d.employeeId]=d; });
+    const activeEmps=(state.employees||[]).filter(e=>String(e.status||"").toLowerCase()==="active");
+    const leaveTodaySet=new Set((leaves||[]).filter(r=>r.status==="approved"&&r.startDate<=todayISO()&&r.endDate>=todayISO()).map(r=>r.employeeId));
+    const toMin=(hm)=>{ if(!hm) return null; const p=String(hm).split(":"); return (+p[0])*60+(+p[1]); };
+    let onTime=0,late=0,absToday=0;
+    const todayRows=activeEmps.map(e=>{ const d=todayById[e.id]; const onLeave=leaveTodaySet.has(e.id);
+      let status,cls;
+      if(d&&d.checkIn){ const lateFlag=toMin(d.checkIn)>shMin; if(lateFlag){late++;status="มาสาย";cls="amber";}else{onTime++;status="ตรงเวลา";cls="";} }
+      else if(onLeave){ status="ลา";cls="blue"; }
+      else { absToday++; status="ยังไม่มา";cls="grey"; }
+      return {e,d,onLeave,status,cls};
+    }).sort((a,b)=>{ const r=(x)=>x.d&&x.d.checkIn?0:(x.onLeave?2:1); const ra=r(a),rb=r(b); if(ra!==rb)return ra-rb; return (a.d&&a.d.checkIn||"zz").localeCompare(b.d&&b.d.checkIn||"zz"); });
     const pendL=leaves.filter(r=>r.status==="pending"), pendT=times.filter(r=>r.status==="pending");
     const totalNet = owner.totalNet!=null?owner.totalNet:(owner.totalGross||0);
     const pendingList=[
@@ -605,13 +637,16 @@ async function renderDashboard(data){
           <div class="note ${Number(data.overdueInvoices)>0?"bad":""}">ยอดที่ยัง issued และเลยกำหนด</div></div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:18px;margin-top:18px" class="dash-grid">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px" class="dash-grid">
         <div class="panel" style="margin:0"><div class="head"><b>สถานะวันนี้</b><span class="sub" style="margin-left:8px">${fmtDate(todayISO())}</span></div>
-          <div class="body">
-            ${bar("มาทำงานแล้ว", present, total, "var(--green)")}
-            ${bar("ยังไม่เช็กอิน", absent, total, "var(--amber)")}
-            ${bar("เวลาผิดปกติ (ค้างเคลียร์)", Number(data.exceptions||0), total, "var(--red)")}
-          </div>
+          <div class="body"><div style="display:flex;align-items:center;gap:18px">
+            ${donut([{val:onTime,color:"#0b8f62"},{val:late,color:"#d99a16"},{val:absToday,color:"#c7d0dc"}], fmtInt(onTime+late), "มาแล้ว/"+fmtInt(activeEmps.length))}
+            <div class="dleg" style="flex:1">
+              <div class="row"><span class="dot2" style="background:#0b8f62"></span>ตรงเวลา<b>${fmtInt(onTime)}</b></div>
+              <div class="row"><span class="dot2" style="background:#d99a16"></span>มาสาย<b>${fmtInt(late)}</b></div>
+              <div class="row"><span class="dot2" style="background:#c7d0dc"></span>ยังไม่มา/ลา<b>${fmtInt(absToday)}</b></div>
+            </div>
+          </div></div>
         </div>
         <div class="panel" style="margin:0"><div class="head"><b>คำขอรออนุมัติ</b><div class="spacer"></div><button class="btn sub sm" data-nav="approvals">ดูทั้งหมด</button></div>
           <div class="body flush">${pendingList.length? `<table><tbody>${pendingList.map(r=>`
@@ -619,6 +654,17 @@ async function renderDashboard(data){
               <td class="person">${esc(r.name)}</td><td class="sub">${esc(r.detail)}</td></tr>`).join("")}</tbody></table>`
             : `<div class="empty">ไม่มีคำขอค้าง 🎉</div>`}</div>
         </div>
+      </div>
+
+      <div class="panel"><div class="head"><b>เวลาเข้า-ออกงานวันนี้ (รายคน)</b><span class="sub" style="margin-left:8px">คลิกชื่อเพื่อดูปฏิทิน</span><div class="spacer"></div><button class="btn sub sm" data-act="clock">ลงเวลาแทน</button></div>
+        <div class="body flush"><table>
+          <thead><tr><th>พนักงาน</th><th>เข้า</th><th>ออก</th><th class="num">รวม</th><th>สถานะ</th></tr></thead>
+          <tbody>${todayRows.length?todayRows.map(r=>`<tr data-calendar="${esc(r.e.id)}" style="cursor:pointer">
+            <td class="person">${esc(r.e.name)}<span class="sub">${esc(r.e.role||"พนักงาน")}</span></td>
+            <td>${esc((r.d&&r.d.checkIn)||"—")}</td><td>${esc((r.d&&r.d.checkOut)||"—")}</td>
+            <td class="num">${r.d&&r.d.workedMinutes?fmtHours(r.d.workedMinutes):"—"}</td>
+            <td><span class="badge ${r.cls}">${r.status}</span></td></tr>`).join(""):`<tr><td colspan="5"><div class="empty">ยังไม่มีพนักงาน active</div></td></tr>`}</tbody>
+        </table></div>
       </div>
 
       <div class="panel"><div class="head"><b>ทางลัด</b></div>
@@ -632,11 +678,9 @@ async function renderDashboard(data){
           <span class="sub">งวดล่าสุด: ${data.latestPayrollId?`<b>${esc(data.latestPayrollId)}</b> <span class="badge ${data.latestPayrollStatus==="locked"?"blue":"grey"}">${esc(data.latestPayrollStatus||"—")}</span>`:"ยังไม่มีงวดที่ล็อก"}</span>
         </div>
       </div>`;
-    const board=el(`<section class="panel"><div class="head"><b>สรุปการเข้างานรายบุคคล</b><span class="sub">${fmtDate(attendanceD.startDate||todayISO())} – ${fmtDate(attendanceD.endDate||todayISO())} · คลิกชื่อเพื่อดูปฏิทิน</span><div class="spacer"></div><button class="btn sub sm" data-nav="owner">ดูบันทึกเวลาทั้งหมด</button></div><div class="body"><div class="attendance-board">${attendanceCards}</div></div></section>`);
-    node.querySelector(".panel").before(board);
     node.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>go(b.dataset.nav));
     node.querySelectorAll("[data-calendar]").forEach(b=>b.onclick=()=>openAttendanceCalendar(b.dataset.calendar, attendanceDays, attendanceD, owner));
-    node.querySelector('[data-act="clock"]').onclick=()=>adminAttendanceDialog();
+    node.querySelectorAll('[data-act="clock"]').forEach(b=>b.onclick=()=>adminAttendanceDialog());
     node.querySelector('[data-act="emp"]').onclick=()=>employeeDialog(null);
     node.querySelector('[data-act="ot"]').onclick=()=>addOvertimeDialog();
     node.querySelector('[data-act="inv"]').onclick=()=>newInvoiceDialog();
@@ -1334,6 +1378,17 @@ async function renderOwner(){
       </div>
 
       <div class="subpane" data-pane="pay">
+        <div class="panel"><div class="head"><b>สัดส่วนยอดจ่ายงวดนี้</b></div>
+          <div class="body"><div style="display:flex;align-items:center;gap:18px">
+            ${donut([{val:(data.totalNet!=null?data.totalNet:data.totalGross)||0,color:"#0b8f62"},{val:data.totalAdvance||0,color:"#d99a16"},{val:(data.totalSso||0)+(data.totalOther||0),color:"#c23636"}], fmtBaht(data.totalNet!=null?data.totalNet:data.totalGross), "สุทธิ")}
+            <div class="dleg" style="flex:1">
+              <div class="row"><span class="dot2" style="background:#0b8f62"></span>จ่ายสุทธิ<b>${fmtBaht(data.totalNet!=null?data.totalNet:data.totalGross)}</b></div>
+              <div class="row"><span class="dot2" style="background:#d99a16"></span>หักเบิกล่วงหน้า<b>${fmtBaht(data.totalAdvance||0)}</b></div>
+              <div class="row"><span class="dot2" style="background:#c23636"></span>ปกส./หักอื่นๆ<b>${fmtBaht((data.totalSso||0)+(data.totalOther||0))}</b></div>
+              <div class="row" style="border-top:1px solid var(--line);padding-top:6px;margin-top:2px">รวม gross<b>${fmtBaht(data.totalGross)}</b></div>
+            </div>
+          </div></div>
+        </div>
         <div class="panel"><div class="head"><b>ตั้งค่าการจ่ายเงินเดือน</b><div class="spacer"></div><button class="btn sub" id="ownSettings">แก้ไขการตั้งค่า</button></div>
           <div class="body"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
             <div><div class="label">รอบการจ่าย</div><div style="font-size:17px;font-weight:600;margin-top:3px">${esc(freqLabel)}</div></div>
