@@ -147,14 +147,15 @@ class BvnApi {
     required double latitude,
     required double longitude,
     required double accuracy,
+    bool mocked = false,
   }) => post({
     'action': 'attendance',
     'mobileToken': token,
     'eventType': eventType,
-    'siteId': 'BVN-HQ',
     'latitude': latitude,
     'longitude': longitude,
     'accuracy': accuracy,
+    'mocked': mocked,
     'deviceTimezone': DateTime.now().timeZoneName,
   });
 

@@ -182,6 +182,7 @@ function recordAttendance_(payload) {
   let matchedSite = null, distance = null, accepted = true;
   if (eventType === 'check_in' && employee.locationRequired) {
     if (latitude === null || longitude === null || accuracy === null || accuracy < 0) return reply_(false, 'ต้องระบุตำแหน่ง GPS สำหรับการเช็กอิน');
+    if (payload.mocked === true) return reply_(false, 'ตรวจพบการปลอมตำแหน่ง (Mock location) — ปิดแอปจำลองตำแหน่งก่อนเช็กอิน');
     const sites = activeSites_();
     if (!sites.length) return reply_(false, 'ยังไม่ได้ตั้งจุดเช็กอิน กรุณาติดต่อแอดมิน');
     sites.forEach(s => { const d = metres_(latitude, longitude, s.lat, s.lng); if (distance === null || d < distance) { distance = d; matchedSite = s; } });
@@ -516,7 +517,8 @@ function adminLockPayroll_(payload) {
     const outstanding = outstandingAdvancesByEmployee_();
     data.lines.forEach(line => {
       // Store the frozen snapshot INCLUDING advance deduction and net pay.
-      lines.appendRow([payrollId, line.employeeId, line.regularMinutes, line.otMinutes, line.baseGross, line.otGross, line.grossPay, line.advanceDeduction || 0, line.netPay != null ? line.netPay : line.grossPay, new Date()]);
+      // Freeze the full breakdown: advance(7), net(8), createdAt(9), sso(10), other(11).
+      lines.appendRow([payrollId, line.employeeId, line.regularMinutes, line.otMinutes, line.baseGross, line.otGross, line.grossPay, line.advanceDeduction || 0, line.netPay != null ? line.netPay : line.grossPay, new Date(), line.sso || 0, line.otherDeduction || 0]);
       // Recover exactly the advances this paycheck covered → mark them 'settled' so
       // they are never deducted again in a future period.
       const fit = advanceFit_(outstanding[line.employeeId], line.grossPay);
@@ -549,9 +551,11 @@ function adminGetPayroll_(payload) {
       const hasSnapshot = row.length >= 9;
       const advanceDeduction = hasSnapshot ? roundMoney_(Number(row[7] || 0)) : 0;
       const netPay = hasSnapshot ? roundMoney_(Number(row[8] || grossPay)) : grossPay;
-      return { employeeId: employeeId, name: (names[employeeId] || {}).name || employeeId, role: (names[employeeId] || {}).role || '', regularMinutes: Number(row[2] || 0), otMinutes: Number(row[3] || 0), baseGross: Number(row[4] || 0), otGross: Number(row[5] || 0), grossPay: grossPay, advanceDeduction: advanceDeduction, netPay: netPay };
+      const sso = row.length >= 11 ? roundMoney_(Number(row[10] || 0)) : 0;
+      const otherDeduction = row.length >= 12 ? roundMoney_(Number(row[11] || 0)) : 0;
+      return { employeeId: employeeId, name: (names[employeeId] || {}).name || employeeId, role: (names[employeeId] || {}).role || '', regularMinutes: Number(row[2] || 0), otMinutes: Number(row[3] || 0), baseGross: Number(row[4] || 0), otGross: Number(row[5] || 0), grossPay: grossPay, advanceDeduction: advanceDeduction, sso: sso, otherDeduction: otherDeduction, netPay: netPay };
     });
-  return reply_(true, 'Payroll snapshot loaded', { payrollId: payrollId, startDate: Utilities.formatDate(new Date(period[1]), ICT, 'yyyy-MM-dd'), endDate: Utilities.formatDate(new Date(period[2]), ICT, 'yyyy-MM-dd'), status: String(period[3]), lines: lines, totalGross: roundMoney_(lines.reduce((sum, line) => sum + line.grossPay, 0)), totalAdvance: roundMoney_(lines.reduce((sum, line) => sum + line.advanceDeduction, 0)), totalNet: roundMoney_(lines.reduce((sum, line) => sum + line.netPay, 0)) });
+  return reply_(true, 'Payroll snapshot loaded', { payrollId: payrollId, startDate: Utilities.formatDate(new Date(period[1]), ICT, 'yyyy-MM-dd'), endDate: Utilities.formatDate(new Date(period[2]), ICT, 'yyyy-MM-dd'), status: String(period[3]), lines: lines, totalGross: roundMoney_(lines.reduce((sum, line) => sum + line.grossPay, 0)), totalAdvance: roundMoney_(lines.reduce((sum, line) => sum + line.advanceDeduction, 0)), totalSso: roundMoney_(lines.reduce((sum, line) => sum + (line.sso || 0), 0)), totalOther: roundMoney_(lines.reduce((sum, line) => sum + (line.otherDeduction || 0), 0)), totalNet: roundMoney_(lines.reduce((sum, line) => sum + line.netPay, 0)) });
 }
 
 /* =========================== Owner settings & analytics =========================== */

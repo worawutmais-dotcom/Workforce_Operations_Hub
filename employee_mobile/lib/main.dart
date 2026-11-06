@@ -10,6 +10,23 @@ import 'bvn_api.dart';
 const _navy = Color(0xFF102A43);
 const _blue = Color(0xFF146EF5);
 
+String _statusTh(String s) {
+  switch (s) {
+    case 'accepted':
+      return 'สำเร็จ';
+    case 'approved':
+      return 'อนุมัติ';
+    case 'pending':
+      return 'รอตรวจ';
+    case 'rejected':
+      return 'ปฏิเสธ';
+    case 'voided':
+      return 'ยกเลิก';
+    default:
+      return s;
+  }
+}
+
 void main() => runApp(const BvnEmployeeApp());
 
 class BvnEmployeeApp extends StatefulWidget {
@@ -331,12 +348,17 @@ class _EmployeeShellState extends State<EmployeeShell> {
           ),
         );
       }
+      final mocked = p?.isMocked ?? false;
+      if (type == 'check_in' && mocked) {
+        throw Exception('ตรวจพบการปลอมตำแหน่ง (Mock location) — ปิดแอปจำลองตำแหน่งก่อนเช็กอิน');
+      }
       final res = await BvnApi().attendance(
         token: widget.token,
         eventType: type,
         latitude: p?.latitude ?? 0,
         longitude: p?.longitude ?? 0,
         accuracy: p?.accuracy ?? 0,
+        mocked: mocked,
       );
       await _refresh();
       if (mounted) {
@@ -393,7 +415,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
         row: (r) => ListTile(
           title: Text(r['eventType'] == 'check_in' ? 'เข้างาน' : 'ออกงาน'),
           subtitle: Text('${r['occurredAt'] ?? ''}'),
-          trailing: Text('${r['status'] ?? ''}'),
+          trailing: Text(_statusTh('${r['status'] ?? ''}')),
         ),
       ),
       _LeaveForm(token: widget.token),
@@ -401,7 +423,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
         title: 'คำขอลางานของฉัน',
         future: () => BvnApi().leaveCalendar(widget.token),
         row: (r) => ListTile(
-          title: Text('${r['leaveType']} • ${r['status']}'),
+          title: Text('${r['leaveType']} • ${_statusTh('${r['status']}')}'),
           subtitle: Text('${r['startDate']} ถึง ${r['endDate']}'),
         ),
       ),
