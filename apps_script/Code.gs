@@ -37,6 +37,7 @@ function doPost(e) {
     if (action === 'admin_review_leave') return adminReviewLeave_(payload);
     if (action === 'admin_list_time_requests') return adminListTimeRequests_(payload);
     if (action === 'admin_review_time_request') return adminReviewTimeRequest_(payload);
+    if (action === 'admin_add_overtime') return adminAddOvertime_(payload);
     if (action === 'admin_upsert_pay_rule') return adminUpsertPayRule_(payload);
     if (action === 'admin_preview_payroll') return adminPreviewPayroll_(payload);
     if (action === 'admin_lock_payroll') return adminLockPayroll_(payload);
@@ -803,6 +804,26 @@ function adminReviewTimeRequest_(payload) {
   if (index < 0) return reply_(false, 'Pending time request was not found');
   sheet.getRange(index + 2, 7, 1, 5).setValues([[decision, rows[index + 1][7], reviewer, new Date(), note]]);
   return reply_(true, 'Time request ' + decision);
+}
+
+// Admin records overtime directly (OT is no longer submitted from the mobile app).
+// Writes an already-approved OT row so payroll picks it up immediately.
+function adminAddOvertime_(payload) {
+  requireAdmin_(payload); initializeTimeRequestsSheet();
+  const employeeId = String(payload.employeeId || '').trim().toUpperCase();
+  const workDate = parseIsoDate_(payload.workDate);
+  const requestedMinutes = finiteNumber_(payload.requestedMinutes);
+  const reason = String(payload.reason || 'OT (บันทึกโดยแอดมิน)').trim();
+  const reviewer = String(payload.reviewer || 'Admin').trim();
+  if (!findEmployee_(employeeId)) return reply_(false, 'Employee was not found');
+  if (!workDate || requestedMinutes === null || requestedMinutes <= 0 || requestedMinutes > 1440) return reply_(false, 'Invalid overtime entry');
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const now = new Date();
+    SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.timeRequests)
+      .appendRow([Utilities.getUuid(), employeeId, 'overtime', workDate, Math.round(requestedMinutes), reason, 'approved', now, reviewer, now, 'บันทึกโดยแอดมินโดยตรง']);
+  } finally { lock.releaseLock(); }
+  return reply_(true, 'Overtime recorded', { employeeId: employeeId, workDate: Utilities.formatDate(workDate, ICT, 'yyyy-MM-dd'), requestedMinutes: Math.round(requestedMinutes) });
 }
 
 function timeRequestFromRow_(row) {

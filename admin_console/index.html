@@ -645,6 +645,7 @@ async function renderApprovals(){
         <tbody id="leaveRows"></tbody></table></div>
       </div>
       <div class="panel"><div class="head"><h2>OT / แก้ไขเวลา</h2><span class="badge amber" style="margin-left:8px">${pendT.length} รออนุมัติ</span><div class="spacer"></div>
+        <button class="btn ok sm" id="addOtBtn">➕ บันทึก OT</button>
         <label class="check" style="margin:0"><input type="checkbox" id="timeAll"> แสดงทั้งหมด</label></div>
         <div class="body flush"><table><thead><tr><th>พนักงาน</th><th>ประเภท</th><th>วันที่</th><th>จำนวน</th><th>เหตุผล</th><th>สถานะ</th><th></th></tr></thead>
         <tbody id="timeRows"></tbody></table></div>
@@ -686,7 +687,37 @@ async function renderApprovals(){
     };
     drawLeave(); drawTime();
     $("#leaveAll").onchange=drawLeave; $("#timeAll").onchange=drawTime;
+    $("#addOtBtn").onclick=()=>addOvertimeDialog();
   }catch(err){ errorBox(node, err, renderApprovals); }
+}
+
+async function addOvertimeDialog(){
+  await loadEmployees().catch(()=>{});
+  const opts=(state.employees||[]).filter(e=>e.status==="active")
+    .map(e=>`<option value="${esc(e.id)}">${esc(e.name)} (${esc(e.id)})</option>`).join("");
+  const body=el(`<div></div>`);
+  body.append(el(`<div class="notice blue">OT บันทึกโดยแอดมินจะถูกอนุมัติทันทีและนำไปคิดในเงินเดือนของงวดที่ครอบคลุมวันนั้น (ต้องตั้งเรตค่าจ้าง + เปิด OT ของพนักงานไว้)</div>`));
+  body.append(field("พนักงาน", `<select id="otEmp">${opts||'<option value="">— ไม่มีพนักงาน active —</option>'}</select>`));
+  const g=el(`<div class="grid2"></div>`);
+  g.append(
+    field("วันที่ทำ OT", `<input id="otDate" type="date" value="${todayISO()}">`),
+    field("จำนวนนาที", `<input id="otMin" type="number" min="1" max="1440" step="1" placeholder="เช่น 120 = 2 ชม.">`),
+  );
+  body.append(g);
+  body.append(field("เหตุผล / หมายเหตุ", `<input id="otReason" type="text" placeholder="เช่น ปิดร้านช่วยสต๊อก">`));
+  const ok=el(`<button class="btn ok">บันทึก OT</button>`);
+  const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
+  ok.onclick=()=>withBtn(ok, async ()=>{
+    const employeeId=$("#otEmp").value, workDate=$("#otDate").value, requestedMinutes=Number($("#otMin").value), reason=$("#otReason").value.trim();
+    if(!employeeId){ toast("เลือกพนักงานก่อน","bad"); return; }
+    if(!workDate){ toast("เลือกวันที่","bad"); return; }
+    if(!(requestedMinutes>0&&requestedMinutes<=1440)){ toast("จำนวนนาทีต้องอยู่ระหว่าง 1–1440","bad"); return; }
+    try{
+      await api("admin_add_overtime",{employeeId, workDate, requestedMinutes, reason, reviewer:state.reviewer||"Admin"});
+      closeModal(); toast("บันทึก OT แล้ว","good"); renderApprovals();
+    }catch(err){ toast(err.message,"bad"); }
+  });
+  openModal("บันทึก OT (แอดมิน)", body, [cancel, ok]);
 }
 
 async function reviewLeave(btn, requestId, decision){

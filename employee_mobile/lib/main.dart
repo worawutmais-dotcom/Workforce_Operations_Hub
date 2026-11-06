@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'bvn_api.dart';
-import 'time_request_tab.dart';
 
 const _navy = Color(0xFF102A43);
 const _blue = Color(0xFF146EF5);
@@ -389,7 +388,6 @@ class _EmployeeShellState extends State<EmployeeShell> {
           subtitle: Text('${r['startDate']} ถึง ${r['endDate']}'),
         ),
       ),
-      TimeRequestTab(token: widget.token),
       _Account(
         token: widget.token,
         name: _name,
@@ -416,7 +414,6 @@ class _EmployeeShellState extends State<EmployeeShell> {
           NavigationDestination(icon: Icon(Icons.access_time), label: 'เวลา'),
           NavigationDestination(icon: Icon(Icons.event_note), label: 'ลางาน'),
           NavigationDestination(icon: Icon(Icons.list_alt), label: 'คำขอ'),
-          NavigationDestination(icon: Icon(Icons.more_time), label: 'OT/เวลา'),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
             label: 'บัญชี',
