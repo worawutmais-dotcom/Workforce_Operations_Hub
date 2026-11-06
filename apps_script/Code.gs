@@ -214,19 +214,31 @@ function recordAttendance_(payload) {
 // If a check-out means the employee worked past their standard hours (by more than
 // a grace window), create a pending overtime request so the admin can approve it.
 // Returns a small summary for the app, or null when there is no overtime.
+// OT hourly base rate derived from the pay basis.
+function otHourly_(rule) {
+  const basis = normalise_(rule[1]), rate = Number(rule[2] || 0), hours = Number(rule[3] || 8) || 8;
+  if (basis === 'monthly') return rate / (Number(rule[11] || 30) || 30) / hours;
+  if (basis === 'daily') return rate / hours;
+  return rate;
+}
 function autoCreateOvertime_(employeeId, checkoutTime) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   initializePayrollRulesSheet();
   const rule = values_(ss.getSheetByName(SHEETS.payrollRules)).slice(1).find(r => String(r[0]).trim().toUpperCase() === String(employeeId).trim().toUpperCase());
   if (!rule || String(rule[4]) !== 'true') return null; // no rule, or OT disabled
-  const standardMinutes = Number(rule[3] || 8) * 60;
+  const settings = readSettings_();
+  const lunch = Number(settings.lunch_break_min || 60), thresholdMin = Number(settings.ot_threshold_hours || 8) * 60;
+  const holidayOt = normalise_(settings.holiday_ot_enabled) === 'true';
   const today = Utilities.formatDate(checkoutTime, ICT, 'yyyy-MM-dd');
+  const isHoliday = !!holidayMap_()[today];
   const logs = values_(ss.getSheetByName(SHEETS.attendance)).slice(1)
     .filter(r => String(r[1]) === employeeId && String(r[9]) === 'accepted' && String(r[3]) === 'check_in' && Utilities.formatDate(new Date(r[4]), ICT, 'yyyy-MM-dd') === today);
   if (!logs.length) return null;
   const inMs = Math.min.apply(null, logs.map(r => new Date(r[4]).getTime()));
   const worked = Math.round((checkoutTime.getTime() - inMs) / 60000);
-  const overage = worked - standardMinutes;
+  const net = Math.max(0, worked - lunch); // deduct lunch break
+  // Holiday work (if enabled) = all net time is OT; otherwise OT is time beyond the threshold.
+  const overage = (isHoliday && holidayOt) ? net : (net - thresholdMin);
   const GRACE_MINUTES = 15;
   if (overage < GRACE_MINUTES) return null;
   initializeTimeRequestsSheet();
@@ -410,11 +422,13 @@ function adminUpsertPayRule_(payload) {
   const rate = finiteNumber_(payload.baseRate), hours = finiteNumber_(payload.standardHours || 8), otMultiplier = finiteNumber_(payload.otMultiplier || 1.5), premiumMultiplier = finiteNumber_(payload.premiumMultiplier || 1);
   const premiumDate = String(payload.premiumDate || '').trim();
   const otherDeduction = finiteNumber_(payload.otherDeduction != null ? payload.otherDeduction : 0);
-  if (!findEmployee_(employeeId) || !['hourly', 'daily'].includes(basis) || rate === null || rate < 0 || hours === null || hours <= 0 || otMultiplier === null || otMultiplier < 1 || premiumMultiplier === null || premiumMultiplier < 1) return reply_(false, 'Invalid pay rule');
+  const daysPerMonth = finiteNumber_(payload.daysPerMonth != null ? payload.daysPerMonth : 30);
+  if (!findEmployee_(employeeId) || !['hourly', 'daily', 'monthly'].includes(basis) || rate === null || rate < 0 || hours === null || hours <= 0 || otMultiplier === null || otMultiplier < 1 || premiumMultiplier === null || premiumMultiplier < 1) return reply_(false, 'Invalid pay rule');
   if (otherDeduction === null || otherDeduction < 0) return reply_(false, 'หักอื่นๆ ไม่ถูกต้อง');
+  if (daysPerMonth === null || daysPerMonth <= 0 || daysPerMonth > 31) return reply_(false, 'วันทำงาน/เดือน ไม่ถูกต้อง');
   if (premiumDate && !parseIsoDate_(premiumDate)) return reply_(false, 'Premium date must be YYYY-MM-DD');
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.payrollRules), rows = values_(sheet);
-  const row = [employeeId, basis, rate, hours, payload.otEnabled === true ? 'true' : 'false', otMultiplier, premiumDate, premiumMultiplier, new Date(), String(payload.updatedBy || 'Admin'), otherDeduction];
+  const row = [employeeId, basis, rate, hours, payload.otEnabled === true ? 'true' : 'false', otMultiplier, premiumDate, premiumMultiplier, new Date(), String(payload.updatedBy || 'Admin'), otherDeduction, daysPerMonth];
   const index = rows.slice(1).findIndex(r => String(r[0]).trim().toUpperCase() === employeeId);
   if (index >= 0) sheet.getRange(index + 2, 1, 1, row.length).setValues([row]); else sheet.appendRow(row);
   audit_(String(payload.updatedBy || 'Admin'), 'pay_rule_saved', employeeId, basis + ' @ ' + rate);
@@ -434,7 +448,7 @@ function adminListPayRules_(payload) {
       payBasis: r ? String(r[1]) : '', baseRate: r ? Number(r[2] || 0) : null,
       standardHours: r ? Number(r[3] || 8) : 8, otEnabled: r ? String(r[4]) === 'true' : false,
       otMultiplier: r ? Number(r[5] || 1.5) : 1.5, premiumDate: r ? (r[6] ? String(r[6]) : '') : '',
-      premiumMultiplier: r ? Number(r[7] || 1) : 1, otherDeduction: r ? Number(r[10] || 0) : 0,
+      premiumMultiplier: r ? Number(r[7] || 1) : 1, otherDeduction: r ? Number(r[10] || 0) : 0, daysPerMonth: r ? Number(r[11] || 30) : 30,
       updatedAt: r && r[8] ? Utilities.formatDate(new Date(r[8]), ICT, "yyyy-MM-dd'T'HH:mm:ssXXX") : '', updatedBy: r ? String(r[9] || '') : ''
     };
   }).sort((a, b) => (a.status === b.status ? a.employeeId.localeCompare(b.employeeId) : (a.status === 'active' ? -1 : 1)));
@@ -467,8 +481,10 @@ function adminPreviewPayroll_(payload) {
   });
   incompleteDays.sort((a, b) => a.date < b.date ? 1 : -1);
   const result = {};
-  Object.values(byEmployeeDay).forEach(item => { if (!item.in || !item.out || item.out <= item.in || !rules[item.employeeId]) return; const line = result[item.employeeId] || { employeeId: item.employeeId, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0, grossPay: 0, warnings: [] }; const rule = rules[item.employeeId], basis = normalise_(rule[1]), rate = Number(rule[2] || 0), standardMinutes = Number(rule[3] || 8) * 60; const minutes = Math.round((item.out - item.in) / 60000); line.workDays += 1; line.regularMinutes += Math.min(minutes, standardMinutes); if (basis === 'daily') line.baseGross += rate; else line.baseGross += Math.min(minutes, standardMinutes) / 60 * rate; result[item.employeeId] = line; });
-  approvedOt.forEach(row => { const day = Utilities.formatDate(new Date(row[3]), ICT, 'yyyy-MM-dd'), employeeId = String(row[1]); if (day < startText || day > endText || !rules[employeeId]) return; const line = result[employeeId] || { employeeId: employeeId, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0, grossPay: 0, warnings: ['Approved OT has no accepted complete attendance day'] }; const rule = rules[employeeId], baseHourly = normalise_(rule[1]) === 'daily' ? Number(rule[2] || 0) / Number(rule[3] || 8) : Number(rule[2] || 0), multiplier = String(rule[4]) === 'true' ? Number(rule[5] || 1.5) : 0, minutes = Number(row[4] || 0); line.otMinutes += minutes; line.otGross += minutes / 60 * baseHourly * multiplier; result[employeeId] = line; });
+  Object.values(byEmployeeDay).forEach(item => { if (!item.in || !item.out || item.out <= item.in || !rules[item.employeeId]) return; const line = result[item.employeeId] || { employeeId: item.employeeId, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0, grossPay: 0, warnings: [] }; const rule = rules[item.employeeId], basis = normalise_(rule[1]), rate = Number(rule[2] || 0), standardMinutes = Number(rule[3] || 8) * 60; const minutes = Math.round((item.out - item.in) / 60000); line.workDays += 1; line.regularMinutes += Math.min(minutes, standardMinutes); if (basis === 'daily') line.baseGross += rate; else if (basis === 'hourly') line.baseGross += Math.min(minutes, standardMinutes) / 60 * rate; /* monthly: flat salary added after the loop */ result[item.employeeId] = line; });
+  // Monthly-salary employees get their fixed monthly pay once (not per day) if they worked at least one day.
+  Object.values(result).forEach(line => { const rule = rules[line.employeeId]; if (rule && normalise_(rule[1]) === 'monthly') line.baseGross = Number(rule[2] || 0); });
+  approvedOt.forEach(row => { const day = Utilities.formatDate(new Date(row[3]), ICT, 'yyyy-MM-dd'), employeeId = String(row[1]); if (day < startText || day > endText || !rules[employeeId]) return; const line = result[employeeId] || { employeeId: employeeId, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0, grossPay: 0, warnings: ['Approved OT has no accepted complete attendance day'] }; const rule = rules[employeeId], baseHourly = otHourly_(rule), multiplier = String(rule[4]) === 'true' ? Number(rule[5] || 1.5) : 0, minutes = Number(row[4] || 0); line.otMinutes += minutes; line.otGross += minutes / 60 * baseHourly * multiplier; result[employeeId] = line; });
   const outstanding = outstandingAdvancesByEmployee_();
   const settings = readSettings_();
   const ssoEnabled = normalise_(settings.sso_enabled) === 'true';

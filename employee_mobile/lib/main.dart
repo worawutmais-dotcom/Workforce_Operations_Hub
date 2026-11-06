@@ -409,15 +409,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
         onOut: () => _attendance('check_out'),
         onRefresh: _refresh,
       ),
-      _ListPage(
-        title: 'เวลาเข้าออกงาน',
-        future: () => BvnApi().timeline(widget.token),
-        row: (r) => ListTile(
-          title: Text(r['eventType'] == 'check_in' ? 'เข้างาน' : 'ออกงาน'),
-          subtitle: Text('${r['occurredAt'] ?? ''}'),
-          trailing: Text(_statusTh('${r['status'] ?? ''}')),
-        ),
-      ),
+      _MonthCalendar(token: widget.token),
       _LeaveForm(token: widget.token),
       _ListPage(
         title: 'คำขอลางานของฉัน',
@@ -762,6 +754,255 @@ class _CheckInMapState extends State<_CheckInMap> {
   }
 }
 
+// Month calendar of attendance: color-coded days + one row per day with times.
+class _MonthCalendar extends StatefulWidget {
+  const _MonthCalendar({required this.token});
+  final String token;
+  @override
+  State<_MonthCalendar> createState() => _MonthCalendarState();
+}
+
+class _StatusStyle {
+  const _StatusStyle(this.bg, this.fg, this.label);
+  final Color bg, fg;
+  final String label;
+}
+
+const _thMonths = [
+  'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+  'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+];
+
+_StatusStyle _statusStyle(String s) {
+  switch (s) {
+    case 'normal':
+      return const _StatusStyle(Color(0xFFE4F7EF), Color(0xFF0A7350), 'ปกติ');
+    case 'late':
+      return const _StatusStyle(Color(0xFFFDF3DD), Color(0xFFB45309), 'มาสาย');
+    case 'incomplete':
+      return const _StatusStyle(Color(0xFFFDECEC), Color(0xFFC23636), 'ไม่ครบ');
+    case 'absent':
+      return const _StatusStyle(Color(0xFFFDECEC), Color(0xFFC23636), 'ขาด');
+    case 'leave':
+      return const _StatusStyle(Color(0xFFEAF1FF), Color(0xFF1B4FD6), 'ลา');
+    case 'holiday':
+    case 'holiday_work':
+      return const _StatusStyle(Color(0xFFEDEFF4), Color(0xFF5F6B7E), 'วันหยุด');
+    default:
+      return const _StatusStyle(Color(0x00000000), Color(0xFF9AA6B5), '');
+  }
+}
+
+class _MonthCalendarState extends State<_MonthCalendar> {
+  late int _year, _month;
+  List<Map<String, dynamic>> _days = [];
+  bool _loading = true;
+  String? _err;
+  final _scroll = ScrollController();
+  final _rowKeys = <String, GlobalKey>{};
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _year = now.year;
+    _month = now.month;
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _err = null;
+    });
+    try {
+      final data = await BvnApi().month(widget.token, _year, _month);
+      final days = (data['days'] as List? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .toList();
+      if (mounted) {
+        setState(() {
+          _days = days;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _err = e.toString().replaceFirst('Exception: ', '');
+        });
+      }
+    }
+  }
+
+  void _shift(int delta) {
+    var m = _month + delta, y = _year;
+    if (m < 1) {
+      m = 12;
+      y--;
+    } else if (m > 12) {
+      m = 1;
+      y++;
+    }
+    setState(() {
+      _month = m;
+      _year = y;
+    });
+    _load();
+  }
+
+  void _scrollToDay(String date) {
+    final k = _rowKeys[date];
+    final ctx = k?.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(ctx,
+          duration: const Duration(milliseconds: 300), alignment: 0.1);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final worked = _days.where((d) => d['status'] == 'normal' || d['status'] == 'late' || d['status'] == 'holiday_work');
+    final otMin = _days.fold<int>(0, (s, d) => s + ((d['otMinutes'] as num?)?.round() ?? 0));
+    final lateCnt = _days.where((d) => d['late'] == true).length;
+    final first = DateTime(_year, _month, 1).weekday % 7; // 0=Sun
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        controller: _scroll,
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            children: [
+              IconButton(onPressed: () => _shift(-1), icon: const Icon(Icons.chevron_left)),
+              Expanded(
+                child: Text('${_thMonths[_month - 1]} ${_year + 543}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _navy)),
+              ),
+              IconButton(onPressed: () => _shift(1), icon: const Icon(Icons.chevron_right)),
+            ],
+          ),
+          if (_loading) const Padding(padding: EdgeInsets.all(30), child: Center(child: CircularProgressIndicator())),
+          if (_err != null) Padding(padding: const EdgeInsets.all(12), child: Text('โหลดไม่ได้: $_err', style: const TextStyle(color: Color(0xFFC23636)))),
+          if (!_loading && _err == null) ...[
+            Row(
+              children: const [
+                Expanded(child: Center(child: Text('อา', style: TextStyle(fontSize: 11, color: Colors.grey)))),
+                Expanded(child: Center(child: Text('จ', style: TextStyle(fontSize: 11, color: Colors.grey)))),
+                Expanded(child: Center(child: Text('อ', style: TextStyle(fontSize: 11, color: Colors.grey)))),
+                Expanded(child: Center(child: Text('พ', style: TextStyle(fontSize: 11, color: Colors.grey)))),
+                Expanded(child: Center(child: Text('พฤ', style: TextStyle(fontSize: 11, color: Colors.grey)))),
+                Expanded(child: Center(child: Text('ศ', style: TextStyle(fontSize: 11, color: Colors.grey)))),
+                Expanded(child: Center(child: Text('ส', style: TextStyle(fontSize: 11, color: Colors.grey)))),
+              ],
+            ),
+            const SizedBox(height: 4),
+            GridView.count(
+              crossAxisCount: 7,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+              children: [
+                for (var i = 0; i < first; i++) const SizedBox.shrink(),
+                for (final d in _days) _dayCell(d),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(spacing: 12, runSpacing: 6, children: [
+              _legend(const Color(0xFFE4F7EF), 'ปกติ'),
+              _legend(const Color(0xFFFDF3DD), 'สาย'),
+              _legend(const Color(0xFFFDECEC), 'ขาด/ไม่ครบ'),
+              _legend(const Color(0xFFEAF1FF), 'ลา'),
+              _legend(const Color(0xFFEDEFF4), 'วันหยุด'),
+            ]),
+            const SizedBox(height: 10),
+            Card(
+              color: _navy,
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(children: [
+                  _stat('มาทำงาน', '${worked.length} วัน'),
+                  _stat('มาสาย', '$lateCnt วัน'),
+                  _stat('OT รวม', '${(otMin / 60).toStringAsFixed(1)} ชม.'),
+                ]),
+              ),
+            ),
+            const SizedBox(height: 10),
+            for (final d in _days.where((d) => d['checkIn'] != '' || d['status'] == 'leave' || d['status'] == 'absent'))
+              _dayRow(d),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _stat(String label, String value) => Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          const SizedBox(height: 2),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        ]),
+      );
+
+  Widget _legend(Color c, String t) => Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 11, height: 11, decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(3))),
+        const SizedBox(width: 5),
+        Text(t, style: const TextStyle(fontSize: 11, color: Colors.black54)),
+      ]);
+
+  Widget _dayCell(Map<String, dynamic> d) {
+    final st = _statusStyle('${d['status']}');
+    final today = '${d['date']}' == DateTime.now().toIso8601String().substring(0, 10);
+    return GestureDetector(
+      onTap: () => _scrollToDay('${d['date']}'),
+      child: Container(
+        decoration: BoxDecoration(
+          color: st.bg,
+          borderRadius: BorderRadius.circular(8),
+          border: today ? Border.all(color: _blue, width: 1.5) : null,
+        ),
+        alignment: Alignment.center,
+        child: Text('${d['day']}', style: TextStyle(fontSize: 13, color: st.fg)),
+      ),
+    );
+  }
+
+  Widget _dayRow(Map<String, dynamic> d) {
+    final st = _statusStyle('${d['status']}');
+    final key = _rowKeys.putIfAbsent('${d['date']}', () => GlobalKey());
+    final ot = (d['otMinutes'] as num?)?.round() ?? 0;
+    final wm = (d['workedMinutes'] as num?)?.round() ?? 0;
+    final dt = DateTime.parse('${d['date']}');
+    final sub = '${d['checkIn']}'.isEmpty
+        ? ('${d['status']}' == 'leave' ? 'ลา: ${d['leaveType']}' : 'ไม่มีบันทึก')
+        : 'เข้า ${d['checkIn']} · ออก ${'${d['checkOut']}'.isEmpty ? '—' : d['checkOut']}'
+            '${wm > 0 ? ' · รวม ${(wm / 60).toStringAsFixed(1)} ชม.' : ''}'
+            '${ot > 0 ? ' · OT ${(ot / 60).toStringAsFixed(1)} ชม.' : ''}';
+    return Container(
+      key: key,
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFEEF2F6)))),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${dt.day} ${_thMonths[dt.month - 1].substring(0, 3)}', style: const TextStyle(fontSize: 14)),
+            Text(sub, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+          ]),
+        ),
+        if (st.label.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+            decoration: BoxDecoration(color: st.bg, borderRadius: BorderRadius.circular(999)),
+            child: Text(st.label, style: TextStyle(fontSize: 11, color: st.fg)),
+          ),
+      ]),
+    );
+  }
+}
+
 class _ListPage extends StatefulWidget {
   const _ListPage({
     required this.title,
@@ -900,58 +1141,107 @@ class _LeaveFormState extends State<_LeaveForm> {
     }
   }
 
+  String _thDate(DateTime? d) => d == null
+      ? 'เลือกวัน'
+      : '${d.day} ${_thMonths[d.month - 1].substring(0, 3)} ${d.year + 543}';
+
+  int get _days => (_start != null && _end != null && !_end!.isBefore(_start!))
+      ? _end!.difference(_start!).inDays + 1
+      : 0;
+
+  Widget _dateTile(String label, DateTime? value, bool start) => Expanded(
+        child: InkWell(
+          onTap: _sending ? null : () => _pick(start),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFD7DCE5)),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+              const SizedBox(height: 4),
+              Row(children: [
+                Icon(Icons.event, size: 18, color: value == null ? Colors.black38 : _blue),
+                const SizedBox(width: 6),
+                Text(_thDate(value),
+                    style: TextStyle(fontSize: 15, color: value == null ? Colors.black45 : Colors.black87)),
+              ]),
+            ]),
+          ),
+        ),
+      );
+
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(20),
-    children: [
-      const Text(
-        'ขอลางาน',
-        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-      ),
-      const SizedBox(height: 16),
-      DropdownButtonFormField<String>(
-        initialValue: _type,
-        decoration: const InputDecoration(
-          labelText: 'ประเภทการลา',
-          border: OutlineInputBorder(),
+  Widget build(BuildContext context) {
+    const types = ['ลาป่วย', 'ลากิจ', 'ลาพักร้อน', 'ลาอื่น ๆ'];
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        const Text('ขอลางาน', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _navy)),
+        const SizedBox(height: 16),
+        const Text('ประเภทการลา', style: TextStyle(fontSize: 13, color: Colors.black54)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final t in types)
+              ChoiceChip(
+                label: Text(t),
+                selected: _type == t,
+                onSelected: _sending ? null : (_) => setState(() => _type = t),
+                selectedColor: _blue,
+                labelStyle: TextStyle(color: _type == t ? Colors.white : Colors.black87),
+                backgroundColor: const Color(0xFFEFF3F8),
+                showCheckmark: false,
+              ),
+          ],
         ),
-        items: [
-          'ลาป่วย',
-          'ลากิจ',
-          'ลาพักร้อน',
-          'ลาอื่น ๆ',
-        ].map((x) => DropdownMenuItem(value: x, child: Text(x))).toList(),
-        onChanged: _sending
-            ? null
-            : (value) => setState(() => _type = value ?? _type),
-      ),
-      OutlinedButton(
-        onPressed: () => _pick(true),
-        child: Text(
-          'เริ่ม: ${_start?.toIso8601String().substring(0, 10) ?? 'เลือกวัน'}',
+        const SizedBox(height: 16),
+        Row(children: [
+          _dateTile('ตั้งแต่', _start, true),
+          const SizedBox(width: 10),
+          _dateTile('ถึง', _end, false),
+        ]),
+        if (_days > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(color: const Color(0xFFEAF1FF), borderRadius: BorderRadius.circular(10)),
+              child: Row(children: [
+                const Icon(Icons.info_outline, size: 16, color: Color(0xFF1B4FD6)),
+                const SizedBox(width: 6),
+                Text('รวม $_days วัน', style: const TextStyle(color: Color(0xFF1B4FD6), fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _reason,
+          maxLines: 4,
+          decoration: InputDecoration(
+            labelText: 'เหตุผล',
+            alignLabelWithHint: true,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         ),
-      ),
-      OutlinedButton(
-        onPressed: () => _pick(false),
-        child: Text(
-          'สิ้นสุด: ${_end?.toIso8601String().substring(0, 10) ?? 'เลือกวัน'}',
+        const SizedBox(height: 20),
+        SizedBox(
+          height: 50,
+          child: FilledButton.icon(
+            onPressed: _sending ? null : _send,
+            icon: _sending
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.send),
+            label: Text(_sending ? 'กำลังส่ง…' : 'ส่งคำขอลา'),
+          ),
         ),
-      ),
-      TextField(
-        controller: _reason,
-        maxLines: 4,
-        decoration: const InputDecoration(
-          labelText: 'เหตุผล',
-          border: OutlineInputBorder(),
-        ),
-      ),
-      const SizedBox(height: 16),
-      FilledButton(
-        onPressed: _sending ? null : _send,
-        child: Text(_sending ? 'กำลังส่ง…' : 'ส่งคำขอลา'),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 class _Account extends StatelessWidget {

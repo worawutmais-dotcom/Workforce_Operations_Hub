@@ -97,6 +97,16 @@ class BvnApi {
     return rows is List ? rows.whereType<Map<String, dynamic>>().toList() : [];
   }
 
+  Future<Map<String, dynamic>> month(String token, int year, int mon) async =>
+      ((await post({
+            'action': 'employee_month',
+            'mobileToken': token,
+            'year': year,
+            'month': mon,
+          }))['data']
+          as Map<String, dynamic>?) ??
+      {};
+
   Future<List<Map<String, dynamic>>> sites(String token) async {
     final data =
         (await post({'action': 'sites', 'mobileToken': token}))['data']

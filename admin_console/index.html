@@ -1168,7 +1168,7 @@ async function renderPayrules(){
         </table></div>
       </div>`;
     const tb=$("#ruleRows");
-    const basisLabel=b=>b==="daily"?"รายวัน":b==="hourly"?"รายชั่วโมง":"—";
+    const basisLabel=b=>b==="monthly"?"เงินเดือน":b==="daily"?"รายวัน":b==="hourly"?"รายชั่วโมง":"—";
     tb.innerHTML=payRulesCache.map(r=>`<tr data-id="${esc(r.employeeId)}">
         <td class="person">${esc(r.name)}<span class="sub">${esc(r.employeeId)}${r.role?" · "+esc(r.role):""}</span></td>
         <td>${r.hasRule?basisLabel(r.payBasis):'<span class="sub">ยังไม่ตั้ง</span>'}</td>
@@ -1190,11 +1190,12 @@ function payRuleDialog(r){
   if(!r){ toast("ไม่พบพนักงาน","bad"); return; }
   const body=el(`<div></div>`);
   body.append(el(`<div class="notice blue">เรตค่าจ้างของ <b>${esc(r.name)}</b> <span class="sub">(${esc(r.employeeId)})</span></div>`));
-  body.append(field("รูปแบบค่าจ้าง",`<select id="rBasis"><option value="daily">รายวัน (daily)</option><option value="hourly">รายชั่วโมง (hourly)</option></select>`));
+  body.append(field("รูปแบบค่าจ้าง",`<select id="rBasis"><option value="monthly">เงินเดือน (รายเดือน)</option><option value="daily">รายวัน</option><option value="hourly">รายชั่วโมง</option></select>`));
   const g=el(`<div class="grid2"></div>`);
   g.append(
-    field("อัตราฐาน (บาท)",`<input id="rRate" type="number" min="0" step="0.01" placeholder="เช่น 500">`),
+    field("อัตราฐาน (บาท)",`<input id="rRate" type="number" min="0" step="0.01" placeholder="เช่น 15000">`),
     field("ชม.มาตรฐาน/วัน",`<input id="rHours" type="number" min="1" step="0.5" value="8">`),
+    field("วันทำงาน/เดือน (ฐาน OT)",`<input id="rDays" type="number" min="1" max="31" step="1" value="30">`),
     field("ตัวคูณ OT",`<input id="rOtMul" type="number" min="1" step="0.1" value="1.5">`),
     field("วันพิเศษ (ทางเลือก)",`<input id="rPremDate" type="date">`),
     field("ตัวคูณวันพิเศษ",`<input id="rPremMul" type="number" min="1" step="0.1" value="1">`),
@@ -1202,18 +1203,33 @@ function payRuleDialog(r){
   );
   body.append(g);
   body.append(el(`<label class="check" style="margin-top:6px"><input type="checkbox" id="rOt" checked> เปิดใช้ OT</label>`));
+  const otBox=el(`<div class="notice blue" id="rOtBox" style="margin-top:8px"></div>`); body.append(otBox);
   const ok=el(`<button class="btn ok">บันทึกเรต</button>`);
   const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
-  body.querySelector("#rBasis").value = r.hasRule?r.payBasis:"daily";
+  const rateLabelEl=()=>body.querySelector("#rRate").closest(".field").querySelector("label");
+  const updOt=()=>{
+    const basis=body.querySelector("#rBasis").value, rate=parseFloat(body.querySelector("#rRate").value)||0,
+      hours=parseFloat(body.querySelector("#rHours").value)||8, days=parseFloat(body.querySelector("#rDays").value)||30,
+      mul=parseFloat(body.querySelector("#rOtMul").value)||1.5;
+    if(rateLabelEl()) rateLabelEl().textContent = basis==="monthly"?"เงินเดือน (บาท/เดือน)":basis==="daily"?"ค่าแรง (บาท/วัน)":"ค่าแรง (บาท/ชม.)";
+    body.querySelector("#rDays").closest(".field").style.display = basis==="monthly"?"":"none";
+    const baseHr = basis==="monthly"? rate/days/hours : basis==="daily"? rate/hours : rate;
+    otBox.innerHTML = `ค่าแรง/ชม. (ฐาน) ≈ <b>${fmtBaht(baseHr)}</b> · อัตรา OT/ชม. ≈ <b>${fmtBaht(baseHr*mul)}</b>${basis==="monthly"?` <span class="sub">(${rate} ÷ ${days} ÷ ${hours})</span>`:""}`;
+  };
+  ["#rBasis","#rRate","#rHours","#rDays","#rOtMul"].forEach(s=>body.querySelector(s).oninput=updOt);
+  body.querySelector("#rBasis").onchange=updOt;
+  body.querySelector("#rBasis").value = r.hasRule?r.payBasis:"monthly";
   if(r.hasRule){
     body.querySelector("#rRate").value=r.baseRate;
     body.querySelector("#rHours").value=r.standardHours;
+    body.querySelector("#rDays").value=r.daysPerMonth||30;
     body.querySelector("#rOtMul").value=r.otMultiplier;
     body.querySelector("#rPremDate").value=r.premiumDate||"";
     body.querySelector("#rPremMul").value=r.premiumMultiplier;
     body.querySelector("#rOther").value=r.otherDeduction||0;
     body.querySelector("#rOt").checked=r.otEnabled;
   }
+  updOt();
   ok.onclick=()=>withBtn(ok, async ()=>{
     const baseRate=parseFloat(body.querySelector("#rRate").value);
     if(!(baseRate>=0)){ toast("กรอกอัตราฐานให้ถูกต้อง","bad"); return; }
@@ -1224,6 +1240,7 @@ function payRuleDialog(r){
         otEnabled:body.querySelector("#rOt").checked, otMultiplier:parseFloat(body.querySelector("#rOtMul").value)||1.5,
         premiumDate:body.querySelector("#rPremDate").value||"", premiumMultiplier:parseFloat(body.querySelector("#rPremMul").value)||1,
         otherDeduction:parseFloat(body.querySelector("#rOther").value)||0,
+        daysPerMonth:parseFloat(body.querySelector("#rDays").value)||30,
         updatedBy:state.reviewer||"Admin",
       });
       closeModal(); toast("บันทึกเรตค่าจ้างแล้ว","good"); renderPayrules();
@@ -1396,13 +1413,24 @@ function settingsDialog(s){
     field("ลาพักร้อน", `<input id="sQVac" type="number" min="0" step="1" value="${esc(s.quota_vacation||"6")}">`),
   );
   body.append(qg);
+  body.append(el(`<div style="border-top:1px solid var(--line);margin:14px 0 2px;padding-top:12px"><div class="label">เวลาทำงาน / OT</div></div>`));
+  const tg=el(`<div class="grid2" style="margin-top:8px"></div>`);
+  tg.append(
+    field("เวลาเข้างานมาตรฐาน", `<input id="sShift" type="time" value="${esc(s.shift_start||"09:00")}">`),
+    field("ผ่อนผันสาย (นาที)", `<input id="sGrace" type="number" min="0" step="1" value="${esc(s.shift_grace_min||"5")}">`),
+    field("พักเที่ยง (นาที)", `<input id="sLunch" type="number" min="0" step="5" value="${esc(s.lunch_break_min||"60")}">`),
+    field("เริ่มคิด OT เมื่อเกิน (ชม.)", `<input id="sOtTh" type="number" min="1" max="24" step="0.5" value="${esc(s.ot_threshold_hours||"8")}">`),
+  );
+  body.append(tg);
+  body.append(el(`<label class="check" style="margin-top:8px"><input type="checkbox" id="sHolOt" ${String(s.holiday_ot_enabled).toLowerCase()==="true"?"checked":""}> คิด OT เมื่อทำงานวันหยุด (ทั้งวันเป็น OT)</label>`));
   const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
   const save=el(`<button class="btn">บันทึก</button>`);
   save.onclick=()=>withBtn(save, async ()=>{
     const workdays=[...document.querySelectorAll('#sWd input:checked')].map(c=>c.value).join(",");
     try{ await api("admin_save_settings",{settings:{pay_frequency:$("#sFreq").value, pay_day_1:$("#sPay1").value.trim(), pay_day_2:$("#sPay2").value.trim(), workdays,
         sso_enabled:$("#sSso").checked, sso_rate:$("#sSsoRate").value, sso_cap:$("#sSsoCap").value,
-        quota_sick:$("#sQSick").value, quota_personal:$("#sQPer").value, quota_vacation:$("#sQVac").value}});
+        quota_sick:$("#sQSick").value, quota_personal:$("#sQPer").value, quota_vacation:$("#sQVac").value,
+        shift_start:$("#sShift").value, shift_grace_min:$("#sGrace").value, lunch_break_min:$("#sLunch").value, ot_threshold_hours:$("#sOtTh").value, holiday_ot_enabled:$("#sHolOt").checked}});
       closeModal(); toast("บันทึกการตั้งค่าแล้ว","good"); renderOwner();
     }catch(err){ toast(err.message,"bad"); }
   });
@@ -1817,12 +1845,43 @@ async function renderSettings(){
         <thead><tr><th>ชื่อผู้ใช้</th><th>ชื่อแสดง</th><th>รหัสผ่าน</th><th>สถานะ</th><th></th></tr></thead>
         <tbody id="adminRows"><tr><td colspan="5"><div class="empty">กำลังโหลด…</div></td></tr></tbody>
       </table></div>
+    </div>
+    <div class="panel"><div class="head"><h2>วันหยุด</h2><span class="sub" style="margin-left:8px">ใช้กับปฏิทินพนักงาน + คิด OT วันหยุด</span>
+      <div class="spacer"></div><button class="btn ok sm" id="addHoliday">➕ เพิ่มวันหยุด</button></div>
+      <div class="body flush"><table id="holTable"><thead><tr><th>วันที่</th><th>ชื่อวันหยุด</th><th data-nosort></th></tr></thead>
+      <tbody id="holRows"><tr><td colspan="3"><div class="empty">กำลังโหลด…</div></td></tr></tbody></table></div>
     </div>`;
   $("#setEndpoint").value = state.endpoint || LS.getItem("bvn_endpoint") || DEFAULT_ENDPOINT;
   $("#saveEndpoint").onclick=(e)=>{ const v=$("#setEndpoint").value.trim(); if(!v){ toast("กรอก endpoint","bad"); return; }
     state.endpoint=v; LS.setItem("bvn_endpoint", v); toast("บันทึก endpoint แล้ว","good"); };
   $("#addAdmin").onclick=()=>adminUserDialog(null);
-  loadAdminUsers();
+  $("#addHoliday").onclick=()=>holidayDialog();
+  loadAdminUsers(); loadHolidays();
+}
+async function loadHolidays(){
+  const tb=$("#holRows"); if(!tb) return;
+  try{ const d=await api("admin_list_holidays"); const hs=d.holidays||[];
+    tb.innerHTML=hs.length? hs.map(h=>`<tr><td>${fmtDate(h.date)}<span class="sub">${esc(h.date)}</span></td><td>${esc(h.name)}</td>
+      <td><div class="row-actions"><button class="btn danger sm" data-holdel="${esc(h.date)}">ลบ</button></div></td></tr>`).join("")
+      : `<tr><td colspan="3"><div class="empty">ยังไม่มีวันหยุด</div></td></tr>`;
+    tb.querySelectorAll("[data-holdel]").forEach(b=>b.onclick=()=>deleteHoliday(b.dataset.holdel));
+  }catch(err){ tb.innerHTML=`<tr><td colspan="3"><div class="empty">${esc(err.message)}</div></td></tr>`; }
+}
+function holidayDialog(){
+  const body=el(`<div></div>`);
+  body.append(field("วันที่", `<input id="hDate" type="date" value="${todayISO()}">`));
+  body.append(field("ชื่อวันหยุด", `<input id="hName" type="text" placeholder="เช่น วันปีใหม่">`));
+  const ok=el(`<button class="btn ok">บันทึก</button>`), cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
+  ok.onclick=()=>withBtn(ok, async ()=>{ const date=$("#hDate").value, name=$("#hName").value.trim()||"วันหยุด";
+    if(!date){ toast("เลือกวันที่","bad"); return; }
+    try{ await api("admin_save_holiday",{date,name,reviewer:state.reviewer||"Admin"}); closeModal(); toast("บันทึกวันหยุดแล้ว","good"); loadHolidays(); }
+    catch(err){ toast(err.message,"bad"); } });
+  openModal("เพิ่มวันหยุด", body, [cancel, ok]);
+}
+async function deleteHoliday(date){
+  if(!await confirmDialog("ลบวันหยุด",`ลบวันหยุด <b>${fmtDate(date)}</b>?`,{danger:true,okText:"ลบ"})) return;
+  try{ await api("admin_delete_holiday",{date,reviewer:state.reviewer||"Admin"}); toast("ลบแล้ว","good"); loadHolidays(); }
+  catch(err){ toast(err.message,"bad"); }
 }
 
 async function loadAdminUsers(){
