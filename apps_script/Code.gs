@@ -42,7 +42,7 @@ function doPost(e) {
     if (action === 'admin_list_admin_users') return adminListAdminUsers_(payload);
     if (action === 'admin_upsert_admin_user') return adminUpsertAdminUser_(payload);
     if (action === 'admin_delete_admin_user') return adminDeleteAdminUser_(payload);
-    if (action === 'admin_delete_attendance_day') return adminDeleteAttendanceDay_(payload);
+    if (action === 'admin_void_attendance_day') return adminVoidAttendanceDay_(payload);
     if (action === 'admin_upsert_pay_rule') return adminUpsertPayRule_(payload);
     if (action === 'admin_list_pay_rules') return adminListPayRules_(payload);
     if (action === 'admin_preview_payroll') return adminPreviewPayroll_(payload);
@@ -884,27 +884,33 @@ function adminReviewTimeRequest_(payload) {
   return reply_(true, 'Time request ' + decision);
 }
 
-// Admin deletes a whole attendance day for one employee (both check-in and check-out
-// rows of that Bangkok date). Destructive by request — used from the right-click menu.
-function adminDeleteAttendanceDay_(payload) {
+// Admin voids a whole attendance day for one employee (both check-in and check-out
+// rows of that Bangkok date). Non-destructive: the row stays in the sheet for audit,
+// its status becomes 'voided' so payroll and the attendance view stop counting it.
+function adminVoidAttendanceDay_(payload) {
   requireAdmin_(payload);
   const employeeId = String(payload.employeeId || '').trim().toUpperCase();
   const date = String(payload.date || '').trim();
+  const reviewer = String(payload.reviewer || 'Admin').trim();
   if (!employeeId || !parseIsoDate_(date)) return reply_(false, 'ต้องระบุพนักงานและวันที่');
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.attendance);
   const lock = LockService.getScriptLock(); lock.waitLock(10000);
-  let removed = 0;
+  let voided = 0;
   try {
     const rows = values_(sheet);
-    for (let i = rows.length - 1; i >= 1; i--) {
+    for (let i = 1; i < rows.length; i++) {
       const r = rows[i];
       if (String(r[1]).trim().toUpperCase() !== employeeId) continue;
+      if (normalise_(r[9]) !== 'accepted') continue;
       const day = Utilities.formatDate(new Date(r[4]), ICT, 'yyyy-MM-dd');
-      if (day === date) { sheet.deleteRow(i + 1); removed++; }
+      if (day !== date) continue;
+      sheet.getRange(i + 1, 10).setValue('voided');
+      sheet.getRange(i + 1, 11).setValue('voided by ' + reviewer + ' @ ' + Utilities.formatDate(new Date(), ICT, 'yyyy-MM-dd HH:mm'));
+      voided++;
     }
   } finally { lock.releaseLock(); }
-  if (!removed) return reply_(false, 'ไม่พบบันทึกเวลาของวันนั้น');
-  return reply_(true, 'ลบบันทึกเวลาแล้ว', { employeeId: employeeId, date: date, removed: removed });
+  if (!voided) return reply_(false, 'ไม่พบบันทึกเวลาที่ใช้งานอยู่ของวันนั้น');
+  return reply_(true, 'ยกเลิกบันทึกเวลาแล้ว (เก็บไว้ใน Sheet เพื่อ audit)', { employeeId: employeeId, date: date, voided: voided });
 }
 
 /* =========================== Admin console accounts (user + password login) =========================== */

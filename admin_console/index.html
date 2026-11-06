@@ -1085,12 +1085,12 @@ async function renderOwner(){
           <td>${fmtDate(d.date)}</td><td>${esc(d.name)}</td><td>${esc(d.checkIn||"—")}</td><td>${esc(d.checkOut||"—")}</td>
           <td class="num">${d.workedMinutes?fmtHours(d.workedMinutes):"—"}</td>
           <td>${d.status==="complete"?'<span class="badge">ครบ</span>':'<span class="badge red">ไม่ครบ</span>'}
-            <button class="btn danger sm" data-attdel="${i}" style="margin-left:8px">ลบ</button></td></tr>`).join("")
+            <button class="btn danger sm" data-attvoid="${i}" style="margin-left:8px">ยกเลิก</button></td></tr>`).join("")
         : `<tr><td colspan="6"><div class="empty">ไม่มีบันทึกเวลาในงวดนี้</div></td></tr>`;
-        const delDay=(d)=>deleteAttendanceDay(d, loadAtt);
-        tb.querySelectorAll("[data-attdel]").forEach(b=>b.onclick=()=>delDay(days[+b.dataset.attdel]));
+        const voidDay=(d)=>voidAttendanceDay(d, loadAtt);
+        tb.querySelectorAll("[data-attvoid]").forEach(b=>b.onclick=()=>voidDay(days[+b.dataset.attvoid]));
         tb.querySelectorAll("tr[data-att]").forEach(tr=>{ const d=days[+tr.dataset.att];
-          attachRowMenu(tr, [{label:"🗑 ลบบันทึกวันนี้", danger:true, fn:()=>delDay(d)}]); });
+          attachRowMenu(tr, [{label:"🚫 ยกเลิกบันทึกวันนี้ (void)", danger:true, fn:()=>voidDay(d)}]); });
       }catch(err){ tb.innerHTML=`<tr><td colspan="6"><div class="empty">${esc(err.message)}</div></td></tr>`; } };
     sel.onchange=()=>{ ownerState.emp=sel.value; loadAtt(); };
     $("#ownIn").onclick=()=>adminClock("check_in");
@@ -1450,13 +1450,13 @@ function payInvoice(invoiceNo){
   openModal("บันทึกการชำระ "+invoiceNo, body, [cancel, ok]);
 }
 
-async function deleteAttendanceDay(d, reload){
+async function voidAttendanceDay(d, reload){
   if(!d) return;
-  if(!await confirmDialog("ลบบันทึกเวลา",
-    `ลบบันทึกเวลาของ <b>${esc(d.name)}</b> วันที่ <b>${fmtDate(d.date)}</b>?<br>การลบนี้ย้อนกลับไม่ได้`,
-    {danger:true, okText:"ลบ"})) return;
-  try{ const r=await api("admin_delete_attendance_day",{employeeId:d.employeeId, date:d.date});
-    toast("ลบแล้ว ("+(r.removed||0)+" รายการ)","good"); if(reload) reload();
+  if(!await confirmDialog("ยกเลิกบันทึกเวลา",
+    `ยกเลิก (void) บันทึกเวลาของ <b>${esc(d.name)}</b> วันที่ <b>${fmtDate(d.date)}</b>?<br>วันนี้จะไม่ถูกนับในเงินเดือน แต่ยัง<b>เก็บไว้ใน Sheet เพื่อ audit</b> (ไม่ลบจริง)`,
+    {danger:true, okText:"ยกเลิกวันนี้"})) return;
+  try{ const r=await api("admin_void_attendance_day",{employeeId:d.employeeId, date:d.date, reviewer:state.reviewer||"Admin"});
+    toast("ยกเลิกแล้ว ("+(r.voided||0)+" รายการ)","good"); if(reload) reload();
   }catch(err){ toast(err.message,"bad"); }
 }
 
