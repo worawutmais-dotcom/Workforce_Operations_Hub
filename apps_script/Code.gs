@@ -300,8 +300,12 @@ function employeeProfile_(payload) {
 }
 
 function employeeDirectory_() {
+  const cached = cacheGet_('dir_v1');
+  if (cached) return reply_(true, 'Employee directory loaded', { employees: cached });
   const source = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.employees)), columns = employeeColumns_(source[0]);
-  return reply_(true, 'Employee directory loaded', { employees: source.slice(1).map(row => employeeFromRow_(row, columns)).filter(e => e && e.status === 'active').map(e => ({ employeeId: e.id, name: e.name, role: e.role })) });
+  const list = source.slice(1).map(row => employeeFromRow_(row, columns)).filter(e => e && e.status === 'active').map(e => ({ employeeId: e.id, name: e.name, role: e.role }));
+  cachePut_('dir_v1', list, 120);
+  return reply_(true, 'Employee directory loaded', { employees: list });
 }
 
 function employeeLogin_(payload) {
@@ -335,6 +339,7 @@ function adminUpsertEmployee_(payload) {
   const values = rowIndex < 0 ? Array(rows[0].length).fill('') : rows[rowIndex + 1].slice();
   values[columns.id] = id; values[columns.name] = name; values[columns.role] = role || 'Employee'; values[columns.department] = String(payload.department || ''); values[columns.siteId] = siteId; values[columns.status] = status; values[columns.locationRequired] = locationRequired; values[columns.passwordHash] = hashEmployeePassword_(finalPassword);
   if (rowIndex >= 0) sheet.getRange(rowIndex + 2, 1, 1, values.length).setValues([values]); else sheet.appendRow(values);
+  cacheDel_('dir_v1');
   return reply_(true, 'Employee saved', { employee: employeeFromRow_(values, columns), initialPassword: finalPassword });
 }
 
@@ -718,6 +723,7 @@ function adminSaveSite_(payload) {
   const idx = rows.slice(1).findIndex(r => String(r[0]).trim() === siteId);
   const row = [siteId, name, lat, lng, radius, active];
   if (idx >= 0) sheet.getRange(idx + 2, 1, 1, row.length).setValues([row]); else sheet.appendRow(row);
+  cacheDel_('sites_v1');
   return reply_(true, 'บันทึกตำแหน่งร้านแล้ว', { siteId: siteId });
 }
 
@@ -1158,10 +1164,14 @@ function findSite_(siteId) {
 }
 // All active check-in sites (blank "Active" counts as active, matching the admin list).
 function activeSites_() {
+  const cached = cacheGet_('sites_v1');
+  if (cached) return cached;
   initializeWorkSitesSheet();
-  return values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.sites)).slice(1)
+  const list = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.sites)).slice(1)
     .filter(r => String(r[0]) && normalise_(r[5]) !== 'false')
     .map(r => ({ id: String(r[0]), name: String(r[1] || ''), lat: Number(r[2]), lng: Number(r[3]), radius: Number(r[4]) }));
+  cachePut_('sites_v1', list, 120);
+  return list;
 }
 function employeeSites_(payload) {
   if (!authenticateMobile_(payload.mobileToken)) return reply_(false, 'Mobile authentication failed');
@@ -1185,3 +1195,8 @@ function normalise_(value) { return String(value || '').trim().toLowerCase(); }
 function constantTimeEqual_(a, b) { if (a.length !== b.length) return false; let difference = 0; for (let i = 0; i < a.length; i += 1) difference |= a.charCodeAt(i) ^ b.charCodeAt(i); return difference === 0; }
 function metres_(a, b, c, d) { const r = 6371e3, x = (c - a) * Math.PI / 180, y = (d - b) * Math.PI / 180, q = Math.sin(x / 2) ** 2 + Math.cos(a * Math.PI / 180) * Math.cos(c * Math.PI / 180) * Math.sin(y / 2) ** 2; return 2 * r * Math.atan2(Math.sqrt(q), Math.sqrt(1 - q)); }
 function reply_(ok, message, data) { return ContentService.createTextOutput(JSON.stringify({ ok: ok, message: message, data: data || null })).setMimeType(ContentService.MimeType.JSON); }
+
+/* ---- Lightweight read cache (Script-wide) to cut repeated full-sheet reads ---- */
+function cacheGet_(key) { try { const v = CacheService.getScriptCache().get(key); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+function cachePut_(key, obj, seconds) { try { CacheService.getScriptCache().put(key, JSON.stringify(obj), seconds || 60); } catch (e) { /* value too big or quota — skip */ } }
+function cacheDel_(key) { try { CacheService.getScriptCache().remove(key); } catch (e) { } }

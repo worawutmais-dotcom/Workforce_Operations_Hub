@@ -565,29 +565,41 @@ class _CheckInMapState extends State<_CheckInMap> {
   }
 
   Future<void> _load() async {
+    // Get the phone's own GPS FIRST and independently, so it works even if the
+    // sites API is unavailable (e.g. backend not yet deployed).
+    Position? p;
     try {
-      final sites = await BvnApi().sites(widget.token);
-      Position? p;
-      try {
-        if (await Geolocator.isLocationServiceEnabled()) {
-          var perm = await Geolocator.checkPermission();
-          if (perm == LocationPermission.denied) {
-            perm = await Geolocator.requestPermission();
-          }
-          if (perm != LocationPermission.denied &&
-              perm != LocationPermission.deniedForever) {
-            p = await Geolocator.getCurrentPosition(
-              locationSettings: const LocationSettings(
-                accuracy: LocationAccuracy.high,
-              ),
-            );
-          }
+      if (await Geolocator.isLocationServiceEnabled()) {
+        var perm = await Geolocator.checkPermission();
+        if (perm == LocationPermission.denied) {
+          perm = await Geolocator.requestPermission();
         }
-      } catch (_) {}
+        if (perm != LocationPermission.denied &&
+            perm != LocationPermission.deniedForever) {
+          p = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+            ),
+          );
+        }
+      }
+    } catch (_) {}
+    List<Map<String, dynamic>> sites = [];
+    String? sitesError;
+    try {
+      sites = await BvnApi().sites(widget.token);
+    } catch (e) {
+      sitesError = e.toString().replaceFirst('Exception: ', '');
+    }
+    try {
       final me = p == null ? null : LatLng(p.latitude, p.longitude);
       String msg;
       bool inside = false;
-      if (sites.isEmpty) {
+      if (sitesError != null) {
+        msg = me == null
+            ? 'เปิด GPS เพื่อดูตำแหน่ง · จุดเช็กอินโหลดไม่ได้ ($sitesError)'
+            : 'เจอตำแหน่งคุณแล้ว · แต่จุดเช็กอินโหลดไม่ได้ ($sitesError)';
+      } else if (sites.isEmpty) {
         msg = 'ยังไม่ได้ตั้งจุดเช็กอิน (ติดต่อแอดมิน)';
       } else if (me == null) {
         msg = 'เปิด GPS เพื่อตรวจว่าอยู่ในพื้นที่หรือยัง';
