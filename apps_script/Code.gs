@@ -7,7 +7,7 @@ const SPREADSHEET_ID = '1-deVDtN8sZQmDyXTH7cR2TtmXgmm4RHOkONRk-HFdT4';
 const SHEETS = Object.freeze({
   sites: 'Work_Sites', employees: 'Employees', attendance: 'Attendance_Log',
   payroll: 'Payroll_Periods', payrollLines: 'Payroll_Lines', payrollRules: 'Payroll_Rules', invoices: 'Invoices', tokens: 'Mobile_Access', leaves: 'Leave_Requests', timeRequests: 'Time_Requests',
-  settings: 'Settings', advances: 'Advances', pwRequests: 'Password_Requests', adminUsers: 'Admin_Users',
+  settings: 'Settings', advances: 'Advances', pwRequests: 'Password_Requests', adminUsers: 'Admin_Users', audit: 'Audit_Log',
 });
 const ICT = 'Asia/Bangkok';
 const MAX_ACCURACY_METRES = 100;
@@ -42,6 +42,7 @@ function doPost(e) {
     if (action === 'admin_list_admin_users') return adminListAdminUsers_(payload);
     if (action === 'admin_upsert_admin_user') return adminUpsertAdminUser_(payload);
     if (action === 'admin_delete_admin_user') return adminDeleteAdminUser_(payload);
+    if (action === 'admin_list_audit_log') return adminListAuditLog_(payload);
     if (action === 'admin_void_attendance_day') return adminVoidAttendanceDay_(payload);
     if (action === 'admin_upsert_pay_rule') return adminUpsertPayRule_(payload);
     if (action === 'admin_list_pay_rules') return adminListPayRules_(payload);
@@ -243,6 +244,7 @@ function adminRecordAttendance_(payload) {
     if (eventType === 'check_out' && todayState.checkedOut) return reply_(false, 'พนักงานคนนี้บันทึกออกงานวันนี้แล้ว', todayState);
     log.appendRow([Utilities.getUuid(), employee.id, employee.siteId, eventType, new Date(), '', '', '', '', 'accepted', '', 'admin_manual:' + String(payload.reviewer || 'Admin'), 'accepted', new Date()]);
   } finally { lock.releaseLock(); }
+  audit_(String(payload.reviewer || 'Admin'), 'attendance_manual_' + eventType, employeeId, '');
   return reply_(true, eventType === 'check_in' ? 'ลงเวลาเข้างานแล้ว' : 'ลงเวลาออกงานแล้ว');
 }
 
@@ -336,6 +338,7 @@ function adminResetEmployeePassword_(payload) {
   const password = String(payload.password || '').trim() || temporaryPassword_();
   sheet.getRange(index + 2, columns.passwordHash + 1).setValue(hashEmployeePassword_(password));
   if (payload.requestId) resolvePwRequest_(String(payload.requestId), String(payload.reviewer || 'Admin'));
+  audit_(String(payload.reviewer || 'Admin'), 'password_reset', employeeId, '');
   return reply_(true, 'Temporary password reset', { employeeId: employeeId, temporaryPassword: password });
 }
 
@@ -347,6 +350,7 @@ function adminReviewLeave_(payload) {
   const index = rows.slice(1).findIndex(r => String(r[0]) === requestId && normalise_(r[6]) === 'pending');
   if (index < 0) return reply_(false, 'Pending leave request was not found');
   sheet.getRange(index + 2, 7, 1, 3).setValues([[decision, reviewer, new Date()]]);
+  audit_(reviewer, 'leave_' + decision, requestId, '');
   return reply_(true, 'Leave request ' + decision);
 }
 
@@ -369,6 +373,7 @@ function adminUpsertPayRule_(payload) {
   const row = [employeeId, basis, rate, hours, payload.otEnabled === true ? 'true' : 'false', otMultiplier, premiumDate, premiumMultiplier, new Date(), String(payload.updatedBy || 'Admin')];
   const index = rows.slice(1).findIndex(r => String(r[0]).trim().toUpperCase() === employeeId);
   if (index >= 0) sheet.getRange(index + 2, 1, 1, row.length).setValues([row]); else sheet.appendRow(row);
+  audit_(String(payload.updatedBy || 'Admin'), 'pay_rule_saved', employeeId, basis + ' @ ' + rate);
   return reply_(true, 'Pay rule saved', { employeeId: employeeId, payBasis: basis, baseRate: rate });
 }
 
@@ -476,6 +481,7 @@ function adminLockPayroll_(payload) {
       fit.sheetRows.forEach(rowNo => { advanceSheet.getRange(rowNo, 6).setValue('settled'); advanceSheet.getRange(rowNo, 11).setValue(payrollId); settledCount++; });
     });
   } finally { lock.releaseLock(); }
+  audit_(String(payload.lockedBy || 'Admin'), 'payroll_locked', payrollId, 'net ' + data.totalNet + ' · settled ' + settledCount);
   return reply_(true, 'Payroll period locked', { payrollId: payrollId, totalGross: data.totalGross, totalNet: data.totalNet, advancesSettled: settledCount });
 }
 
@@ -548,6 +554,7 @@ function adminSaveSettings_(payload) {
     const idx = rows.slice(1).findIndex(r => String(r[0]) === key);
     if (idx >= 0) sheet.getRange(idx + 2, 2).setValue(next[key]); else sheet.appendRow([key, next[key]]);
   });
+  audit_(String(payload.reviewer || 'Admin'), 'settings_saved', '', 'freq ' + next.pay_frequency);
   return reply_(true, 'Settings saved', { settings: next });
 }
 
@@ -709,6 +716,7 @@ function adminDecideAdvance_(payload) {
   const idx = rows.slice(1).findIndex(r => String(r[0]) === advanceId && normalise_(r[5]) === 'pending');
   if (idx < 0) return reply_(false, 'ไม่พบคำขอที่รออนุมัติ');
   sheet.getRange(idx + 2, 6, 1, 3).setValues([[decision, reviewer, new Date()]]);
+  audit_(reviewer, 'advance_' + decision, advanceId, '');
   return reply_(true, 'คำขอเบิกเงิน' + (decision === 'approved' ? 'ได้รับการอนุมัติ' : 'ถูกปฏิเสธ'));
 }
 function adminMarkAdvancePaid_(payload) {
@@ -719,6 +727,7 @@ function adminMarkAdvancePaid_(payload) {
   if (idx < 0) return reply_(false, 'ต้องเป็นคำขอที่อนุมัติแล้วเท่านั้น');
   sheet.getRange(idx + 2, 6).setValue('paid');
   sheet.getRange(idx + 2, 9).setValue(new Date());
+  audit_(String(payload.reviewer || 'Admin'), 'advance_paid', advanceId, '');
   return reply_(true, 'บันทึกการจ่ายเงินเบิกล่วงหน้าแล้ว');
 }
 
@@ -912,6 +921,7 @@ function adminReviewTimeRequest_(payload) {
   const index = rows.slice(1).findIndex(row => String(row[0]) === requestId && normalise_(row[6]) === 'pending');
   if (index < 0) return reply_(false, 'Pending time request was not found');
   sheet.getRange(index + 2, 7, 1, 5).setValues([[decision, rows[index + 1][7], reviewer, new Date(), note]]);
+  audit_(reviewer, 'time_request_' + decision, requestId, note);
   return reply_(true, 'Time request ' + decision);
 }
 
@@ -941,7 +951,29 @@ function adminVoidAttendanceDay_(payload) {
     }
   } finally { lock.releaseLock(); }
   if (!voided) return reply_(false, 'ไม่พบบันทึกเวลาที่ใช้งานอยู่ของวันนั้น');
+  audit_(reviewer, 'attendance_voided', employeeId, date + ' · ' + voided + ' rows');
   return reply_(true, 'ยกเลิกบันทึกเวลาแล้ว (เก็บไว้ใน Sheet เพื่อ audit)', { employeeId: employeeId, date: date, voided: voided });
+}
+
+/* =========================== Audit log (who did what, when) =========================== */
+function initializeAuditLogSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  if (!ss.getSheetByName(SHEETS.audit)) { const s = ss.insertSheet(SHEETS.audit); s.appendRow(['Timestamp', 'Actor', 'Action', 'Target', 'Detail']); s.setFrozenRows(1); }
+}
+// Best-effort audit entry — never let logging break the real operation.
+function audit_(actor, action, target, detail) {
+  try {
+    initializeAuditLogSheet();
+    SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.audit)
+      .appendRow([new Date(), String(actor || 'Admin'), String(action || ''), String(target || ''), String(detail || '')]);
+  } catch (e) { /* ignore logging failures */ }
+}
+function adminListAuditLog_(payload) {
+  requireAdmin_(payload); initializeAuditLogSheet();
+  const rows = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.audit)).slice(1)
+    .map(r => ({ at: r[0] ? Utilities.formatDate(new Date(r[0]), ICT, "yyyy-MM-dd'T'HH:mm:ssXXX") : '', actor: String(r[1] || ''), action: String(r[2] || ''), target: String(r[3] || ''), detail: String(r[4] || '') }))
+    .filter(r => r.at).reverse().slice(0, 400);
+  return reply_(true, 'Audit log loaded', { entries: rows });
 }
 
 /* =========================== Admin console accounts (user + password login) =========================== */
@@ -992,6 +1024,7 @@ function adminUpsertAdminUser_(payload) {
     if (!password) return reply_(false, 'ผู้ใช้ใหม่ต้องตั้งรหัสผ่าน');
     sheet.appendRow([username, password, displayName, active, new Date()]);
   }
+  audit_(String(payload.reviewer || 'Admin'), 'admin_user_saved', username, '');
   return reply_(true, 'บันทึกบัญชีแอดมินแล้ว', { username: username });
 }
 
@@ -1007,6 +1040,7 @@ function adminDeleteAdminUser_(payload) {
   const idx = all.slice(1).findIndex(r => String(r[0]).trim().toLowerCase() === username.toLowerCase());
   if (idx < 0) return reply_(false, 'ไม่พบบัญชีนี้');
   sheet.deleteRow(idx + 2);
+  audit_(String(payload.reviewer || 'Admin'), 'admin_user_deleted', username, '');
   return reply_(true, 'ลบบัญชีแอดมินแล้ว', { username: username });
 }
 
@@ -1027,6 +1061,7 @@ function adminAddOvertime_(payload) {
     SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.timeRequests)
       .appendRow([Utilities.getUuid(), employeeId, 'overtime', workDate, Math.round(requestedMinutes), reason, 'approved', now, reviewer, now, 'บันทึกโดยแอดมินโดยตรง']);
   } finally { lock.releaseLock(); }
+  audit_(reviewer, 'overtime_added', employeeId, Utilities.formatDate(workDate, ICT, 'yyyy-MM-dd') + ' · ' + Math.round(requestedMinutes) + ' นาที');
   return reply_(true, 'Overtime recorded', { employeeId: employeeId, workDate: Utilities.formatDate(workDate, ICT, 'yyyy-MM-dd'), requestedMinutes: Math.round(requestedMinutes) });
 }
 

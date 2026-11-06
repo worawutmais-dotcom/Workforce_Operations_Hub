@@ -296,6 +296,7 @@
       <button data-page="payrules"><span class="ico">⚖</span> เรตค่าจ้าง</button>
       <button data-page="invoices"><span class="ico">▤</span> ใบแจ้งหนี้</button>
       <button data-page="settings"><span class="ico">⚙</span> ตั้งค่า</button>
+      <button data-page="audit"><span class="ico">🕘</span> บันทึกการใช้งาน</button>
     </nav>
     <div class="foot">
       <b id="footReviewer">—</b>
@@ -327,6 +328,7 @@
       <section class="page" id="page-payrules"></section>
       <section class="page" id="page-invoices"></section>
       <section class="page" id="page-settings"></section>
+      <section class="page" id="page-audit"></section>
     </div>
   </div>
 </div>
@@ -495,6 +497,7 @@ const PAGES = {
   payrules:{title:"เรตค่าจ้าง", sub:"ตั้งฐานค่าจ้าง OT และวันพิเศษต่อพนักงาน", load:()=>renderPayrules()},
   invoices:{title:"ใบแจ้งหนี้", sub:"ออกบิล ติดตามสถานะ และบันทึกการชำระ", load:()=>renderInvoices()},
   settings:{title:"ตั้งค่า", sub:"การเชื่อมต่อ · บัญชีแอดมิน (ชื่อผู้ใช้ / รหัสผ่าน)", load:()=>renderSettings()},
+  audit:{title:"บันทึกการใช้งาน", sub:"ใครทำอะไรเมื่อไหร่ (audit trail)", load:()=>renderAudit()},
 };
 function go(page){
   if(!PAGES[page]) return;
@@ -1648,6 +1651,46 @@ async function voidAttendanceDay(d, reload){
   try{ const r=await api("admin_void_attendance_day",{employeeId:d.employeeId, date:d.date, reviewer:state.reviewer||"Admin"});
     toast("ยกเลิกแล้ว ("+(r.voided||0)+" รายการ)","good"); if(reload) reload();
   }catch(err){ toast(err.message,"bad"); }
+}
+
+/* =================================================================
+   AUDIT LOG
+   ================================================================= */
+const AUDIT_LABEL={
+  advance_approved:"อนุมัติเบิกเงิน",advance_rejected:"ปฏิเสธเบิกเงิน",advance_paid:"จ่ายเงินเบิก",
+  leave_approved:"อนุมัติลา",leave_rejected:"ปฏิเสธลา",time_request_approved:"อนุมัติ OT/เวลา",time_request_rejected:"ปฏิเสธ OT/เวลา",
+  overtime_added:"บันทึก OT",payroll_locked:"ล็อกงวดเงินเดือน",attendance_voided:"ยกเลิกบันทึกเวลา",
+  attendance_manual_check_in:"ลงเวลาเข้าแทน",attendance_manual_check_out:"ลงเวลาออกแทน",
+  password_reset:"รีเซ็ตรหัสผ่าน",pay_rule_saved:"ตั้งเรตค่าจ้าง",settings_saved:"แก้ตั้งค่า",
+  admin_user_saved:"บันทึกบัญชีแอดมิน",admin_user_deleted:"ลบบัญชีแอดมิน"};
+async function renderAudit(){
+  const node=$("#page-audit"); skeleton(node);
+  try{
+    const data=await api("admin_list_audit_log");
+    const entries=data.entries||[];
+    node.innerHTML=`
+      <div class="notice blue">บันทึกการกระทำสำคัญทั้งหมด (เก็บถาวรใน Sheet) — ใช้ตรวจสอบย้อนหลังว่าใครทำอะไร</div>
+      <div class="panel"><div class="head"><h2>ประวัติการใช้งาน</h2><span class="sub" style="margin-left:8px">${fmtInt(entries.length)} รายการล่าสุด</span><div class="spacer"></div>
+        <input type="search" id="auditSearch" placeholder="ค้นหา ผู้ทำ / การกระทำ / เป้าหมาย" style="width:260px;border:1px solid var(--line);border-radius:9px;padding:9px 11px;background:var(--card);color:var(--ink)"></div>
+        <div class="body flush"><table id="auditTable">
+          <thead><tr><th>เวลา</th><th>ผู้ทำ</th><th>การกระทำ</th><th>เป้าหมาย</th><th>รายละเอียด</th></tr></thead>
+          <tbody id="auditRows"></tbody></table></div>
+      </div>`;
+    const draw=(q="")=>{
+      q=q.trim().toLowerCase();
+      const list=entries.filter(e=>!q || (e.actor+e.action+(AUDIT_LABEL[e.action]||"")+e.target+e.detail).toLowerCase().includes(q));
+      const tb=$("#auditRows");
+      tb.innerHTML=list.length? list.map(e=>`<tr>
+        <td class="sub" style="white-space:nowrap">${fmtDateTime(e.at)}</td>
+        <td class="person">${esc(e.actor)}</td>
+        <td><span class="badge grey">${esc(AUDIT_LABEL[e.action]||e.action)}</span></td>
+        <td>${esc(e.target||"—")}</td><td class="sub">${esc(e.detail||"—")}</td></tr>`).join("")
+        : `<tr><td colspan="5"><div class="empty">ไม่พบรายการ</div></td></tr>`;
+      attachSort($("#auditTable"));
+    };
+    draw();
+    $("#auditSearch").oninput=e=>draw(e.target.value);
+  }catch(err){ errorBox(node, err, renderAudit); }
 }
 
 /* =================================================================
