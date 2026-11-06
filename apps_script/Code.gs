@@ -1196,6 +1196,28 @@ function constantTimeEqual_(a, b) { if (a.length !== b.length) return false; let
 function metres_(a, b, c, d) { const r = 6371e3, x = (c - a) * Math.PI / 180, y = (d - b) * Math.PI / 180, q = Math.sin(x / 2) ** 2 + Math.cos(a * Math.PI / 180) * Math.cos(c * Math.PI / 180) * Math.sin(y / 2) ** 2; return 2 * r * Math.atan2(Math.sqrt(q), Math.sqrt(1 - q)); }
 function reply_(ok, message, data) { return ContentService.createTextOutput(JSON.stringify({ ok: ok, message: message, data: data || null })).setMimeType(ContentService.MimeType.JSON); }
 
+/* =========================== DANGER: data reset (run manually from the editor) ===========================
+   Clears ALL operational data but KEEPS admin accounts (Admin_Users) and Settings.
+   Run from the Apps Script editor: select resetAllDataKeepAdmin → Run. IRREVERSIBLE.
+   It only wipes data rows (row 2 onward); header rows and sheet structure stay. */
+function resetAllDataKeepAdmin() {
+  const KEEP = [SHEETS.adminUsers, SHEETS.settings]; // admin login + config are preserved
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const report = [];
+  Object.keys(SHEETS).forEach(function (k) {
+    const name = SHEETS[k];
+    if (KEEP.indexOf(name) >= 0) return;
+    const sheet = ss.getSheetByName(name);
+    if (!sheet) return;
+    const last = sheet.getLastRow();
+    if (last > 1) { sheet.deleteRows(2, last - 1); report.push(name + ': cleared ' + (last - 1)); }
+    else { report.push(name + ': already empty'); }
+  });
+  try { CacheService.getScriptCache().removeAll(['dir_v1', 'sites_v1']); } catch (e) { }
+  Logger.log('RESET DONE (kept: ' + KEEP.join(', ') + ')\n' + report.join('\n'));
+  return report;
+}
+
 /* ---- Lightweight read cache (Script-wide) to cut repeated full-sheet reads ---- */
 function cacheGet_(key) { try { const v = CacheService.getScriptCache().get(key); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
 function cachePut_(key, obj, seconds) { try { CacheService.getScriptCache().put(key, JSON.stringify(obj), seconds || 60); } catch (e) { /* value too big or quota — skip */ } }
