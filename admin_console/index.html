@@ -1931,6 +1931,13 @@ function closeRowMenu(){ const m=$(".ctxmenu"); if(m) m.remove(); }
 /* =================================================================
    BOOT
    ================================================================= */
+// Auto-heal: a known-stale /exec URL saved from before → move it to the current default.
+try{
+  const saved=LS.getItem("bvn_endpoint"), OLD=["zu9KzeCGU","WBW-2","DODafxnL"];
+  if(saved && saved!==DEFAULT_ENDPOINT && OLD.some(x=>saved.indexOf(x)>=0)){
+    LS.setItem("bvn_endpoint", DEFAULT_ENDPOINT);
+  }
+}catch(_){}
 $("#inEndpoint").value = LS.getItem("bvn_endpoint") || DEFAULT_ENDPOINT;
 $("#loginForm").addEventListener("submit", doLogin);
 
