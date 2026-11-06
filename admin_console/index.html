@@ -905,47 +905,82 @@ function exportCSV(data, kind){
 /* =================================================================
    PAY RULES
    ================================================================= */
+let payRulesCache=[];
 async function renderPayrules(){
   const node=$("#page-payrules");
   skeleton(node);
   try{
-    await loadEmployees();
-    const opts=state.employees.filter(e=>e.status==="active")
-      .map(e=>`<option value="${esc(e.id)}">${esc(e.name)} (${esc(e.id)})</option>`).join("");
+    const data=await api("admin_list_pay_rules");
+    payRulesCache=data.rules||[];
+    const withRule=payRulesCache.filter(r=>r.hasRule).length;
+    const missing=payRulesCache.filter(r=>r.status==="active"&&!r.hasRule).length;
     node.innerHTML=`
-      <div class="notice blue">ตั้งเรตต่อพนักงาน 1 เรตที่ใช้งาน — ใช้ตอนคำนวณ payroll preview (ฐาน + OT + วันพิเศษ)</div>
-      <div class="panel"><div class="head"><h2>ตั้ง / แก้ไขเรตค่าจ้าง</h2></div>
-        <div class="body">
-          <div class="field"><label>พนักงาน</label><select id="rEmp">${opts||'<option value="">— ไม่มีพนักงาน active —</option>'}</select></div>
-          <div class="grid2">
-            ${field("รูปแบบค่าจ้าง",`<select id="rBasis"><option value="daily">รายวัน (daily)</option><option value="hourly">รายชั่วโมง (hourly)</option></select>`).outerHTML}
-            ${field("อัตราฐาน (บาท)",`<input id="rRate" type="number" min="0" step="0.01" placeholder="เช่น 500">`).outerHTML}
-            ${field("ชม.มาตรฐาน/วัน",`<input id="rHours" type="number" min="1" step="0.5" value="8">`).outerHTML}
-            ${field("ตัวคูณ OT",`<input id="rOtMul" type="number" min="1" step="0.1" value="1.5">`).outerHTML}
-            ${field("วันพิเศษ (YYYY-MM-DD)",`<input id="rPremDate" type="date">`).outerHTML}
-            ${field("ตัวคูณวันพิเศษ",`<input id="rPremMul" type="number" min="1" step="0.1" value="1">`).outerHTML}
-          </div>
-          <label class="check"><input type="checkbox" id="rOt" checked> เปิดใช้ OT</label>
-          <div style="margin-top:18px;display:flex;justify-content:flex-end"><button class="btn" id="saveRule">บันทึกเรต</button></div>
-        </div>
+      <div class="notice blue">ตั้งเรตค่าจ้าง 1 เรต/คน ใช้คำนวณเงินเดือน (ฐาน + OT + วันพิเศษ) — ตั้งแล้ว <b>${fmtInt(withRule)}</b> คน${missing?` · <span style="color:#b45309">ยังไม่ตั้ง ${fmtInt(missing)} คน</span>`:""}</div>
+      <div class="panel"><div class="head"><h2>เรตค่าจ้างพนักงาน</h2><span class="sub" style="margin-left:8px">คลิกขวาหรือปุ่ม “ตั้งเรต / แก้ไข” ที่แต่ละแถว</span></div>
+        <div class="body flush"><table>
+          <thead><tr><th>พนักงาน</th><th>รูปแบบ</th><th class="num">อัตราฐาน</th><th class="num">ชม./วัน</th><th>OT</th><th>วันพิเศษ</th><th>สถานะ</th><th></th></tr></thead>
+          <tbody id="ruleRows"></tbody>
+        </table></div>
       </div>`;
-    $("#saveRule").onclick=e=>withBtn(e.target, async ()=>{
-      const employeeId=$("#rEmp").value;
-      const baseRate=parseFloat($("#rRate").value);
-      if(!employeeId){ toast("เลือกพนักงานก่อน","bad"); return; }
-      if(!(baseRate>=0)){ toast("กรอกอัตราฐานให้ถูกต้อง","bad"); return; }
-      try{
-        await api("admin_upsert_pay_rule",{
-          employeeId, payBasis:$("#rBasis").value, baseRate,
-          standardHours:parseFloat($("#rHours").value)||8,
-          otEnabled:$("#rOt").checked, otMultiplier:parseFloat($("#rOtMul").value)||1.5,
-          premiumDate:$("#rPremDate").value||"", premiumMultiplier:parseFloat($("#rPremMul").value)||1,
-          updatedBy:state.reviewer||"Admin",
-        });
-        toast("บันทึกเรตค่าจ้างแล้ว","good");
-      }catch(err){ toast(err.message,"bad"); }
-    });
+    const tb=$("#ruleRows");
+    const basisLabel=b=>b==="daily"?"รายวัน":b==="hourly"?"รายชั่วโมง":"—";
+    tb.innerHTML=payRulesCache.map(r=>`<tr data-id="${esc(r.employeeId)}">
+        <td class="person">${esc(r.name)}<span class="sub">${esc(r.employeeId)}${r.role?" · "+esc(r.role):""}</span></td>
+        <td>${r.hasRule?basisLabel(r.payBasis):'<span class="sub">ยังไม่ตั้ง</span>'}</td>
+        <td class="num">${r.hasRule?fmtBaht(r.baseRate):"—"}</td>
+        <td class="num">${r.hasRule?r.standardHours:"—"}</td>
+        <td>${r.hasRule?(r.otEnabled?`<span class="badge">×${r.otMultiplier}</span>`:'<span class="badge grey">ปิด</span>'):"—"}</td>
+        <td>${r.hasRule&&r.premiumDate?`${esc(r.premiumDate)} <span class="sub">×${r.premiumMultiplier}</span>`:"—"}</td>
+        <td>${r.status==="active"?'<span class="badge"><span class="dot"></span>ใช้งาน</span>':'<span class="badge grey">ปิดใช้งาน</span>'}</td>
+        <td><div class="row-actions"><button class="btn sub sm" data-rule="${esc(r.employeeId)}">${r.hasRule?"แก้ไข":"ตั้งเรต"}</button></div></td>
+      </tr>`).join("");
+    tb.querySelectorAll("[data-rule]").forEach(b=>b.onclick=()=>payRuleDialog(payRulesCache.find(x=>x.employeeId===b.dataset.rule)));
+    tb.querySelectorAll("tr[data-id]").forEach(tr=>{ const r=payRulesCache.find(x=>x.employeeId===tr.dataset.id);
+      attachRowMenu(tr, [{label:(r.hasRule?"✏️ แก้ไขเรต":"➕ ตั้งเรต"), fn:()=>payRuleDialog(r)}]); });
   }catch(err){ errorBox(node, err, renderPayrules); }
+}
+
+function payRuleDialog(r){
+  if(!r){ toast("ไม่พบพนักงาน","bad"); return; }
+  const body=el(`<div></div>`);
+  body.append(el(`<div class="notice blue">เรตค่าจ้างของ <b>${esc(r.name)}</b> <span class="sub">(${esc(r.employeeId)})</span></div>`));
+  body.append(field("รูปแบบค่าจ้าง",`<select id="rBasis"><option value="daily">รายวัน (daily)</option><option value="hourly">รายชั่วโมง (hourly)</option></select>`));
+  const g=el(`<div class="grid2"></div>`);
+  g.append(
+    field("อัตราฐาน (บาท)",`<input id="rRate" type="number" min="0" step="0.01" placeholder="เช่น 500">`),
+    field("ชม.มาตรฐาน/วัน",`<input id="rHours" type="number" min="1" step="0.5" value="8">`),
+    field("ตัวคูณ OT",`<input id="rOtMul" type="number" min="1" step="0.1" value="1.5">`),
+    field("วันพิเศษ (ทางเลือก)",`<input id="rPremDate" type="date">`),
+    field("ตัวคูณวันพิเศษ",`<input id="rPremMul" type="number" min="1" step="0.1" value="1">`),
+  );
+  body.append(g);
+  body.append(el(`<label class="check" style="margin-top:6px"><input type="checkbox" id="rOt" checked> เปิดใช้ OT</label>`));
+  const ok=el(`<button class="btn ok">บันทึกเรต</button>`);
+  const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
+  body.querySelector("#rBasis").value = r.hasRule?r.payBasis:"daily";
+  if(r.hasRule){
+    body.querySelector("#rRate").value=r.baseRate;
+    body.querySelector("#rHours").value=r.standardHours;
+    body.querySelector("#rOtMul").value=r.otMultiplier;
+    body.querySelector("#rPremDate").value=r.premiumDate||"";
+    body.querySelector("#rPremMul").value=r.premiumMultiplier;
+    body.querySelector("#rOt").checked=r.otEnabled;
+  }
+  ok.onclick=()=>withBtn(ok, async ()=>{
+    const baseRate=parseFloat(body.querySelector("#rRate").value);
+    if(!(baseRate>=0)){ toast("กรอกอัตราฐานให้ถูกต้อง","bad"); return; }
+    try{
+      await api("admin_upsert_pay_rule",{
+        employeeId:r.employeeId, payBasis:body.querySelector("#rBasis").value, baseRate,
+        standardHours:parseFloat(body.querySelector("#rHours").value)||8,
+        otEnabled:body.querySelector("#rOt").checked, otMultiplier:parseFloat(body.querySelector("#rOtMul").value)||1.5,
+        premiumDate:body.querySelector("#rPremDate").value||"", premiumMultiplier:parseFloat(body.querySelector("#rPremMul").value)||1,
+        updatedBy:state.reviewer||"Admin",
+      });
+      closeModal(); toast("บันทึกเรตค่าจ้างแล้ว","good"); renderPayrules();
+    }catch(err){ toast(err.message,"bad"); }
+  });
+  openModal("ตั้ง / แก้ไขเรตค่าจ้าง", body, [cancel, ok]);
 }
 
 /* =================================================================

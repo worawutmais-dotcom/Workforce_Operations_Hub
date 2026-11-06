@@ -44,6 +44,7 @@ function doPost(e) {
     if (action === 'admin_delete_admin_user') return adminDeleteAdminUser_(payload);
     if (action === 'admin_delete_attendance_day') return adminDeleteAttendanceDay_(payload);
     if (action === 'admin_upsert_pay_rule') return adminUpsertPayRule_(payload);
+    if (action === 'admin_list_pay_rules') return adminListPayRules_(payload);
     if (action === 'admin_preview_payroll') return adminPreviewPayroll_(payload);
     if (action === 'admin_lock_payroll') return adminLockPayroll_(payload);
     if (action === 'admin_list_payrolls') return adminListPayrolls_(payload);
@@ -338,6 +339,26 @@ function adminUpsertPayRule_(payload) {
   const index = rows.slice(1).findIndex(r => String(r[0]).trim().toUpperCase() === employeeId);
   if (index >= 0) sheet.getRange(index + 2, 1, 1, row.length).setValues([row]); else sheet.appendRow(row);
   return reply_(true, 'Pay rule saved', { employeeId: employeeId, payBasis: basis, baseRate: rate });
+}
+
+function adminListPayRules_(payload) {
+  requireAdmin_(payload); initializePayrollRulesSheet();
+  const names = employeeNameMap_();
+  const rules = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.payrollRules)).slice(1)
+    .reduce((m, r) => { if (String(r[0])) m[String(r[0]).trim().toUpperCase()] = r; return m; }, {});
+  const out = Object.keys(names).map(id => {
+    const r = rules[id];
+    return {
+      employeeId: id, name: names[id].name, role: names[id].role || '', status: names[id].status,
+      hasRule: !!r,
+      payBasis: r ? String(r[1]) : '', baseRate: r ? Number(r[2] || 0) : null,
+      standardHours: r ? Number(r[3] || 8) : 8, otEnabled: r ? String(r[4]) === 'true' : false,
+      otMultiplier: r ? Number(r[5] || 1.5) : 1.5, premiumDate: r ? (r[6] ? String(r[6]) : '') : '',
+      premiumMultiplier: r ? Number(r[7] || 1) : 1,
+      updatedAt: r && r[8] ? Utilities.formatDate(new Date(r[8]), ICT, "yyyy-MM-dd'T'HH:mm:ssXXX") : '', updatedBy: r ? String(r[9] || '') : ''
+    };
+  }).sort((a, b) => (a.status === b.status ? a.employeeId.localeCompare(b.employeeId) : (a.status === 'active' ? -1 : 1)));
+  return reply_(true, 'Pay rules loaded', { rules: out });
 }
 
 function adminPreviewPayroll_(payload) {
