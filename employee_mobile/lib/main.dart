@@ -27,7 +27,11 @@ String _statusTh(String s) {
   }
 }
 
-void main() => runApp(const BvnEmployeeApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await BvnConfig.load();
+  runApp(const BvnEmployeeApp());
+}
 
 class BvnEmployeeApp extends StatefulWidget {
   const BvnEmployeeApp({super.key});
@@ -1313,6 +1317,14 @@ class _Account extends StatelessWidget {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _requestResetDialog(context),
             ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.dns_outlined),
+              title: const Text('ตั้งค่าเซิร์ฟเวอร์ (ขั้นสูง)'),
+              subtitle: const Text('ใช้เมื่อแอดมินแจ้ง URL /exec ใหม่'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _endpointDialog(context),
+            ),
           ],
         ),
       ),
@@ -1328,6 +1340,43 @@ class _Account extends StatelessWidget {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
+  }
+
+  Future<void> _endpointDialog(BuildContext context) async {
+    final url = TextEditingController(text: BvnConfig.endpoint);
+    final r = await showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('ตั้งค่าเซิร์ฟเวอร์'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('วาง URL /exec ที่แอดมินแจ้ง (ลงท้ายด้วย /exec)',
+              style: TextStyle(fontSize: 13)),
+          const SizedBox(height: 10),
+          TextField(
+            controller: url,
+            maxLines: 3,
+            decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'https://script.google.com/macros/s/.../exec'),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, '__reset__'), child: const Text('ค่าเริ่มต้น')),
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('ยกเลิก')),
+          FilledButton(onPressed: () => Navigator.pop(c, url.text.trim()), child: const Text('บันทึก')),
+        ],
+      ),
+    );
+    if (r == null) return;
+    if (r == '__reset__') {
+      await BvnConfig.reset();
+      _snack(context, 'กลับไปใช้เซิร์ฟเวอร์เริ่มต้นแล้ว');
+      return;
+    }
+    if (!r.endsWith('/exec')) {
+      _snack(context, 'URL ต้องลงท้ายด้วย /exec');
+      return;
+    }
+    await BvnConfig.setEndpoint(r);
+    _snack(context, 'บันทึกเซิร์ฟเวอร์แล้ว — ออกจากระบบแล้วเข้าใหม่');
   }
 
   Future<void> _advanceDialog(BuildContext context) async {

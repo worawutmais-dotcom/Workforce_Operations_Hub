@@ -343,7 +343,7 @@
    ================================================================= */
 "use strict";
 
-const DEFAULT_ENDPOINT = "https://script.google.com/macros/s/AKfycbwgMFwJOTbq_0GPgVUDfJ8yJ7OtBnBff9HmlpdzMnY8BkRgdf19Bpiy-YKKI4tRSAM/exec";
+const DEFAULT_ENDPOINT = "https://script.google.com/macros/s/AKfycbzIlBl0KxAI2ibRDiODZDu-m4WYYUHloSvGkm37rMAsc_be0jUikQP0ytPRho-62wN2/exec";
 const SS = sessionStorage, LS = localStorage;
 
 /* ---------- ผู้ออกใบแจ้งหนี้ (หัวบิล) ---------- */
@@ -1994,7 +1994,7 @@ function closeRowMenu(){ const m=$(".ctxmenu"); if(m) m.remove(); }
    ================================================================= */
 // Auto-heal: a known-stale /exec URL saved from before → move it to the current default.
 try{
-  const saved=LS.getItem("bvn_endpoint"), OLD=["zu9KzeCGU","WBW-2","DODafxnL"];
+  const saved=LS.getItem("bvn_endpoint"), OLD=["zu9KzeCGU","WBW-2","DODafxnL","YKKI4tRSAM"];
   if(saved && saved!==DEFAULT_ENDPOINT && OLD.some(x=>saved.indexOf(x)>=0)){
     LS.setItem("bvn_endpoint", DEFAULT_ENDPOINT);
   }

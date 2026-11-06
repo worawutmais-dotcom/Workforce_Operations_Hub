@@ -5,8 +5,36 @@ import 'package:http/http.dart' as http;
 
 const bvnApiUrl = String.fromEnvironment(
   'BVN_API_URL',
-  defaultValue: 'https://script.google.com/macros/s/AKfycbwgMFwJOTbq_0GPgVUDfJ8yJ7OtBnBff9HmlpdzMnY8BkRgdf19Bpiy-YKKI4tRSAM/exec',
+  defaultValue: 'https://script.google.com/macros/s/AKfycbzIlBl0KxAI2ibRDiODZDu-m4WYYUHloSvGkm37rMAsc_be0jUikQP0ytPRho-62wN2/exec',
 );
+
+// Runtime-overridable endpoint (set in-app, persisted) so a changed /exec URL
+// does NOT require rebuilding the APK. Falls back to the baked default.
+class BvnConfig {
+  static const _storage = FlutterSecureStorage();
+  static const _key = 'bvn_endpoint';
+  static String endpoint = bvnApiUrl;
+  static Future<void> load() async {
+    try {
+      final v = await _storage.read(key: _key);
+      if (v != null && v.trim().isNotEmpty) endpoint = v.trim();
+    } catch (_) {}
+  }
+
+  static Future<void> setEndpoint(String url) async {
+    endpoint = url.trim();
+    try {
+      await _storage.write(key: _key, value: endpoint);
+    } catch (_) {}
+  }
+
+  static Future<void> reset() async {
+    endpoint = bvnApiUrl;
+    try {
+      await _storage.delete(key: _key);
+    } catch (_) {}
+  }
+}
 
 class BvnApiException implements Exception {
   BvnApiException(this.message);
@@ -50,7 +78,7 @@ class BvnApi {
   // package:http's automatic redirect re-POSTs to that host (which fails), so the
   // redirect must be followed manually as a GET to receive the JSON body.
   Future<http.Response> _send(Map<String, dynamic> body) async {
-    var uri = Uri.parse(bvnApiUrl);
+    var uri = Uri.parse(BvnConfig.endpoint);
     final request = http.Request('POST', uri)
       ..followRedirects = false
       ..headers['Content-Type'] = 'text/plain;charset=utf-8'
