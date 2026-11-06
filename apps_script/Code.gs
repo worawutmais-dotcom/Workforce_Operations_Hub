@@ -28,6 +28,7 @@ function doPost(e) {
     if (action === 'time_request') return submitTimeRequest_(payload);
     if (action === 'employee_time_requests') return employeeTimeRequests_(payload);
     if (action === 'employee_profile') return employeeProfile_(payload);
+    if (action === 'sites') return employeeSites_(payload);
     if (action === 'employee_directory') return employeeDirectory_();
     if (action === 'employee_login') return employeeLogin_(payload);
     if (action === 'admin_list_employees') return adminListEmployees_(payload);
@@ -175,12 +176,17 @@ function recordAttendance_(payload) {
   if (!employee || employee.status !== 'active') return reply_(false, 'Employee is not active');
   const eventType = String(payload.eventType || '');
   if (eventType !== 'check_in' && eventType !== 'check_out') return reply_(false, 'Invalid attendance event');
-  const site = findSite_(String(payload.siteId || employee.siteId || ''));
   const latitude = finiteNumber_(payload.latitude), longitude = finiteNumber_(payload.longitude), accuracy = finiteNumber_(payload.accuracy);
-  if (employee.locationRequired && (!site || site.id !== employee.siteId)) return reply_(false, 'Work site is not assigned to this employee');
-  if (employee.locationRequired && (latitude === null || longitude === null || accuracy === null || accuracy < 0)) return reply_(false, 'Valid GPS location is required for this employee');
-  const distance = employee.locationRequired ? metres_(latitude, longitude, site.lat, site.lng) : null;
-  const accepted = employee.locationRequired ? accuracy <= MAX_ACCURACY_METRES && distance <= site.radius : true;
+  // Check-out can happen anywhere (no location check). Check-in with a location
+  // policy must fall inside the radius of ANY active site (multiple sites supported).
+  let matchedSite = null, distance = null, accepted = true;
+  if (eventType === 'check_in' && employee.locationRequired) {
+    if (latitude === null || longitude === null || accuracy === null || accuracy < 0) return reply_(false, 'ต้องระบุตำแหน่ง GPS สำหรับการเช็กอิน');
+    const sites = activeSites_();
+    if (!sites.length) return reply_(false, 'ยังไม่ได้ตั้งจุดเช็กอิน กรุณาติดต่อแอดมิน');
+    sites.forEach(s => { const d = metres_(latitude, longitude, s.lat, s.lng); if (distance === null || d < distance) { distance = d; matchedSite = s; } });
+    accepted = accuracy <= MAX_ACCURACY_METRES && matchedSite != null && distance <= matchedSite.radius;
+  }
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   let overtimeInfo = null;
@@ -191,13 +197,13 @@ function recordAttendance_(payload) {
     if (eventType === 'check_out' && !todayState.checkedIn) return reply_(false, 'ต้องบันทึกเข้างานก่อนจึงจะบันทึกออกงานได้', todayState);
     if (eventType === 'check_out' && todayState.checkedOut) return reply_(false, 'วันนี้คุณบันทึกออกงานแล้ว', todayState);
     const now = new Date();
-    log.appendRow([Utilities.getUuid(), employee.id, site ? site.id : employee.siteId, eventType, now, latitude === null ? '' : latitude, longitude === null ? '' : longitude, accuracy === null ? '' : accuracy, distance === null ? '' : Math.round(distance * 100) / 100, accepted ? 'accepted' : 'rejected', String(payload.deviceTimezone || ''), employee.locationRequired ? 'mobile_api_location' : 'mobile_api_no_location', accepted ? 'pending' : 'rejected', new Date()]);
+    log.appendRow([Utilities.getUuid(), employee.id, matchedSite ? matchedSite.id : (employee.siteId || ''), eventType, now, latitude === null ? '' : latitude, longitude === null ? '' : longitude, accuracy === null ? '' : accuracy, distance === null ? '' : Math.round(distance * 100) / 100, accepted ? 'accepted' : 'rejected', String(payload.deviceTimezone || ''), employee.locationRequired ? 'mobile_api_location' : 'mobile_api_no_location', accepted ? 'pending' : 'rejected', new Date()]);
     touchMobileToken_(payload.mobileToken);
     // Auto-detect overtime on check-out: if the worked time exceeds the employee's
     // standard hours, submit a PENDING overtime request for the admin to approve.
     if (eventType === 'check_out' && accepted) overtimeInfo = autoCreateOvertime_(employee.id, now);
   } finally { lock.releaseLock(); }
-  return reply_(accepted, accepted ? 'Attendance recorded' : 'Outside permitted radius or GPS accuracy is too low', { decision: accepted ? 'accepted' : 'rejected', locationRequired: employee.locationRequired, distanceMetres: distance === null ? null : Math.round(distance), allowedRadiusMetres: site ? site.radius : null, overtime: overtimeInfo });
+  return reply_(accepted, accepted ? 'Attendance recorded' : 'อยู่นอกพื้นที่ที่อนุญาต หรือสัญญาณ GPS ไม่แม่นพอ', { decision: accepted ? 'accepted' : 'rejected', locationRequired: employee.locationRequired, distanceMetres: distance === null ? null : Math.round(distance), allowedRadiusMetres: matchedSite ? matchedSite.radius : null, matchedSite: matchedSite ? matchedSite.name || matchedSite.id : '', overtime: overtimeInfo });
 }
 
 // If a check-out means the employee worked past their standard hours (by more than
@@ -1145,6 +1151,17 @@ function employeeFromRow_(row, columns) { const c = columns || { id: 0, name: 1,
 function findSite_(siteId) {
   const row = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.sites)).slice(1).find(r => String(r[0]) === siteId && normalise_(r[5]) === 'true');
   return row ? { id: String(row[0]), lat: Number(row[2]), lng: Number(row[3]), radius: Number(row[4]) } : null;
+}
+// All active check-in sites (blank "Active" counts as active, matching the admin list).
+function activeSites_() {
+  initializeWorkSitesSheet();
+  return values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.sites)).slice(1)
+    .filter(r => String(r[0]) && normalise_(r[5]) !== 'false')
+    .map(r => ({ id: String(r[0]), name: String(r[1] || ''), lat: Number(r[2]), lng: Number(r[3]), radius: Number(r[4]) }));
+}
+function employeeSites_(payload) {
+  if (!authenticateMobile_(payload.mobileToken)) return reply_(false, 'Mobile authentication failed');
+  return reply_(true, 'Sites loaded', { sites: activeSites_() });
 }
 function parsePayload_(e) { if (!e || !e.postData || !e.postData.contents || e.postData.contents.length > 20000) throw new Error('Invalid request body'); const payload = JSON.parse(e.postData.contents); if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('Invalid JSON object'); return payload; }
 function values_(sheet) { if (!sheet) throw new Error('Required spreadsheet tab is missing'); return sheet.getDataRange().getValues(); }

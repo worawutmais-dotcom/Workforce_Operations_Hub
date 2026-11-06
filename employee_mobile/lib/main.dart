@@ -1,7 +1,9 @@
 // Account-tab actions guard context use via a context.mounted check inside _snack.
 // ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'bvn_api.dart';
 
@@ -310,7 +312,8 @@ class _EmployeeShellState extends State<EmployeeShell> {
     setState(() => _busy = true);
     try {
       Position? p;
-      if (_locationRequired) {
+      // Check-out is allowed anywhere, so only the location-required check-IN needs GPS.
+      if (_locationRequired && type == 'check_in') {
         if (!await Geolocator.isLocationServiceEnabled()) {
           throw Exception('กรุณาเปิด Location/GPS');
         }
@@ -378,6 +381,8 @@ class _EmployeeShellState extends State<EmployeeShell> {
         checkIn: _in,
         checkOut: _out,
         busy: _busy,
+        token: widget.token,
+        locationRequired: _locationRequired,
         onIn: () => _attendance('check_in'),
         onOut: () => _attendance('check_out'),
         onRefresh: _refresh,
@@ -443,13 +448,15 @@ class _Today extends StatelessWidget {
     this.checkIn,
     this.checkOut,
     required this.busy,
+    required this.token,
+    required this.locationRequired,
     required this.onIn,
     required this.onOut,
     required this.onRefresh,
   });
-  final String name, status;
+  final String name, status, token;
   final String? checkIn, checkOut;
-  final bool busy;
+  final bool busy, locationRequired;
   final Future<void> Function() onIn, onOut, onRefresh;
   @override
   Widget build(BuildContext context) => ListView(
@@ -488,6 +495,10 @@ class _Today extends StatelessWidget {
           ),
         ),
       ),
+      if (locationRequired && checkIn == null) ...[
+        const SizedBox(height: 14),
+        _CheckInMap(token: token),
+      ],
       const SizedBox(height: 14),
       FilledButton.icon(
         onPressed: busy || checkIn != null ? null : onIn,
@@ -497,7 +508,7 @@ class _Today extends StatelessWidget {
       OutlinedButton.icon(
         onPressed: busy || checkIn == null || checkOut != null ? null : onOut,
         icon: const Icon(Icons.logout),
-        label: const Text('Check out'),
+        label: const Text('Check out (ที่ไหนก็ได้)'),
       ),
       TextButton.icon(
         onPressed: busy ? null : onRefresh,
@@ -506,6 +517,215 @@ class _Today extends StatelessWidget {
       ),
     ],
   );
+}
+
+// Live check-in map: shows allowed sites (circles) + the employee's position,
+// and whether they are inside any site's radius yet.
+class _CheckInMap extends StatefulWidget {
+  const _CheckInMap({required this.token});
+  final String token;
+  @override
+  State<_CheckInMap> createState() => _CheckInMapState();
+}
+
+class _CheckInMapState extends State<_CheckInMap> {
+  final _map = MapController();
+  List<Map<String, dynamic>> _sites = [];
+  LatLng? _me;
+  String _msg = 'กำลังโหลดแผนที่…';
+  bool _inside = false;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final sites = await BvnApi().sites(widget.token);
+      Position? p;
+      try {
+        if (await Geolocator.isLocationServiceEnabled()) {
+          var perm = await Geolocator.checkPermission();
+          if (perm == LocationPermission.denied) {
+            perm = await Geolocator.requestPermission();
+          }
+          if (perm != LocationPermission.denied &&
+              perm != LocationPermission.deniedForever) {
+            p = await Geolocator.getCurrentPosition(
+              locationSettings: const LocationSettings(
+                accuracy: LocationAccuracy.high,
+              ),
+            );
+          }
+        }
+      } catch (_) {}
+      final me = p == null ? null : LatLng(p.latitude, p.longitude);
+      String msg;
+      bool inside = false;
+      if (sites.isEmpty) {
+        msg = 'ยังไม่ได้ตั้งจุดเช็กอิน (ติดต่อแอดมิน)';
+      } else if (me == null) {
+        msg = 'เปิด GPS เพื่อตรวจว่าอยู่ในพื้นที่หรือยัง';
+      } else {
+        final d = const Distance();
+        double best = double.infinity;
+        String bestName = '';
+        for (final s in sites) {
+          final c = LatLng(
+            (s['lat'] as num).toDouble(),
+            (s['lng'] as num).toDouble(),
+          );
+          final metres = d(me, c);
+          final radius = (s['radius'] as num).toDouble();
+          if (metres <= radius) {
+            inside = true;
+            bestName = '${s['name'] ?? s['id']}';
+            best = metres;
+            break;
+          }
+          if (metres - radius < best) {
+            best = metres - radius;
+            bestName = '${s['name'] ?? s['id']}';
+          }
+        }
+        msg = inside
+            ? 'คุณอยู่ในพื้นที่ "$bestName" แล้ว ✅ เช็กอินได้'
+            : 'ยังอยู่นอกพื้นที่ — ใกล้สุด "$bestName" (อีก ~${best.round()} ม.)';
+      }
+      if (mounted) {
+        setState(() {
+          _sites = sites;
+          _me = me;
+          _msg = msg;
+          _inside = inside;
+          _loading = false;
+        });
+        if (me != null) _map.move(me, 16);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _msg = 'โหลดแผนที่ไม่ได้: ${e.toString().replaceFirst('Exception: ', '')}';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final center = _me ??
+        (_sites.isNotEmpty
+            ? LatLng(
+                (_sites.first['lat'] as num).toDouble(),
+                (_sites.first['lng'] as num).toDouble(),
+              )
+            : const LatLng(13.7563, 100.5018));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: _inside ? const Color(0xFFE4F7EF) : const Color(0xFFFDF3DD),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                _inside ? Icons.check_circle : Icons.my_location,
+                color: _inside ? const Color(0xFF0A7350) : const Color(0xFFB45309),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Text(_msg)),
+              IconButton(
+                onPressed: _loading ? null : _load,
+                icon: const Icon(Icons.refresh),
+                tooltip: 'รีเฟรชตำแหน่ง',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: SizedBox(
+            height: 240,
+            child: FlutterMap(
+              mapController: _map,
+              options: MapOptions(initialCenter: center, initialZoom: 16),
+              children: [
+                TileLayer(
+                  urlTemplate:
+                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.bvnpackage.employee_mobile',
+                ),
+                CircleLayer(
+                  circles: [
+                    for (final s in _sites)
+                      CircleMarker(
+                        point: LatLng(
+                          (s['lat'] as num).toDouble(),
+                          (s['lng'] as num).toDouble(),
+                        ),
+                        radius: (s['radius'] as num).toDouble(),
+                        useRadiusInMeter: true,
+                        color: const Color(0x331E6EF5),
+                        borderColor: _blue,
+                        borderStrokeWidth: 2,
+                      ),
+                  ],
+                ),
+                MarkerLayer(
+                  markers: [
+                    for (final s in _sites)
+                      Marker(
+                        point: LatLng(
+                          (s['lat'] as num).toDouble(),
+                          (s['lng'] as num).toDouble(),
+                        ),
+                        width: 120,
+                        height: 34,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '${s['name'] ?? s['id']}',
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ),
+                      ),
+                    if (_me != null)
+                      Marker(
+                        point: _me!,
+                        width: 28,
+                        height: 28,
+                        child: const Icon(
+                          Icons.person_pin_circle,
+                          color: Color(0xFFD64545),
+                          size: 28,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _ListPage extends StatefulWidget {

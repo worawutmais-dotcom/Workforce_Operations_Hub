@@ -1293,8 +1293,9 @@ async function renderOwner(){
       </div>
 
       <div class="subpane" data-pane="store" style="display:none">
-        <div class="panel"><div class="head"><b>ตำแหน่งร้าน (สำหรับเช็กอิน GPS)</b><div class="spacer"></div><button class="btn sub" id="ownSite">ตั้ง / แก้ตำแหน่งร้าน</button></div>
-          <div class="body"><div id="ownSiteBody" class="sub">กำลังโหลด…</div></div>
+        <div class="panel"><div class="head"><b>จุดเช็กอิน (รองรับหลายที่)</b> <span class="sub">พนักงานเช็กอินได้ถ้าอยู่ในรัศมีจุดใดจุดหนึ่ง · เช็กเอาต์ที่ไหนก็ได้</span><div class="spacer"></div><button class="btn ok sm" id="ownAddSite">➕ เพิ่มจุด</button></div>
+          <div class="body flush"><table id="siteTable"><thead><tr><th>ชื่อพื้นที่</th><th>พิกัด (lat, long)</th><th class="num">รัศมี (ม.)</th><th>สถานะ</th><th data-nosort></th></tr></thead>
+          <tbody id="ownSiteRows"><tr><td colspan="5"><div class="empty">กำลังโหลด…</div></td></tr></tbody></table></div>
         </div>
         <div class="panel"><div class="head"><b>เบิกเงินล่วงหน้า</b><div class="spacer"></div><button class="btn sub" id="ownGoAdv">ไปหน้าเบิกเงิน</button></div>
           <div class="body"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
@@ -1322,13 +1323,9 @@ async function renderOwner(){
     $("#ownRows").querySelectorAll("[data-slip]").forEach(b=>b.onclick=()=>printPayslip(rows[+b.dataset.slip], p));
     $("#ownSettings").onclick=()=>settingsDialog(s);
     $("#ownLock").onclick=()=>lockFromOwner(p);
-    $("#ownSite").onclick=()=>siteDialog();
+    $("#ownAddSite").onclick=()=>siteDialog(null);
     $("#ownGoAdv").onclick=()=>go("advances");
-    api("admin_list_sites").then(sd=>{ const st=(sd.sites||[])[0];
-      $("#ownSiteBody").innerHTML= st
-        ? `<b>${esc(st.name||st.siteId)}</b> <span class="sub">(${esc(st.siteId)})</span> · พิกัด ${st.lat}, ${st.lng} · รัศมี ${fmtInt(st.radius)} ม. ${st.active?"":'<span class="badge red">ปิดใช้งาน</span>'}`
-        : `ยังไม่ได้ตั้งตำแหน่งร้าน — กด “ตั้ง / แก้ตำแหน่งร้าน” เพื่อใส่พิกัด GPS`;
-    }).catch(()=>{ const b=$("#ownSiteBody"); if(b) b.textContent="โหลดตำแหน่งร้านไม่ได้"; });
+    loadSites();
     const sel=$("#ownEmp");
     const fillSel=()=>{ sel.innerHTML=`<option value="">ทุกคน</option>`+(state.employees||[]).map(e=>`<option value="${esc(e.id)}"${e.id===ownerState.emp?" selected":""}>${esc(e.name)} (${esc(e.id)})</option>`).join(""); };
     if(!state.employees||!state.employees.length){ try{ await loadEmployees(true); }catch(_){} }
@@ -1417,28 +1414,50 @@ async function lockFromOwner(p){
   }catch(err){ toast(err.message,"bad"); }
 }
 
-async function siteDialog(site){
-  if(site===undefined){ try{ const d=await api("admin_list_sites"); site=(d.sites||[])[0]||null; }catch(_){ site=null; } }
+async function loadSites(){
+  const tb=$("#ownSiteRows"); if(!tb) return;
+  try{
+    const d=await api("admin_list_sites"); const sites=d.sites||[];
+    tb.innerHTML = sites.length? sites.map((st,i)=>`<tr data-si="${i}">
+      <td class="person">${esc(st.name||st.siteId)}<span class="sub">${esc(st.siteId)}</span></td>
+      <td class="sub">${st.lat}, ${st.lng}</td><td class="num">${fmtInt(st.radius)}</td>
+      <td>${st.active?'<span class="badge"><span class="dot"></span>ใช้งาน</span>':'<span class="badge grey">ปิด</span>'}</td>
+      <td><div class="row-actions"><button class="btn sub sm" data-sedit="${i}">แก้ไข</button></div></td></tr>`).join("")
+      : `<tr><td colspan="5"><div class="empty">ยังไม่มีจุดเช็กอิน — กด “เพิ่มจุด”</div></td></tr>`;
+    tb.querySelectorAll("[data-sedit]").forEach(b=>b.onclick=()=>siteDialog(sites[+b.dataset.sedit]));
+    tb.querySelectorAll("tr[data-si]").forEach(tr=>{ const st=sites[+tr.dataset.si];
+      attachRowMenu(tr, [{label:"✏️ แก้ไขจุด", fn:()=>siteDialog(st)}, st.active?{label:"⛔ ปิดใช้งานจุดนี้", danger:true, fn:()=>toggleSite(st,false)}:{label:"✅ เปิดใช้งาน", fn:()=>toggleSite(st,true)}]); });
+    attachSort($("#siteTable"));
+  }catch(err){ tb.innerHTML=`<tr><td colspan="5"><div class="empty">${esc(err.message)}</div></td></tr>`; }
+}
+async function toggleSite(st,active){
+  try{ await api("admin_save_site",{siteId:st.siteId, name:st.name, lat:st.lat, lng:st.lng, radius:st.radius, active});
+    toast(active?"เปิดใช้งานจุดแล้ว":"ปิดใช้งานจุดแล้ว","good"); loadSites();
+  }catch(err){ toast(err.message,"bad"); }
+}
+function siteDialog(site){
+  const isNew=!site;
   const body=el(`<div></div>`);
-  body.append(field("รหัสร้าน/ไซต์", `<input id="tSite" type="text" value="${esc(site?site.siteId:"BVN-HQ")}">`, "ต้องตรงกับช่อง “รหัสไซต์” ของพนักงานที่บังคับ GPS"));
-  body.append(field("ชื่อร้าน", `<input id="tName" type="text" value="${esc(site?site.name:"")}">`));
+  body.append(field("ชื่อพื้นที่ / สาขา", `<input id="tName" type="text" value="${esc(site?site.name:"")}" placeholder="เช่น สาขาสีลม">`));
+  body.append(field("รหัสจุด (siteId)", `<input id="tSite" type="text" value="${esc(site?site.siteId:("SITE-"+Date.now().toString(36).toUpperCase().slice(-5)))}" ${site?"readonly":""}>`, isNew?"ตั้งอัตโนมัติให้แล้ว แก้ได้":"แก้ไม่ได้หลังสร้าง"));
   const g=el(`<div class="grid2"></div>`);
   g.append(field("Latitude", `<input id="tLat" type="text" value="${site?site.lat:""}">`), field("Longitude", `<input id="tLng" type="text" value="${site?site.lng:""}">`));
   body.append(g);
   body.append(field("รัศมีอนุญาต (เมตร)", `<input id="tRad" type="number" min="1" value="${site?site.radius:200}">`, "พนักงานต้องอยู่ในรัศมีนี้ถึงจะเช็กอินผ่าน"));
-  const paste=field("วางพิกัดจาก Google Maps", `<input id="tPaste" type="text" placeholder="13.7629, 100.5582">`, "คัดลอกพิกัดจาก Google Maps มาวาง แล้วช่อง Lat/Lng จะเติมให้อัตโนมัติ");
+  const paste=field("วางพิกัดจาก Google Maps", `<input id="tPaste" type="text" placeholder="13.7629, 100.5582">`, "คัดลอกพิกัดจาก Google Maps มาวาง Lat/Lng จะเติมให้อัตโนมัติ");
   body.append(paste);
-  paste.querySelector("#tPaste").oninput=(e)=>{ const m=/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/.exec(e.target.value); if(m){ $("#tLat").value=m[1]; $("#tLng").value=m[2]; } };
+  paste.querySelector("#tPaste").oninput=(e)=>{ const m=/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/.exec(e.target.value); if(m){ body.querySelector("#tLat").value=m[1]; body.querySelector("#tLng").value=m[2]; } };
+  if(!isNew) body.append(el(`<label class="check" style="margin-top:8px"><input type="checkbox" id="tActive" ${site.active?"checked":""}> เปิดใช้งานจุดนี้</label>`));
   const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
-  const save=el(`<button class="btn">บันทึก</button>`);
+  const save=el(`<button class="btn ok">บันทึก</button>`);
   save.onclick=()=>withBtn(save, async ()=>{
-    const lat=parseFloat($("#tLat").value), lng=parseFloat($("#tLng").value), radius=parseFloat($("#tRad").value);
-    if(!$("#tSite").value.trim()||isNaN(lat)||isNaN(lng)||!(radius>0)){ toast("กรอกรหัสไซต์ พิกัด และรัศมีให้ครบ","bad"); return; }
-    try{ await api("admin_save_site",{siteId:$("#tSite").value.trim(), name:$("#tName").value.trim(), lat, lng, radius});
-      closeModal(); toast("บันทึกตำแหน่งร้านแล้ว","good"); renderOwner();
+    const lat=parseFloat(body.querySelector("#tLat").value), lng=parseFloat(body.querySelector("#tLng").value), radius=parseFloat(body.querySelector("#tRad").value);
+    if(!body.querySelector("#tSite").value.trim()||isNaN(lat)||isNaN(lng)||!(radius>0)){ toast("กรอกชื่อ/พิกัด/รัศมีให้ครบ","bad"); return; }
+    try{ await api("admin_save_site",{siteId:body.querySelector("#tSite").value.trim(), name:body.querySelector("#tName").value.trim(), lat, lng, radius, active: isNew?true:body.querySelector("#tActive").checked});
+      closeModal(); toast("บันทึกจุดเช็กอินแล้ว","good"); loadSites();
     }catch(err){ toast(err.message,"bad"); }
   });
-  openModal("ตั้งค่าตำแหน่งร้าน (GPS)", body, [cancel, save]);
+  openModal(isNew?"เพิ่มจุดเช็กอิน":"แก้ไขจุดเช็กอิน", body, [cancel, save]);
 }
 
 const ADV_BADGE={pending:"blue",approved:"",paid:"amber",settled:"grey",rejected:"red"};
