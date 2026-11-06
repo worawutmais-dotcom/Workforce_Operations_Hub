@@ -828,6 +828,10 @@ async function renderApprovals(){
         <div class="body" id="leaveCalWrap"></div>
         <div class="body flush" style="border-top:1px solid var(--line)"><table><thead><tr><th>ช่วงวันลา</th><th>พนักงาน</th><th>ประเภท</th><th class="num">จำนวนวัน</th><th>เหตุผล</th><th>สถานะ</th></tr></thead>
         <tbody id="leaveLogRows"></tbody></table></div>
+      </div>
+      <div class="panel"><div class="head"><h2>🧮 โควตาวันลา (ปีนี้)</h2><span class="sub" style="margin-left:8px">ใช้ไป / เหลือ เทียบโควตาที่ตั้งไว้</span></div>
+        <div class="body flush"><table id="quotaTable"><thead><tr><th>พนักงาน</th><th class="num">ลาป่วย</th><th class="num">ลากิจ</th><th class="num">ลาพักร้อน</th><th class="num">อื่นๆ</th></tr></thead>
+        <tbody id="quotaRows"><tr><td colspan="5"><div class="empty">กำลังโหลด…</div></td></tr></tbody></table></div>
       </div>`;
 
     const statusBadge=(s)=> s==="approved"?'<span class="badge">อนุมัติ</span>':s==="rejected"?'<span class="badge red">ปฏิเสธ</span>':'<span class="badge amber">รออนุมัติ</span>';
@@ -899,6 +903,16 @@ async function renderApprovals(){
     $("#calNext").onclick=()=>{calBase.setMonth(calBase.getMonth()+1);drawCal();};
     drawLeave(); drawTime(); drawLeaveLog(); drawCal();
     $("#leaveAll").onchange=drawLeave; $("#timeAll").onchange=drawTime; $("#leaveLogAll").onchange=drawLeaveLog;
+    api("admin_leave_usage").then(u=>{
+      const q=u.quota||{}, tb=$("#quotaRows"); if(!tb) return;
+      const cell=(used,quota)=>{ const rem=quota-used; return `${fmtInt(used)}<span class="sub">เหลือ ${fmtInt(rem)}/${fmtInt(quota)}</span>`; };
+      tb.innerHTML=(u.rows||[]).length? u.rows.map(r=>`<tr>
+        <td class="person">${esc(r.name)}<span class="sub">${esc(r.employeeId)}</span></td>
+        <td class="num">${cell(r.usedSick,q.sick)}</td><td class="num">${cell(r.usedPersonal,q.personal)}</td>
+        <td class="num">${cell(r.usedVacation,q.vacation)}</td><td class="num">${fmtInt(r.usedOther)}</td></tr>`).join("")
+        : `<tr><td colspan="5"><div class="empty">ไม่มีข้อมูล</div></td></tr>`;
+      attachSort($("#quotaTable"));
+    }).catch(()=>{ const tb=$("#quotaRows"); if(tb) tb.innerHTML=`<tr><td colspan="5"><div class="empty">โหลดโควตาไม่ได้ (ต้อง deploy backend ใหม่)</div></td></tr>`; });
     $("#addOtBtn").onclick=()=>addOvertimeDialog();
   }catch(err){ errorBox(node, err, renderApprovals); }
 }
@@ -960,7 +974,7 @@ async function renderPayroll(){
   const node=$("#page-payroll");
   const t=todayISO(); const first=t.slice(0,8)+"01";
   node.innerHTML=`
-    <div class="notice">พรีวิวนี้เป็น <b>ค่าแรงก่อนหัก (gross)</b> เท่านั้น — ไม่รวมภาษี ประกันสังคม และการจ่ายจริง</div>
+    <div class="notice">พรีวิวนี้เป็น <b>ประมาณการ</b> — สุทธิ = gross − เบิกล่วงหน้า − ประกันสังคม − หักอื่นๆ (ยังไม่รวมภาษี ณ ที่จ่ายแบบขั้นบันได และไม่ใช่การจ่ายเงินจริง)</div>
     <div class="panel"><div class="head"><h2>สร้างพรีวิวงวดใหม่</h2></div>
       <div class="body toolbar">
         <div><label class="hint">เริ่ม</label><br><input type="date" id="pStart" value="${first}"></div>
@@ -975,6 +989,46 @@ async function renderPayroll(){
   $("#previewBtn").onclick=e=>doPreview(e.target);
   $("#loadHist").onclick=loadPayrollHistory;
   loadPayrollHistory();
+}
+
+// #8 Monthly summary report (print → PDF): payroll net + leave days + OT per employee.
+async function printMonthlySummary(data){
+  const money=(n)=>Number(n||0).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const dateTh=(iso)=>{ if(!iso)return"—"; const d=new Date(iso+"T00:00:00+07:00"); return isNaN(d)?iso:d.toLocaleDateString("th-TH",{dateStyle:"long"}); };
+  let leaves=[],times=[];
+  try{ const [l,t]=await Promise.all([api("admin_list_leave_requests"),api("admin_list_time_requests")]); leaves=l.requests||[]; times=t.requests||[]; }catch(_){}
+  const inRange=(d)=> d>=data.startDate && d<=data.endDate;
+  const leaveDaysByEmp={}, otMinByEmp={};
+  leaves.filter(r=>r.status==="approved").forEach(r=>{ if(!inRange(r.startDate))return; let a=new Date(r.startDate+"T00:00:00+07:00"),b=new Date((r.endDate||r.startDate)+"T00:00:00+07:00"); const n=isNaN(a)||isNaN(b)?1:Math.round((b-a)/86400000)+1; leaveDaysByEmp[r.employeeId]=(leaveDaysByEmp[r.employeeId]||0)+n; });
+  times.filter(r=>r.requestType==="overtime"&&r.status==="approved").forEach(r=>{ if(!inRange(r.workDate))return; otMinByEmp[r.employeeId]=(otMinByEmp[r.employeeId]||0)+Number(r.requestedMinutes||0); });
+  const rows=(data.lines||[]).map(l=>`<tr>
+    <td>${esc(l.name||empName(l.employeeId))}<br><span style="color:#6b7280;font-size:11px">${esc(l.employeeId)}</span></td>
+    <td class="num">${l.workDays||0}</td><td class="num">${Math.round((otMinByEmp[l.employeeId]||l.otMinutes||0)/60*10)/10}</td>
+    <td class="num">${leaveDaysByEmp[l.employeeId]||0}</td>
+    <td class="num">${money(l.grossPay)}</td><td class="num">${money(l.advanceDeduction)}</td>
+    <td class="num">${money((l.sso||0)+(l.otherDeduction||0))}</td><td class="num"><b>${money(l.netPay!=null?l.netPay:l.grossPay)}</b></td></tr>`).join("");
+  const html=`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>สรุปเงินเดือน ${esc(data.startDate)}</title>
+    <style>*{box-sizing:border-box}body{font-family:"Sarabun","Tahoma",sans-serif;color:#111;margin:0;padding:24px;background:#f3f4f6}
+    .sheet{max-width:900px;margin:0 auto;background:#fff;padding:36px 40px;box-shadow:0 1px 6px rgba(0,0,0,.12)}
+    .top{display:flex;justify-content:space-between;border-bottom:3px solid #0f766e;padding-bottom:14px}
+    .co{font-size:18px;font-weight:700;color:#0f766e;margin:0}.co-l{font-size:12px;color:#374151}
+    h1{font-size:20px;margin:0}.sub{font-size:12px;color:#6b7280}
+    table{width:100%;border-collapse:collapse;margin-top:20px;font-size:13px}
+    th{background:#0f766e;color:#fff;text-align:left;padding:8px 10px}th.num,td.num{text-align:right}
+    td{padding:8px 10px;border-bottom:1px solid #e5e7eb}tfoot td{border-top:2px solid #0f766e;font-weight:700}
+    .pbtn{font:inherit;padding:8px 18px;border:0;border-radius:8px;background:#0f766e;color:#fff;cursor:pointer}
+    .tb{max-width:900px;margin:0 auto 12px;text-align:right}@media print{body{background:#fff;padding:0}.sheet{box-shadow:none}.tb{display:none}}</style></head><body>
+    <div class="tb"><button class="pbtn" onclick="window.print()">พิมพ์ / บันทึก PDF</button></div>
+    <div class="sheet">
+      <div class="top"><div><p class="co">${esc(ISSUER.name)}</p><div class="co-l">เลขประจำตัวผู้เสียภาษี ${esc(ISSUER.taxId)}</div></div>
+        <div style="text-align:right"><h1>สรุปเงินเดือน</h1><div class="sub">งวด ${dateTh(data.startDate)} – ${dateTh(data.endDate)}</div></div></div>
+      <table><thead><tr><th>พนักงาน</th><th class="num">วันทำงาน</th><th class="num">OT (ชม.)</th><th class="num">ลา (วัน)</th><th class="num">รวม gross</th><th class="num">หักเบิก</th><th class="num">ปกส./อื่นๆ</th><th class="num">สุทธิ</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr><td colspan="4">รวม ${fmtInt((data.lines||[]).length)} คน</td><td class="num">${money(data.totalGross)}</td><td class="num">${money(data.totalAdvance)}</td><td class="num">${money((data.totalSso||0)+(data.totalOther||0))}</td><td class="num">${money(data.totalNet)}</td></tr></tfoot></table>
+      <div class="sub" style="margin-top:16px">* ประมาณการ ยังไม่รวมภาษีหัก ณ ที่จ่ายแบบขั้นบันได · ออกเมื่อ ${new Date().toLocaleDateString("th-TH",{dateStyle:"long"})}</div>
+    </div></body></html>`;
+  const w=window.open("","_blank"); if(!w){ toast("เบราว์เซอร์บล็อก popup","bad"); return; }
+  w.document.open(); w.document.write(html); w.document.close();
 }
 
 // Build a "forgot to check out" warning from preview/overview incompleteDays.
@@ -1003,27 +1057,31 @@ async function doPreview(btn){
       if(!data.lines.length){ box.innerHTML=incWarn+`<div class="empty">ไม่มีข้อมูลค่าแรงในช่วงนี้ (ต้องมีวันทำงานที่เช็กอิน/ออกครบ และตั้งเรตค่าจ้างแล้ว)</div>`; return; }
       box.innerHTML=incWarn+`
         <table><thead><tr><th>พนักงาน</th><th class="num">วันทำงาน</th><th class="num">ชม.ปกติ</th><th class="num">OT</th>
-          <th class="num">ฐาน</th><th class="num">OT (เงิน)</th><th class="num">รวม gross</th><th class="num">หักเบิก</th><th class="num">สุทธิ</th><th></th></tr></thead>
+          <th class="num">ฐาน</th><th class="num">OT (เงิน)</th><th class="num">รวม gross</th><th class="num">หักเบิก</th><th class="num">ปกส./อื่นๆ</th><th class="num">สุทธิ</th><th data-nosort></th></tr></thead>
         <tbody>${data.lines.map((l,idx)=>`
           <tr><td class="person">${esc(empName(l.employeeId))}<span class="sub">${esc(l.employeeId)}</span></td>
             <td class="num">${fmtInt(l.workDays)}</td><td class="num">${fmtHours(l.regularMinutes)}</td>
             <td class="num">${fmtHours(l.otMinutes)}</td><td class="num">${fmtBaht(l.baseGross)}</td>
             <td class="num">${fmtBaht(l.otGross)}</td><td class="num">${fmtBaht(l.grossPay)}</td>
             <td class="num">${l.advanceDeduction?'<span style="color:#b91c1c">-'+fmtBaht(l.advanceDeduction)+'</span>':"—"}</td>
+            <td class="num">${((l.sso||0)+(l.otherDeduction||0))?'<span style="color:#b91c1c">-'+fmtBaht((l.sso||0)+(l.otherDeduction||0))+'</span>':"—"}</td>
             <td class="num"><b>${fmtBaht(l.netPay!=null?l.netPay:l.grossPay)}</b></td>
             <td class="num"><button class="btn sub sm" data-pslip="${idx}">สลิป</button></td></tr>`).join("")}
         </tbody>
         <tfoot><tr><td colspan="6" style="text-align:right;font-weight:700;padding:13px 14px">รวมทั้งงวด</td>
           <td class="num" style="padding:13px 14px">${fmtBaht(data.totalGross)}</td>
           <td class="num" style="padding:13px 14px">${(data.totalAdvance||0)?"-"+fmtBaht(data.totalAdvance):"—"}</td>
+          <td class="num" style="padding:13px 14px">${((data.totalSso||0)+(data.totalOther||0))?"-"+fmtBaht((data.totalSso||0)+(data.totalOther||0)):"—"}</td>
           <td class="num" style="font-weight:800;padding:13px 14px">${fmtBaht(data.totalNet!=null?data.totalNet:data.totalGross)}</td><td></td></tr></tfoot></table>
         <div class="body toolbar" style="border-top:1px solid var(--line)">
-          <button class="btn sub sm" id="exportPrev">ส่งออก CSV (พรีวิว)</button>
+          <button class="btn sub sm" id="exportPrev">⬇ ส่งออก Excel (CSV)</button>
+          <button class="btn sub sm" id="printSum">🖨 พิมพ์สรุป (PDF)</button>
           <div class="spacer"></div>
           <button class="btn" id="lockBtn">🔒 ล็อกงวดนี้ (ทำครั้งเดียว)</button>
         </div>`;
       box.querySelectorAll("[data-pslip]").forEach(b=>b.onclick=()=>printPayslip(data.lines[+b.dataset.pslip], lastPreview.period));
       $("#exportPrev").onclick=()=>exportCSV(lastPreview, "preview");
+      $("#printSum").onclick=()=>printMonthlySummary(data);
       $("#lockBtn").onclick=e=>doLock(e.target);
     }catch(err){ toast(err.message,"bad"); $("#previewResult").innerHTML=`<div class="empty">${esc(err.message)}</div>`; }
   });
@@ -1077,11 +1135,11 @@ async function viewSnapshot(payrollId){
 }
 
 function exportCSV(data, kind){
-  const rows=[["payroll_id","employee_id","employee_name","regular_minutes","ot_minutes","base_gross","ot_gross","gross_pay","advance_deduction","net_pay"]];
+  const rows=[["payroll_id","employee_id","employee_name","regular_minutes","ot_minutes","base_gross","ot_gross","gross_pay","advance_deduction","sso","other_deduction","net_pay"]];
   (data.lines||[]).forEach(l=>rows.push([
     data.payrollId||("PREVIEW "+data.startDate+".."+data.endDate), l.employeeId, empName(l.employeeId),
     l.regularMinutes||0, l.otMinutes||0, l.baseGross||0, l.otGross||0, l.grossPay||0,
-    l.advanceDeduction||0, (l.netPay!=null?l.netPay:l.grossPay)||0]));
+    l.advanceDeduction||0, l.sso||0, l.otherDeduction||0, (l.netPay!=null?l.netPay:l.grossPay)||0]));
   const csv="﻿"+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n");
   const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
   const a=document.createElement("a"); a.href=url;
@@ -1140,6 +1198,7 @@ function payRuleDialog(r){
     field("ตัวคูณ OT",`<input id="rOtMul" type="number" min="1" step="0.1" value="1.5">`),
     field("วันพิเศษ (ทางเลือก)",`<input id="rPremDate" type="date">`),
     field("ตัวคูณวันพิเศษ",`<input id="rPremMul" type="number" min="1" step="0.1" value="1">`),
+    field("หักอื่นๆ ต่องวด (บาท)",`<input id="rOther" type="number" min="0" step="1" value="0">`),
   );
   body.append(g);
   body.append(el(`<label class="check" style="margin-top:6px"><input type="checkbox" id="rOt" checked> เปิดใช้ OT</label>`));
@@ -1152,6 +1211,7 @@ function payRuleDialog(r){
     body.querySelector("#rOtMul").value=r.otMultiplier;
     body.querySelector("#rPremDate").value=r.premiumDate||"";
     body.querySelector("#rPremMul").value=r.premiumMultiplier;
+    body.querySelector("#rOther").value=r.otherDeduction||0;
     body.querySelector("#rOt").checked=r.otEnabled;
   }
   ok.onclick=()=>withBtn(ok, async ()=>{
@@ -1163,6 +1223,7 @@ function payRuleDialog(r){
         standardHours:parseFloat(body.querySelector("#rHours").value)||8,
         otEnabled:body.querySelector("#rOt").checked, otMultiplier:parseFloat(body.querySelector("#rOtMul").value)||1.5,
         premiumDate:body.querySelector("#rPremDate").value||"", premiumMultiplier:parseFloat(body.querySelector("#rPremMul").value)||1,
+        otherDeduction:parseFloat(body.querySelector("#rOther").value)||0,
         updatedBy:state.reviewer||"Admin",
       });
       closeModal(); toast("บันทึกเรตค่าจ้างแล้ว","good"); renderPayrules();
@@ -1211,9 +1272,9 @@ async function renderOwner(){
         </div>
         <div class="panel"><div class="head"><b>ต้องจ่ายใครบ้างในงวดนี้</b><div class="spacer"></div><button class="btn" id="ownLock">ล็อกงวด + บันทึก snapshot</button></div>
           <div class="body flush"><table>
-            <thead><tr><th>พนักงาน</th><th class="num">วันทำงาน</th><th class="num">ชม.ปกติ</th><th class="num">OT</th><th class="num">ฐาน</th><th class="num">OT เงิน</th><th class="num">รวม gross</th><th class="num">หักเบิก</th><th class="num">สุทธิจ่ายจริง</th><th></th></tr></thead>
+            <thead><tr><th>พนักงาน</th><th class="num">วันทำงาน</th><th class="num">ชม.ปกติ</th><th class="num">OT</th><th class="num">ฐาน</th><th class="num">OT เงิน</th><th class="num">รวม gross</th><th class="num">หักเบิก</th><th class="num">ปกส./อื่นๆ</th><th class="num">สุทธิจ่ายจริง</th><th data-nosort></th></tr></thead>
             <tbody id="ownRows"></tbody>
-            <tfoot><tr><td colspan="6" class="num"><b>ยอดรวมทั้งสิ้น</b></td><td class="num">${fmtBaht(data.totalGross)}</td><td class="num">${(data.totalAdvance||0)?"-"+fmtBaht(data.totalAdvance):"—"}</td><td class="num"><b>${fmtBaht(data.totalNet!=null?data.totalNet:data.totalGross)}</b></td><td></td></tr></tfoot>
+            <tfoot><tr><td colspan="6" class="num"><b>ยอดรวมทั้งสิ้น</b></td><td class="num">${fmtBaht(data.totalGross)}</td><td class="num">${(data.totalAdvance||0)?"-"+fmtBaht(data.totalAdvance):"—"}</td><td class="num">${((data.totalSso||0)+(data.totalOther||0))?"-"+fmtBaht((data.totalSso||0)+(data.totalOther||0)):"—"}</td><td class="num"><b>${fmtBaht(data.totalNet!=null?data.totalNet:data.totalGross)}</b></td><td></td></tr></tfoot>
           </table></div>
         </div>
       </div>
@@ -1254,9 +1315,10 @@ async function renderOwner(){
         <td class="num">${fmtInt(l.workDays)}</td><td class="num">${fmtHours(l.regularMinutes)}</td><td class="num">${l.otMinutes?fmtHours(l.otMinutes):"—"}</td>
         <td class="num">${fmtBaht(l.baseGross)}</td><td class="num">${l.otGross?fmtBaht(l.otGross):"—"}</td><td class="num">${fmtBaht(l.grossPay)}</td>
         <td class="num">${l.advanceDeduction?'<span style="color:#b91c1c">-'+fmtBaht(l.advanceDeduction)+'</span>':"—"}</td>
+        <td class="num">${((l.sso||0)+(l.otherDeduction||0))?'<span style="color:#b91c1c">-'+fmtBaht((l.sso||0)+(l.otherDeduction||0))+'</span>':"—"}</td>
         <td class="num"><b>${fmtBaht(l.netPay!=null?l.netPay:l.grossPay)}</b></td>
         <td class="num"><button class="btn sub sm" data-slip="${idx}">สลิป</button></td>
-      </tr>`).join("") : `<tr><td colspan="10"><div class="empty">ยังไม่มีใครมีวันทำงานครบในงวดนี้ (ต้องมีทั้งเช็กอินและเช็กเอาต์ + ตั้งเรตค่าจ้าง)</div></td></tr>`;
+      </tr>`).join("") : `<tr><td colspan="11"><div class="empty">ยังไม่มีใครมีวันทำงานครบในงวดนี้ (ต้องมีทั้งเช็กอินและเช็กเอาต์ + ตั้งเรตค่าจ้าง)</div></td></tr>`;
     $("#ownRows").querySelectorAll("[data-slip]").forEach(b=>b.onclick=()=>printPayslip(rows[+b.dataset.slip], p));
     $("#ownSettings").onclick=()=>settingsDialog(s);
     $("#ownLock").onclick=()=>lockFromOwner(p);
@@ -1319,11 +1381,29 @@ function settingsDialog(s){
     wd.querySelector("#sWd").append(el(`<label class="check" style="margin:0"><input type="checkbox" value="${v}" ${set.has(v)?"checked":""}> ${n}</label>`));
   });
   body.append(wd);
+  body.append(el(`<div style="border-top:1px solid var(--line);margin:14px 0 2px;padding-top:12px"></div>`));
+  body.append(el(`<label class="check" style="margin:0"><input type="checkbox" id="sSso" ${String(s.sso_enabled).toLowerCase()==="true"?"checked":""}> หักประกันสังคมอัตโนมัติ</label>`));
+  const sg=el(`<div class="grid2" style="margin-top:8px"></div>`);
+  sg.append(
+    field("อัตราประกันสังคม (%)", `<input id="sSsoRate" type="number" min="0" max="100" step="0.5" value="${esc(s.sso_rate||"5")}">`),
+    field("เพดานต่อเดือน (บาท)", `<input id="sSsoCap" type="number" min="0" step="1" value="${esc(s.sso_cap||"750")}">`),
+  );
+  body.append(sg);
+  body.append(el(`<div style="border-top:1px solid var(--line);margin:14px 0 2px;padding-top:12px"><div class="label">โควตาวันลาต่อปี (วัน)</div></div>`));
+  const qg=el(`<div class="grid2" style="margin-top:8px"></div>`);
+  qg.append(
+    field("ลาป่วย", `<input id="sQSick" type="number" min="0" step="1" value="${esc(s.quota_sick||"30")}">`),
+    field("ลากิจ", `<input id="sQPer" type="number" min="0" step="1" value="${esc(s.quota_personal||"6")}">`),
+    field("ลาพักร้อน", `<input id="sQVac" type="number" min="0" step="1" value="${esc(s.quota_vacation||"6")}">`),
+  );
+  body.append(qg);
   const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
   const save=el(`<button class="btn">บันทึก</button>`);
   save.onclick=()=>withBtn(save, async ()=>{
     const workdays=[...document.querySelectorAll('#sWd input:checked')].map(c=>c.value).join(",");
-    try{ await api("admin_save_settings",{settings:{pay_frequency:$("#sFreq").value, pay_day_1:$("#sPay1").value.trim(), pay_day_2:$("#sPay2").value.trim(), workdays}});
+    try{ await api("admin_save_settings",{settings:{pay_frequency:$("#sFreq").value, pay_day_1:$("#sPay1").value.trim(), pay_day_2:$("#sPay2").value.trim(), workdays,
+        sso_enabled:$("#sSso").checked, sso_rate:$("#sSsoRate").value, sso_cap:$("#sSsoCap").value,
+        quota_sick:$("#sQSick").value, quota_personal:$("#sQPer").value, quota_vacation:$("#sQVac").value}});
       closeModal(); toast("บันทึกการตั้งค่าแล้ว","good"); renderOwner();
     }catch(err){ toast(err.message,"bad"); }
   });
@@ -1530,7 +1610,8 @@ function printPayslip(l, period){
   const dateTh=(iso)=>{ if(!iso) return "—"; const d=new Date(iso.length<=10?iso+"T00:00:00+07:00":iso); return isNaN(d)?esc(iso):d.toLocaleDateString("th-TH",{dateStyle:"long"}); };
   const today=new Date().toLocaleDateString("th-TH",{dateStyle:"long"});
   const periodText=(period&&period.start)?(dateTh(period.start)+" – "+dateTh(period.end)):(period&&period.label?esc(period.label):"—");
-  const gross=Number(l.grossPay||0), adv=Number(l.advanceDeduction||0), net=l.netPay!=null?Number(l.netPay):gross-adv;
+  const gross=Number(l.grossPay||0), adv=Number(l.advanceDeduction||0), sso=Number(l.sso||0), other=Number(l.otherDeduction||0);
+  const net=l.netPay!=null?Number(l.netPay):Math.max(0,gross-adv-sso-other);
   const html=`<!doctype html><html lang="th"><head><meta charset="utf-8">
     <title>สลิปเงินเดือน ${esc(l.name||l.employeeId)}</title>
     <style>
@@ -1578,9 +1659,11 @@ function printPayslip(l, period){
       <div class="totals">
         <div><span>รวมรายได้ (gross)</span><span>${money(gross)}</span></div>
         <div class="ded"><span>หักเงินเบิกล่วงหน้า</span><span>${adv?"-"+money(adv):money(0)}</span></div>
+        <div class="ded"><span>หักประกันสังคม</span><span>${sso?"-"+money(sso):money(0)}</span></div>
+        ${other?`<div class="ded"><span>หักอื่นๆ</span><span>-${money(other)}</span></div>`:""}
         <div class="grand"><span>เงินสุทธิที่จ่ายจริง</span><span>฿${money(net)}</span></div>
       </div>
-      <div class="note">* รายได้ก่อนหักภาษี ณ ที่จ่าย และประกันสังคม (ยังไม่รวมในสลิปนี้) · หักเบิกคือยอดเบิกล่วงหน้าที่อนุมัติแล้วและยังไม่ได้จ่ายคืน</div>
+      <div class="note">* ประมาณการ ยังไม่รวมภาษีหัก ณ ที่จ่ายแบบขั้นบันได · หักเบิก = เบิกล่วงหน้าที่จ่ายแล้วและยังไม่ได้หักคืน · ประกันสังคมตามอัตราที่ตั้งไว้</div>
       <div class="foot">
         <div>ลงชื่อผู้รับเงิน</div>
         <div class="sign"><div class="line">ผู้จ่ายเงิน<br>${esc(ISSUER.name)}</div></div>

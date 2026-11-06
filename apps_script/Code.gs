@@ -43,6 +43,7 @@ function doPost(e) {
     if (action === 'admin_upsert_admin_user') return adminUpsertAdminUser_(payload);
     if (action === 'admin_delete_admin_user') return adminDeleteAdminUser_(payload);
     if (action === 'admin_list_audit_log') return adminListAuditLog_(payload);
+    if (action === 'admin_leave_usage') return adminLeaveUsage_(payload);
     if (action === 'admin_void_attendance_day') return adminVoidAttendanceDay_(payload);
     if (action === 'admin_upsert_pay_rule') return adminUpsertPayRule_(payload);
     if (action === 'admin_list_pay_rules') return adminListPayRules_(payload);
@@ -354,6 +355,31 @@ function adminReviewLeave_(payload) {
   return reply_(true, 'Leave request ' + decision);
 }
 
+// #4 Leave quota usage: per active employee, approved leave days used this year by
+// type vs the annual quota from Settings.
+function adminLeaveUsage_(payload) {
+  requireAdmin_(payload); initializeLeaveRequestsSheet();
+  const settings = readSettings_();
+  const quota = { sick: Number(settings.quota_sick || 0), personal: Number(settings.quota_personal || 0), vacation: Number(settings.quota_vacation || 0) };
+  const typeKey = (t) => { t = String(t || ''); if (t.indexOf('ป่วย') >= 0) return 'sick'; if (t.indexOf('พักร้อน') >= 0) return 'vacation'; if (t.indexOf('กิจ') >= 0) return 'personal'; return 'other'; };
+  const year = Number(Utilities.formatDate(new Date(), ICT, 'yyyy'));
+  const names = employeeNameMap_();
+  const used = {}; // empId -> {sick,personal,vacation,other}
+  values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.leaves)).slice(1).forEach(r => {
+    if (normalise_(r[6]) !== 'approved') return;
+    const start = new Date(r[3]), end = new Date(r[4]);
+    if (isNaN(start) || start.getFullYear() !== year) return;
+    const days = Math.max(1, Math.round((end - start) / 86400000) + 1);
+    const id = String(r[1]), k = typeKey(r[2]);
+    (used[id] = used[id] || { sick: 0, personal: 0, vacation: 0, other: 0 })[k] += days;
+  });
+  const rows = Object.keys(names).filter(id => names[id].status === 'active').map(id => {
+    const u = used[id] || { sick: 0, personal: 0, vacation: 0, other: 0 };
+    return { employeeId: id, name: names[id].name, usedSick: u.sick, usedPersonal: u.personal, usedVacation: u.vacation, usedOther: u.other };
+  }).sort((a, b) => a.employeeId.localeCompare(b.employeeId));
+  return reply_(true, 'Leave usage loaded', { year: year, quota: quota, rows: rows });
+}
+
 function adminListLeaveRequests_(payload) {
   requireAdmin_(payload); initializeLeaveRequestsSheet();
   const rows = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.leaves)).slice(1);
@@ -367,10 +393,12 @@ function adminUpsertPayRule_(payload) {
   const basis = normalise_(payload.payBasis);
   const rate = finiteNumber_(payload.baseRate), hours = finiteNumber_(payload.standardHours || 8), otMultiplier = finiteNumber_(payload.otMultiplier || 1.5), premiumMultiplier = finiteNumber_(payload.premiumMultiplier || 1);
   const premiumDate = String(payload.premiumDate || '').trim();
+  const otherDeduction = finiteNumber_(payload.otherDeduction != null ? payload.otherDeduction : 0);
   if (!findEmployee_(employeeId) || !['hourly', 'daily'].includes(basis) || rate === null || rate < 0 || hours === null || hours <= 0 || otMultiplier === null || otMultiplier < 1 || premiumMultiplier === null || premiumMultiplier < 1) return reply_(false, 'Invalid pay rule');
+  if (otherDeduction === null || otherDeduction < 0) return reply_(false, 'หักอื่นๆ ไม่ถูกต้อง');
   if (premiumDate && !parseIsoDate_(premiumDate)) return reply_(false, 'Premium date must be YYYY-MM-DD');
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.payrollRules), rows = values_(sheet);
-  const row = [employeeId, basis, rate, hours, payload.otEnabled === true ? 'true' : 'false', otMultiplier, premiumDate, premiumMultiplier, new Date(), String(payload.updatedBy || 'Admin')];
+  const row = [employeeId, basis, rate, hours, payload.otEnabled === true ? 'true' : 'false', otMultiplier, premiumDate, premiumMultiplier, new Date(), String(payload.updatedBy || 'Admin'), otherDeduction];
   const index = rows.slice(1).findIndex(r => String(r[0]).trim().toUpperCase() === employeeId);
   if (index >= 0) sheet.getRange(index + 2, 1, 1, row.length).setValues([row]); else sheet.appendRow(row);
   audit_(String(payload.updatedBy || 'Admin'), 'pay_rule_saved', employeeId, basis + ' @ ' + rate);
@@ -390,7 +418,7 @@ function adminListPayRules_(payload) {
       payBasis: r ? String(r[1]) : '', baseRate: r ? Number(r[2] || 0) : null,
       standardHours: r ? Number(r[3] || 8) : 8, otEnabled: r ? String(r[4]) === 'true' : false,
       otMultiplier: r ? Number(r[5] || 1.5) : 1.5, premiumDate: r ? (r[6] ? String(r[6]) : '') : '',
-      premiumMultiplier: r ? Number(r[7] || 1) : 1,
+      premiumMultiplier: r ? Number(r[7] || 1) : 1, otherDeduction: r ? Number(r[10] || 0) : 0,
       updatedAt: r && r[8] ? Utilities.formatDate(new Date(r[8]), ICT, "yyyy-MM-dd'T'HH:mm:ssXXX") : '', updatedBy: r ? String(r[9] || '') : ''
     };
   }).sort((a, b) => (a.status === b.status ? a.employeeId.localeCompare(b.employeeId) : (a.status === 'active' ? -1 : 1)));
@@ -426,13 +454,21 @@ function adminPreviewPayroll_(payload) {
   Object.values(byEmployeeDay).forEach(item => { if (!item.in || !item.out || item.out <= item.in || !rules[item.employeeId]) return; const line = result[item.employeeId] || { employeeId: item.employeeId, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0, grossPay: 0, warnings: [] }; const rule = rules[item.employeeId], basis = normalise_(rule[1]), rate = Number(rule[2] || 0), standardMinutes = Number(rule[3] || 8) * 60; const minutes = Math.round((item.out - item.in) / 60000); line.workDays += 1; line.regularMinutes += Math.min(minutes, standardMinutes); if (basis === 'daily') line.baseGross += rate; else line.baseGross += Math.min(minutes, standardMinutes) / 60 * rate; result[item.employeeId] = line; });
   approvedOt.forEach(row => { const day = Utilities.formatDate(new Date(row[3]), ICT, 'yyyy-MM-dd'), employeeId = String(row[1]); if (day < startText || day > endText || !rules[employeeId]) return; const line = result[employeeId] || { employeeId: employeeId, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0, grossPay: 0, warnings: ['Approved OT has no accepted complete attendance day'] }; const rule = rules[employeeId], baseHourly = normalise_(rule[1]) === 'daily' ? Number(rule[2] || 0) / Number(rule[3] || 8) : Number(rule[2] || 0), multiplier = String(rule[4]) === 'true' ? Number(rule[5] || 1.5) : 0, minutes = Number(row[4] || 0); line.otMinutes += minutes; line.otGross += minutes / 60 * baseHourly * multiplier; result[employeeId] = line; });
   const outstanding = outstandingAdvancesByEmployee_();
+  const settings = readSettings_();
+  const ssoEnabled = normalise_(settings.sso_enabled) === 'true';
+  const ssoRate = Number(settings.sso_rate || 5), ssoCap = Number(settings.sso_cap || 750);
   const lines = Object.values(result).map(line => {
     const grossPay = roundMoney_(line.baseGross + line.otGross);
     const fit = advanceFit_(outstanding[line.employeeId], grossPay);
+    const rule = rules[line.employeeId] || [];
+    const sso = ssoEnabled ? roundMoney_(Math.min(grossPay * ssoRate / 100, ssoCap)) : 0;
+    const otherDeduction = roundMoney_(Number(rule[10] || 0));
     if (incompleteByEmp[line.employeeId]) line.warnings.push('ลืมเช็กเอาต์/เวลาไม่ครบ ' + incompleteByEmp[line.employeeId] + ' วัน (ไม่ถูกคิดเงิน)');
-    return { ...line, baseGross: roundMoney_(line.baseGross), otGross: roundMoney_(line.otGross), grossPay: grossPay, advanceDeduction: fit.deduction, netPay: roundMoney_(grossPay - fit.deduction) };
+    const netPay = roundMoney_(Math.max(0, grossPay - fit.deduction - sso - otherDeduction));
+    return { ...line, baseGross: roundMoney_(line.baseGross), otGross: roundMoney_(line.otGross), grossPay: grossPay, advanceDeduction: fit.deduction, sso: sso, otherDeduction: otherDeduction, netPay: netPay };
   });
-  return reply_(true, 'Gross-pay preview loaded', { startDate: startText, endDate: endText, status: 'preview', disclaimer: 'Gross-pay preview only. Tax, SSO, withholding and payment are excluded. Net = gross minus unsettled advances already paid out, capped at gross.', lines: lines, incompleteDays: incompleteDays, totalGross: roundMoney_(lines.reduce((sum, line) => sum + line.grossPay, 0)), totalAdvance: roundMoney_(lines.reduce((sum, line) => sum + line.advanceDeduction, 0)), totalNet: roundMoney_(lines.reduce((sum, line) => sum + line.netPay, 0)) });
+  const sum = (k) => roundMoney_(lines.reduce((s, line) => s + (line[k] || 0), 0));
+  return reply_(true, 'Gross-pay preview loaded', { startDate: startText, endDate: endText, status: 'preview', disclaimer: 'ประมาณการ: หัก = เบิกล่วงหน้า + ประกันสังคม + หักอื่นๆ (ยังไม่รวมภาษี ณ ที่จ่ายแบบขั้นบันได)', lines: lines, incompleteDays: incompleteDays, totalGross: sum('grossPay'), totalAdvance: sum('advanceDeduction'), totalSso: sum('sso'), totalOther: sum('otherDeduction'), totalNet: sum('netPay') });
 }
 
 // Outstanding advances per employee = money already handed out (status 'paid') that
@@ -513,7 +549,7 @@ function adminGetPayroll_(payload) {
 }
 
 /* =========================== Owner settings & analytics =========================== */
-var SETTINGS_DEFAULTS = { pay_frequency: 'monthly', pay_day_1: 'end', pay_day_2: '15', workdays: '1,2,3,4,5' };
+var SETTINGS_DEFAULTS = { pay_frequency: 'monthly', pay_day_1: 'end', pay_day_2: '15', workdays: '1,2,3,4,5', sso_enabled: 'false', sso_rate: '5', sso_cap: '750', quota_sick: '30', quota_personal: '6', quota_vacation: '6' };
 var TH_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
 
 function initializeSettingsSheet() {
@@ -549,6 +585,10 @@ function adminSaveSettings_(payload) {
     if (!days.every(d => /^[0-6]$/.test(d))) return reply_(false, 'Workdays must be 0-6 (0=Sun)');
     next.workdays = days.join(',');
   }
+  if (incoming.sso_enabled != null) next.sso_enabled = (incoming.sso_enabled === true || normalise_(incoming.sso_enabled) === 'true') ? 'true' : 'false';
+  if (incoming.sso_rate != null) { const r = finiteNumber_(incoming.sso_rate); if (r === null || r < 0 || r > 100) return reply_(false, 'อัตราประกันสังคมไม่ถูกต้อง'); next.sso_rate = String(r); }
+  if (incoming.sso_cap != null) { const c = finiteNumber_(incoming.sso_cap); if (c === null || c < 0) return reply_(false, 'เพดานประกันสังคมไม่ถูกต้อง'); next.sso_cap = String(c); }
+  ['quota_sick', 'quota_personal', 'quota_vacation'].forEach(k => { if (incoming[k] != null) { const q = finiteNumber_(incoming[k]); if (q !== null && q >= 0) next[k] = String(q); } });
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.settings), rows = values_(sheet);
   Object.keys(next).forEach(key => {
     const idx = rows.slice(1).findIndex(r => String(r[0]) === key);
@@ -628,7 +668,7 @@ function adminOwnerOverview_(payload) {
   const lines = preview.data.lines.map(l => ({
     employeeId: l.employeeId, name: (names[l.employeeId] || {}).name || l.employeeId, role: (names[l.employeeId] || {}).role || '',
     workDays: l.workDays, regularMinutes: l.regularMinutes, otMinutes: l.otMinutes, baseGross: l.baseGross, otGross: l.otGross, grossPay: l.grossPay,
-    advanceDeduction: l.advanceDeduction, netPay: l.netPay
+    advanceDeduction: l.advanceDeduction, sso: l.sso, otherDeduction: l.otherDeduction, netPay: l.netPay
   })).sort((a, b) => b.netPay - a.netPay);
   const activeCount = Object.values(names).filter(e => e.status === 'active').length;
   initializeAdvancesSheet();
@@ -637,7 +677,7 @@ function adminOwnerOverview_(payload) {
   const pending = advances.filter(a => a.status === 'pending'), approvedUnpaid = advances.filter(a => a.status === 'approved'), paidUnsettled = advances.filter(a => a.status === 'paid');
   return reply_(true, 'Owner overview loaded', {
     settings: settings, period: range, nextPayday: nextPayday_(settings),
-    lines: lines, incompleteDays: preview.data.incompleteDays || [], totalGross: preview.data.totalGross, totalAdvance: preview.data.totalAdvance, totalNet: preview.data.totalNet, paidCount: lines.length, activeEmployees: activeCount,
+    lines: lines, incompleteDays: preview.data.incompleteDays || [], totalGross: preview.data.totalGross, totalAdvance: preview.data.totalAdvance, totalSso: preview.data.totalSso, totalOther: preview.data.totalOther, totalNet: preview.data.totalNet, paidCount: lines.length, activeEmployees: activeCount,
     advancesPending: { count: pending.length, total: sumAmt(pending) },
     advancesApprovedUnpaid: { count: approvedUnpaid.length, total: sumAmt(approvedUnpaid) },
     advancesPaidUnsettled: { count: paidUnsettled.length, total: sumAmt(paidUnsettled) }
