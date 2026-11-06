@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'bvn_api.dart';
+import 'notif.dart';
 
 const _navy = Color(0xFF102A43);
 const _blue = Color(0xFF146EF5);
@@ -30,6 +31,7 @@ String _statusTh(String s) {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await BvnConfig.load();
+  await Notif.init();
   runApp(const BvnEmployeeApp());
 }
 
@@ -284,6 +286,7 @@ class EmployeeShell extends StatefulWidget {
 class _EmployeeShellState extends State<EmployeeShell> {
   int _tab = 0;
   String _name = '', _role = '', _site = '', _status = 'กำลังตรวจสถานะวันนี้';
+  String _shiftStart = '09:00', _shiftEnd = '18:00';
   String? _in, _out;
   bool _locationRequired = true, _busy = false;
   @override
@@ -315,6 +318,8 @@ class _EmployeeShellState extends State<EmployeeShell> {
           _role = '${profile['role'] ?? ''}';
           _site = '${profile['siteId'] ?? ''}';
           _locationRequired = profile['locationRequired'] == true;
+          _shiftStart = '${profile['shiftStart'] ?? '09:00'}';
+          _shiftEnd = '${profile['shiftEnd'] ?? '18:00'}';
           _in = time('check_in');
           _out = time('check_out');
           _status = _out != null
@@ -323,6 +328,19 @@ class _EmployeeShellState extends State<EmployeeShell> {
               ? 'อยู่ระหว่างงาน'
               : 'ยังไม่ได้ลงเวลาเข้างาน';
         });
+        final wd = '${profile['workdays'] ?? '1,2,3,4,5'}'
+            .split(',')
+            .map((e) => int.tryParse(e.trim()))
+            .whereType<int>()
+            .toSet();
+        Notif.scheduleShift(
+          shiftStart: _shiftStart,
+          shiftEnd: _shiftEnd,
+          remindBefore: (profile['remindBeforeMin'] as num?)?.toInt() ?? 15,
+          remindAfter: (profile['remindCheckoutAfterMin'] as num?)?.toInt() ?? 10,
+          workdays: wd,
+          checkedIn: _in != null,
+        );
       }
     } catch (_) {
       if (mounted) setState(() => _status = 'ดึงสถานะจากระบบไม่สำเร็จ');
@@ -403,9 +421,12 @@ class _EmployeeShellState extends State<EmployeeShell> {
     final pages = [
       _Today(
         name: _name.isEmpty ? widget.employeeId : _name,
+        role: _role,
         status: _status,
         checkIn: _in,
         checkOut: _out,
+        shiftStart: _shiftStart,
+        shiftEnd: _shiftEnd,
         busy: _busy,
         token: widget.token,
         locationRequired: _locationRequired,
@@ -418,10 +439,31 @@ class _EmployeeShellState extends State<EmployeeShell> {
       _ListPage(
         title: 'คำขอลางานของฉัน',
         future: () => BvnApi().leaveCalendar(widget.token),
-        row: (r) => ListTile(
-          title: Text('${r['leaveType']} • ${_statusTh('${r['status']}')}'),
-          subtitle: Text('${r['startDate']} ถึง ${r['endDate']}'),
-        ),
+        row: (r) {
+          final st = _statusStyle(
+              '${r['status']}' == 'approved' ? 'leave' : '${r['status']}' == 'rejected' ? 'absent' : 'off');
+          final badge = _statusTh('${r['status']}');
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('${r['leaveType']}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 2),
+                    Text('${r['startDate']} ถึง ${r['endDate']}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                  ]),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: st.bg, borderRadius: BorderRadius.circular(999)),
+                  child: Text(badge, style: TextStyle(fontSize: 11, color: st.fg, fontWeight: FontWeight.w600)),
+                ),
+              ]),
+            ),
+          );
+        },
       ),
       _Account(
         token: widget.token,
@@ -462,9 +504,12 @@ class _EmployeeShellState extends State<EmployeeShell> {
 class _Today extends StatelessWidget {
   const _Today({
     required this.name,
+    required this.role,
     required this.status,
     this.checkIn,
     this.checkOut,
+    required this.shiftStart,
+    required this.shiftEnd,
     required this.busy,
     required this.token,
     required this.locationRequired,
@@ -472,69 +517,133 @@ class _Today extends StatelessWidget {
     required this.onOut,
     required this.onRefresh,
   });
-  final String name, status, token;
+  final String name, role, status, token, shiftStart, shiftEnd;
   final String? checkIn, checkOut;
   final bool busy, locationRequired;
   final Future<void> Function() onIn, onOut, onRefresh;
+
+  String _initials() {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts.first.isEmpty) return '?';
+    final a = parts.first[0];
+    final b = parts.length > 1 ? parts[1][0] : '';
+    return (a + b).toUpperCase();
+  }
+
+  String _hint() {
+    DateTime at(String hm) {
+      final n = DateTime.now(), p = hm.split(':');
+      return DateTime(n.year, n.month, n.day, int.tryParse(p[0]) ?? 9,
+          int.tryParse(p.length > 1 ? p[1] : '0') ?? 0);
+    }
+    final now = DateTime.now();
+    if (checkOut != null) return 'ลงเวลาออกงานแล้ว · ขอบคุณที่ทำงานวันนี้';
+    if (checkIn != null) {
+      final mins = at(shiftEnd).difference(now).inMinutes;
+      return mins > 0 ? 'อยู่ระหว่างงาน · อีก ${_dur(mins)} ถึงเวลาเลิก' : 'เลยเวลาเลิกงานแล้ว · อย่าลืมเช็กเอาต์';
+    }
+    final mins = at(shiftStart).difference(now).inMinutes;
+    if (mins > 0) return 'ยังไม่เข้างาน · อีก ${_dur(mins)} ถึงเวลาเข้า';
+    return 'ยังไม่ได้เช็กอิน · เลยเวลาเข้างานแล้ว';
+  }
+
+  String _dur(int mins) {
+    if (mins >= 60) return '${mins ~/ 60} ชม. ${mins % 60} นาที';
+    return '$mins นาที';
+  }
+
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(20),
-    children: [
-      Text(
-        'สวัสดี, $name',
-        style: const TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-          color: _navy,
-        ),
-      ),
-      const SizedBox(height: 12),
-      Card(
-        color: _navy,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                status,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+  Widget build(BuildContext context) {
+    final nowStr = TimeOfDay.now().format(context);
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: const Color(0xFFEAF1FF),
+              child: Text(_initials(), style: const TextStyle(color: _blue, fontWeight: FontWeight.w600)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                if (role.isNotEmpty) Text(role, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+              ]),
+            ),
+          ]),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: _navy, borderRadius: BorderRadius.circular(14)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('กะวันนี้', style: TextStyle(color: Color(0xFF9FB3CC), fontSize: 12)),
+                  Text('$shiftStart – $shiftEnd', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600)),
+                ]),
+                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  const Text('เวลาปัจจุบัน', style: TextStyle(color: Color(0xFF9FB3CC), fontSize: 12)),
+                  Text(nowStr, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600)),
+                ]),
+              ]),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(8)),
+                child: Row(children: [
+                  const Icon(Icons.access_time, color: Colors.white, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(_hint(), style: const TextStyle(color: Colors.white, fontSize: 13))),
+                ]),
               ),
-              const SizedBox(height: 14),
-              Text(
-                'เข้างาน: ${checkIn ?? '--:--'}   ออกงาน: ${checkOut ?? '--:--'}',
-                style: const TextStyle(color: Colors.white),
-              ),
-            ],
+            ]),
           ),
-        ),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _chip(const Color(0xFFEAF1FF), const Color(0xFF1B4FD6), Icons.notifications_none, 'เตือนก่อนเข้างาน')),
+            const SizedBox(width: 8),
+            Expanded(child: _chip(const Color(0xFFFDF3DD), const Color(0xFFB45309), Icons.notifications_active_outlined, 'เตือนเช็กเอาต์')),
+          ]),
+          if (locationRequired && checkIn == null) ...[
+            const SizedBox(height: 14),
+            _CheckInMap(token: token),
+          ],
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 50,
+            child: FilledButton.icon(
+              onPressed: busy || checkIn != null ? null : onIn,
+              icon: const Icon(Icons.login),
+              label: Text(busy ? 'กำลังตรวจสอบ…' : (checkIn != null ? 'เช็กอินแล้ว' : 'เช็กอินเข้างาน')),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 46,
+            child: OutlinedButton.icon(
+              onPressed: busy || checkIn == null || checkOut != null ? null : onOut,
+              icon: const Icon(Icons.logout),
+              label: const Text('เช็กเอาต์ (ที่ไหนก็ได้)'),
+            ),
+          ),
+        ],
       ),
-      if (locationRequired && checkIn == null) ...[
-        const SizedBox(height: 14),
-        _CheckInMap(token: token),
-      ],
-      const SizedBox(height: 14),
-      FilledButton.icon(
-        onPressed: busy || checkIn != null ? null : onIn,
-        icon: const Icon(Icons.login),
-        label: Text(busy ? 'กำลังตรวจสอบ…' : 'Check in'),
-      ),
-      OutlinedButton.icon(
-        onPressed: busy || checkIn == null || checkOut != null ? null : onOut,
-        icon: const Icon(Icons.logout),
-        label: const Text('Check out (ที่ไหนก็ได้)'),
-      ),
-      TextButton.icon(
-        onPressed: busy ? null : onRefresh,
-        icon: const Icon(Icons.refresh),
-        label: const Text('รีเฟรชสถานะ'),
-      ),
-    ],
-  );
+    );
+  }
+
+  Widget _chip(Color bg, Color fg, IconData ic, String t) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
+        child: Row(children: [
+          Icon(ic, size: 16, color: fg),
+          const SizedBox(width: 6),
+          Expanded(child: Text(t, style: TextStyle(fontSize: 12, color: fg), overflow: TextOverflow.ellipsis)),
+        ]),
+      );
 }
 
 // Live check-in map: shows allowed sites (circles) + the employee's position,
@@ -1263,23 +1372,37 @@ class _Account extends StatelessWidget {
   final Future<void> Function() onLogout;
   @override
   Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(20),
+    padding: const EdgeInsets.all(16),
     children: [
-      const Text(
-        'บัญชีของฉัน',
-        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+      Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(color: _navy, borderRadius: BorderRadius.circular(16)),
+        child: Row(children: [
+          CircleAvatar(
+            radius: 26,
+            backgroundColor: Colors.white.withValues(alpha: 0.15),
+            child: Text(
+              (name.isEmpty ? id : name).trim().isEmpty ? '?' : (name.isEmpty ? id : name).trim()[0].toUpperCase(),
+              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(name.isEmpty ? id : name, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 2),
+              Text('$role · $id', style: const TextStyle(color: Color(0xFF9FB3CC), fontSize: 13)),
+              const SizedBox(height: 2),
+              Text('ไซต์: ${site.isEmpty ? '—' : site} · ${locationRequired ? 'ต้องตรวจตำแหน่ง' : 'ไม่ต้องตรวจตำแหน่ง'}',
+                  style: const TextStyle(color: Color(0xFF9FB3CC), fontSize: 12)),
+            ]),
+          ),
+        ]),
       ),
+      const SizedBox(height: 14),
       Card(
         child: Column(
           children: [
-            ListTile(
-              title: Text(name.isEmpty ? id : name),
-              subtitle: Text('$role • $id'),
-            ),
-            ListTile(
-              title: const Text('ไซต์งาน'),
-              subtitle: Text(site.isEmpty ? 'ยังไม่ได้กำหนด' : site),
-            ),
             ListTile(
               title: Text(
                 locationRequired ? 'ต้องตรวจ Location' : 'ไม่ต้องตรวจ Location',

@@ -99,9 +99,12 @@
   .side .brand::before{content:"BVN";display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;letter-spacing:.3px;width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#5a8bff,#1b4fd6);box-shadow:0 4px 14px rgba(27,79,214,.55);flex:none}
   .side .brand small{display:block;font-weight:500;color:#8fa9c4;font-size:11px;margin-top:3px;letter-spacing:.4px}
   .nav{display:flex;flex-direction:column;gap:2px;padding:8px 12px;flex:1;overflow:auto}
+  .nav-section{margin:17px 8px 6px;color:#7793b1;font-size:10px;font-weight:700;letter-spacing:1.05px}
+  .nav-section:first-child{margin-top:7px}
   .nav button{position:relative;border:0;background:transparent;color:#aec4dc;text-align:left;border-radius:11px;
     padding:11px 13px;display:flex;align-items:center;gap:11px;font-size:14px;transition:background .15s,color .15s}
-  .nav button .ico{width:20px;text-align:center;opacity:.9;font-size:15px}
+  .nav button .ico{width:20px;height:20px;display:grid;place-items:center;opacity:.9;flex:none}
+  .nav button .ico svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;fill:none}
   .nav button:hover{background:rgba(255,255,255,.07);color:#fff}
   .nav button.active{background:linear-gradient(180deg,rgba(47,107,255,.95),rgba(27,79,214,.95));color:#fff;font-weight:600;box-shadow:0 10px 22px rgba(27,79,214,.45)}
   .nav button.active::before{content:"";position:absolute;left:-12px;top:50%;transform:translateY(-50%);width:4px;height:22px;border-radius:0 4px 4px 0;background:#8fb3ff}
@@ -136,7 +139,18 @@
   .ring-in small{display:block;font-size:11px;color:var(--muted)}
   .track{height:10px;border-radius:999px;background:var(--line-soft);overflow:hidden}
   .track .fill{height:100%;border-radius:999px;transition:width .4s ease}
-  @media(max-width:820px){.dash-grid{grid-template-columns:1fr!important}}
+  .ops-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center;padding:27px 30px;border-radius:22px;color:#eff6ff;background:linear-gradient(125deg,#092440 0%,#114d79 57%,#246bb3 125%);box-shadow:0 18px 38px rgba(10,49,83,.2)}
+  .ops-hero::before{content:"";position:absolute;width:350px;height:350px;border-radius:50%;right:-105px;top:-210px;border:58px solid rgba(147,201,255,.12)}
+  .ops-hero::after{content:"";position:absolute;width:165px;height:165px;border-radius:50%;right:235px;bottom:-115px;background:rgba(110,200,174,.13)}
+  .ops-hero>*{position:relative;z-index:1}.hero-kicker{display:flex;align-items:center;gap:7px;color:#a9d5ff;font-size:11px;font-weight:700;letter-spacing:.9px;text-transform:uppercase}.hero-kicker .live{width:7px;height:7px;border-radius:50%;background:#61d5a5;box-shadow:0 0 0 4px rgba(97,213,165,.15)}
+  .ops-hero h2{margin:7px 0 3px;font-size:27px;line-height:1.25;letter-spacing:-.6px}.ops-hero p{margin:0;color:#c5ddf2;font-size:13px}.hero-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:19px}.hero-actions .btn{background:#fff;color:#12466e;box-shadow:0 8px 22px rgba(1,22,47,.22)}.hero-actions .btn.ghost{background:rgba(255,255,255,.11);color:#f5f9ff;border:1px solid rgba(255,255,255,.25)}
+  .hero-attendance{display:flex;align-items:center;gap:14px;padding:15px 17px;border:1px solid rgba(211,235,255,.22);border-radius:16px;background:rgba(5,27,52,.23);backdrop-filter:blur(8px);min-width:205px}.hero-attendance .ring{width:66px;height:66px;background:conic-gradient(#6fe0b4 calc(var(--p)*1%),rgba(255,255,255,.18) 0)}.hero-attendance .ring-in{width:50px;height:50px;background:#123e64}.hero-attendance .ring-in b{color:#fff;font-size:16px}.hero-attendance .ring-in small{color:#b9d6ec}.hero-attendance b{display:block;font-size:13px}.hero-attendance span{display:block;margin-top:3px;color:#b9d6ec;font-size:12px}
+  .action-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}.action-card{display:flex;align-items:center;gap:12px;text-align:left;border:1px solid var(--line);border-radius:15px;padding:15px;background:var(--card);box-shadow:var(--shadow);transition:transform .15s,box-shadow .15s,border-color .15s}button.action-card{width:100%;font:inherit;color:var(--ink);cursor:pointer}.action-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);border-color:#cbd9ef}.action-card .a-icon{width:40px;height:40px;display:grid;place-items:center;border-radius:12px;flex:none;background:var(--blue-soft);color:var(--blue-ink)}.action-card.warn .a-icon{background:var(--amber-soft);color:#946200}.action-card.danger .a-icon{background:var(--red-soft);color:#b52c2c}.action-card .a-icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}.action-card b{display:block;font-size:13px}.action-card span{display:block;margin-top:2px;color:var(--muted);font-size:12px}
+  .dash-main-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;margin-top:18px}.today-rows{display:grid;gap:15px}.today-row{display:grid;grid-template-columns:142px 1fr 58px;align-items:center;gap:12px;font-size:13px}.today-row .n{text-align:right;font-weight:800;font-variant-numeric:tabular-nums}.priority-list{display:grid;gap:0}.priority-item{display:flex;align-items:center;gap:11px;padding:12px 0;border-bottom:1px solid var(--line-soft)}.priority-item:last-child{border-bottom:0}.priority-item .p-icon{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--line-soft);color:var(--muted);font-size:13px;font-weight:800}.priority-item .p-main{min-width:0;flex:1}.priority-item b{font-size:13px;display:block}.priority-item span{display:block;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dash-finance{display:grid;grid-template-columns:1fr 1fr;gap:12px}.finance-box{border:1px solid var(--line);border-radius:13px;padding:14px;background:linear-gradient(145deg,var(--card),#f8faff)}.finance-box .f-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.45px}.finance-box .f-value{margin-top:7px;color:var(--navy);font-size:21px;font-weight:800;letter-spacing:-.5px}.finance-box .f-note{margin-top:2px;color:var(--muted);font-size:11px}:root[data-theme="dark"] .finance-box{background:linear-gradient(145deg,#142640,#101e34)}
+  .attendance-board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.attendance-person{border:1px solid var(--line);background:var(--card);border-radius:14px;padding:13px;cursor:pointer;text-align:left;color:var(--ink);font:inherit;transition:transform .15s,box-shadow .15s,border-color .15s}.attendance-person:hover{transform:translateY(-2px);border-color:#b7d0ff;box-shadow:var(--shadow-lg)}.attendance-person .ap-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.attendance-person .ap-name{font-weight:800;font-size:13px;line-height:1.25}.attendance-person .ap-role{display:block;color:var(--muted);font-size:11px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.attendance-person .ap-count{display:flex;gap:8px;margin-top:13px}.attendance-person .ap-count b{font-size:20px;color:var(--navy);line-height:1}.attendance-person .ap-count span{font-size:11px;color:var(--muted);line-height:1.2}.attendance-person .ap-status{display:flex;gap:7px;margin-top:10px;font-size:11px;color:var(--muted)}.attendance-person .ap-status i{width:7px;height:7px;border-radius:50%;display:inline-block;background:var(--green);margin-right:3px}.attendance-person .ap-status .warn{background:var(--amber)}
+  .cal-dialog-meta{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:15px}.att-calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.att-calendar .day-name{text-align:center;font-weight:700;font-size:10px;color:var(--muted);padding:2px}.att-calendar .day{position:relative;min-height:48px;border:1px solid var(--line);border-radius:9px;padding:6px;background:var(--card);font-size:11px}.att-calendar .day .d{color:var(--muted);font-weight:700}.att-calendar .day.complete{border-color:#a7e1c7;background:var(--green-soft)}.att-calendar .day.incomplete{border-color:#f2d38f;background:var(--amber-soft)}.att-calendar .day .mark{position:absolute;right:5px;bottom:4px;font-size:9px;font-weight:800}.att-calendar .day.complete .mark{color:#087550}.att-calendar .day.incomplete .mark{color:#946200}.att-calendar .blank{border:0;background:transparent}.calendar-legend{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 0;color:var(--muted);font-size:11px}.calendar-legend i{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}.calendar-legend .ok{background:var(--green)}.calendar-legend .wait{background:var(--amber)}.calendar-legend .none{background:#cbd5e1}
+  @media(max-width:820px){.dash-grid,.dash-main-grid{grid-template-columns:1fr!important}.ops-hero{grid-template-columns:1fr}.hero-attendance{justify-self:start}.action-grid{grid-template-columns:1fr}.today-row{grid-template-columns:120px 1fr 48px}.attendance-board{grid-template-columns:repeat(2,minmax(0,1fr))}}
   th.sortable:hover{color:var(--ink)}
   th .sort-ar{color:var(--blue);font-size:10px}
   .pager{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:10px 16px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
@@ -287,16 +301,19 @@
   <aside class="side" id="side">
     <div class="brand">BVN PACKAGE<small>ADMIN CONSOLE</small></div>
     <nav class="nav" id="nav">
-      <button data-page="dashboard" class="active"><span class="ico">▦</span> ภาพรวม</button>
-      <button data-page="owner"><span class="ico">◆</span> เจ้าของธุรกิจ</button>
-      <button data-page="employees"><span class="ico">♟</span> พนักงาน</button>
-      <button data-page="approvals"><span class="ico">✔</span> คิวอนุมัติ <span class="pill" id="navApprovals" style="display:none">0</span></button>
-      <button data-page="payroll"><span class="ico">฿</span> เงินเดือน</button>
-      <button data-page="advances"><span class="ico">⇅</span> เบิกเงินล่วงหน้า <span class="pill" id="navAdvances" style="display:none">0</span></button>
-      <button data-page="payrules"><span class="ico">⚖</span> เรตค่าจ้าง</button>
-      <button data-page="invoices"><span class="ico">▤</span> ใบแจ้งหนี้</button>
-      <button data-page="settings"><span class="ico">⚙</span> ตั้งค่า</button>
-      <button data-page="audit"><span class="ico">🕘</span> บันทึกการใช้งาน</button>
+      <div class="nav-section">การปฏิบัติงาน</div>
+      <button data-page="dashboard" class="active"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span> ภาพรวม</button>
+      <button data-page="owner"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V5l7-3 7 3v16M9 9h.01M15 9h.01M9 13h.01M15 13h.01M10 21v-4h4v4"/></svg></span> เจ้าของธุรกิจ</button>
+      <button data-page="employees"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5.5a3 3 0 0 1 0 5M18 21v-2a6 6 0 0 0-2.7-5"/></svg></span> พนักงาน</button>
+      <button data-page="approvals"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3.5h6v3H9zM8 12l2 2 4-4M8 17h8"/></svg></span> คิวอนุมัติ <span class="pill" id="navApprovals" style="display:none">0</span></button>
+      <div class="nav-section">การเงินและเอกสาร</div>
+      <button data-page="payroll"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 10h18M16 15h2"/><path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/></svg></span> เงินเดือน</button>
+      <button data-page="advances"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M7 10h.01M17 14h.01"/></svg></span> เบิกเงินล่วงหน้า <span class="pill" id="navAdvances" style="display:none">0</span></button>
+      <button data-page="payrules"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="7" cy="18" r="2"/></svg></span> เรตค่าจ้าง</button>
+      <button data-page="invoices"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg></span> ใบแจ้งหนี้</button>
+      <div class="nav-section">ระบบ</div>
+      <button data-page="settings"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.12 2.12-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.04 1.56V20.3h-3v-.08A1.7 1.7 0 0 0 10.66 18.7a1.7 1.7 0 0 0-1.88.34l-.06.06-2.12-2.12.06-.06A1.7 1.7 0 0 0 7 15.04 1.7 1.7 0 0 0 5.44 14H5.3v-3h.14A1.7 1.7 0 0 0 7 9.96a1.7 1.7 0 0 0-.34-1.88l-.06-.06L8.72 5.9l.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 11.7 4.74V4.7h3v.04a1.7 1.7 0 0 0 1.04 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.12 2.12-.06.06a1.7 1.7 0 0 0-.34 1.88A1.7 1.7 0 0 0 20.96 11h.04v3h-.04A1.7 1.7 0 0 0 19.4 15z"/></svg></span> ตั้งค่า</button>
+      <button data-page="audit"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg></span> บันทึกการใช้งาน</button>
     </nav>
     <div class="foot">
       <b id="footReviewer">—</b>
@@ -545,11 +562,12 @@ async function renderDashboard(data){
   try{
     skeleton(node);
     // Pull the headline stats plus richer context in parallel (frontend-only).
-    const [dash, owner, leaveD, timeD] = await Promise.all([
+    const [dash, owner, leaveD, timeD, attendanceD] = await Promise.all([
       data ? Promise.resolve(data) : api("dashboard"),
       api("admin_owner_overview").catch(()=>({})),
       api("admin_list_leave_requests").catch(()=>({requests:[]})),
       api("admin_list_time_requests").catch(()=>({requests:[]})),
+      api("admin_attendance_days").catch(()=>({days:[]})),
     ]);
     data=dash;
     $("#asof").innerHTML = "ข้อมูลล่าสุด<br>"+fmtDateTime(data.asOf);
@@ -557,6 +575,12 @@ async function renderDashboard(data){
     const absent=Math.max(0,total-present);
     const presentPct = total? present/total*100 : 0;
     const leaves=(leaveD.requests||[]), times=(timeD.requests||[]);
+    await loadEmployees().catch(()=>{});
+    const attendanceDays=attendanceD.days||[];
+    const attendanceByEmployee={};
+    attendanceDays.forEach(d=>{ const x=attendanceByEmployee[d.employeeId]||{complete:0,incomplete:0}; x[d.status==="complete"?"complete":"incomplete"]++; attendanceByEmployee[d.employeeId]=x; });
+    const attendancePeople=(state.employees||[]).filter(e=>String(e.status||"").toLowerCase()==="active").slice(0,12);
+    const attendanceCards=attendancePeople.length?attendancePeople.map(e=>{ const a=attendanceByEmployee[e.id]||{complete:0,incomplete:0}; return `<button class="attendance-person" data-calendar="${esc(e.id)}"><span class="ap-head"><span><span class="ap-name">${esc(e.name)}</span><span class="ap-role">${esc(e.role||"พนักงาน")}</span></span><span class="badge ${a.incomplete?"amber":"blue"}">${a.incomplete?"ต้องตรวจ":"ปกติ"}</span></span><span class="ap-count"><b>${fmtInt(a.complete)}</b><span>วันลงเวลาครบ<br>ในเดือนนี้</span></span><span class="ap-status"><span><i></i>ครบ ${fmtInt(a.complete)}</span><span><i class="warn"></i>ไม่ครบ ${fmtInt(a.incomplete)}</span></span></button>`; }).join(""):`<div class="empty">ยังไม่มีรายชื่อพนักงานที่ใช้งานอยู่</div>`;
     const pendL=leaves.filter(r=>r.status==="pending"), pendT=times.filter(r=>r.status==="pending");
     const totalNet = owner.totalNet!=null?owner.totalNet:(owner.totalGross||0);
     const pendingList=[
@@ -599,6 +623,7 @@ async function renderDashboard(data){
 
       <div class="panel"><div class="head"><b>ทางลัด</b></div>
         <div class="body toolbar">
+          <button class="btn" data-act="clock">ลงเวลาแทนพนักงาน</button>
           <button class="btn ghost" data-act="emp">+ เพิ่มพนักงาน</button>
           <button class="btn ghost" data-act="ot">บันทึก OT</button>
           <button class="btn ghost" data-act="inv">ออกใบแจ้งหนี้</button>
@@ -607,7 +632,11 @@ async function renderDashboard(data){
           <span class="sub">งวดล่าสุด: ${data.latestPayrollId?`<b>${esc(data.latestPayrollId)}</b> <span class="badge ${data.latestPayrollStatus==="locked"?"blue":"grey"}">${esc(data.latestPayrollStatus||"—")}</span>`:"ยังไม่มีงวดที่ล็อก"}</span>
         </div>
       </div>`;
+    const board=el(`<section class="panel"><div class="head"><b>สรุปการเข้างานรายบุคคล</b><span class="sub">${fmtDate(attendanceD.startDate||todayISO())} – ${fmtDate(attendanceD.endDate||todayISO())} · คลิกชื่อเพื่อดูปฏิทิน</span><div class="spacer"></div><button class="btn sub sm" data-nav="owner">ดูบันทึกเวลาทั้งหมด</button></div><div class="body"><div class="attendance-board">${attendanceCards}</div></div></section>`);
+    node.querySelector(".panel").before(board);
     node.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>go(b.dataset.nav));
+    node.querySelectorAll("[data-calendar]").forEach(b=>b.onclick=()=>openAttendanceCalendar(b.dataset.calendar, attendanceDays, attendanceD, owner));
+    node.querySelector('[data-act="clock"]').onclick=()=>adminAttendanceDialog();
     node.querySelector('[data-act="emp"]').onclick=()=>employeeDialog(null);
     node.querySelector('[data-act="ot"]').onclick=()=>addOvertimeDialog();
     node.querySelector('[data-act="inv"]').onclick=()=>newInvoiceDialog();
@@ -617,6 +646,31 @@ function bar(label,val,total,color){
   const pct=total?Math.round(val/total*100):0;
   return `<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span>${esc(label)}</span><b>${fmtInt(val)}</b></div>
     <div class="track"><div class="fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+}
+
+function openAttendanceCalendar(employeeId, days, range, owner){
+  const emp=state.empById[employeeId]||{id:employeeId,name:employeeId,role:""};
+  const start=range.startDate||todayISO(), end=range.endDate||todayISO();
+  const byDate={}; days.filter(d=>d.employeeId===employeeId).forEach(d=>byDate[d.date]=d);
+  const cursor=new Date(`${start}T00:00:00+07:00`), last=new Date(`${end}T00:00:00+07:00`);
+  const cells=[];
+  for(let i=0;i<cursor.getDay();i++) cells.push(`<div class="day blank"></div>`);
+  while(cursor<=last){
+    const key=cursor.toLocaleDateString("en-CA",{timeZone:"Asia/Bangkok"});
+    const item=byDate[key];
+    const cls=item?(item.status==="complete"?"complete":"incomplete"):"";
+    const label=item?(item.status==="complete"?`${esc(item.checkIn)}–${esc(item.checkOut)}`:"รอตรวจ"):"—";
+    cells.push(`<div class="day ${cls}"><span class="d">${cursor.getDate()}</span><span class="mark">${label}</span></div>`);
+    cursor.setDate(cursor.getDate()+1);
+  }
+  const complete=Object.values(byDate).filter(d=>d.status==="complete").length;
+  const incomplete=Object.values(byDate).filter(d=>d.status!=="complete").length;
+  const line=(owner.lines||[]).find(l=>l.employeeId===employeeId);
+  const body=el(`<div><div class="cal-dialog-meta"><div><b style="font-size:16px">${esc(emp.name)}</b><span class="sub" style="display:block">${esc(emp.id)}${emp.role?` · ${esc(emp.role)}`:""}</span></div><span class="badge blue">ครบ ${fmtInt(complete)} วัน</span></div><div class="att-calendar"><div class="day-name">อา</div><div class="day-name">จ</div><div class="day-name">อ</div><div class="day-name">พ</div><div class="day-name">พฤ</div><div class="day-name">ศ</div><div class="day-name">ส</div>${cells.join("")}</div><div class="calendar-legend"><span><i class="ok"></i>ลงเวลาครบ</span><span><i class="wait"></i>เวลาไม่ครบ/รอตรวจ</span><span><i class="none"></i>ไม่มีบันทึก</span><span>ไม่ครบ ${fmtInt(incomplete)} วัน</span></div></div>`);
+  const close=el(`<button class="btn sub">ปิด</button>`); close.onclick=closeModal;
+  const slip=el(`<button class="btn" ${line?"":"disabled"}>เปิดสลิปเงินเดือน</button>`);
+  if(line) slip.onclick=()=>printPayslip(line,owner.period||{start,end});
+  openModal(`ปฏิทินการลงเวลา · ${fmtDate(start)}`,body,[close,slip]);
 }
 
 async function refreshApprovalBadge(){
@@ -1378,6 +1432,42 @@ async function adminClock(eventType){
   }catch(err){ toast(err.message,"bad"); }
 }
 
+/* Dashboard path for exceptional, Admin-recorded attendance. The server remains
+   responsible for Bangkok-date duplicate/order validation and writes admin_manual
+   to the immutable attendance/audit trail. */
+async function adminAttendanceDialog(){
+  let employees;
+  try { employees=await loadEmployees(); }
+  catch(err){ toast(`โหลดรายชื่อพนักงานไม่สำเร็จ: ${err.message}`,"bad"); return; }
+  const active=employees.filter(e=>String(e.status||"").toLowerCase()==="active");
+  if(!active.length){ toast("ยังไม่มีพนักงานที่ใช้งานอยู่สำหรับลงเวลา","bad"); return; }
+  const body=el(`<div>
+    <div class="notice blue" style="margin:0 0 14px">บันทึกนี้ใช้กรณี Admin ลงเวลาแทนพนักงานเท่านั้น ระบบจะไม่ขอ GPS และจะระบุแหล่งที่มาเป็น <b>admin_manual</b> ใน audit trail</div>
+    <div class="field"><label for="adminClockEmp">เลือกพนักงาน</label>
+      <select id="adminClockEmp"><option value="">— เลือกพนักงาน —</option>${active.map(e=>`<option value="${esc(e.id)}">${esc(e.name)} (${esc(e.id)})</option>`).join("")}</select>
+      <div class="hint">เวลาที่บันทึกคือเวลาปัจจุบันของระบบ (เวลาไทย)</div>
+    </div>
+  </div>`);
+  const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
+  const record=async(eventType, button)=>withBtn(button, async()=>{
+    const employeeId=$("#adminClockEmp").value;
+    if(!employeeId){ toast("เลือกพนักงานก่อน","bad"); return; }
+    const emp=state.empById[employeeId]||active.find(e=>e.id===employeeId);
+    const label=eventType==="check_in"?"เช็กอิน":"เช็กเอาต์";
+    if(!await confirmDialog(`ยืนยัน${label}`, `${label}ให้ <b>${esc(emp?.name||employeeId)}</b> (${esc(employeeId)}) ณ เวลาปัจจุบัน?<br><span class="sub">บันทึกโดย ${esc(state.reviewer||"Admin")} และตรวจสอบย้อนหลังได้</span>`, {okText:`${label}ให้`})) return;
+    try{
+      const data=await api("admin_record_attendance",{employeeId,eventType,reviewer:state.reviewer||"Admin"});
+      toast(data.message||"บันทึกเวลาสำเร็จ","good");
+      renderDashboard();
+    }catch(err){ toast(err.message,"bad"); }
+  });
+  const checkIn=el(`<button class="btn">เช็กอินให้</button>`);
+  const checkOut=el(`<button class="btn ghost">เช็กเอาต์ให้</button>`);
+  checkIn.onclick=()=>record("check_in",checkIn);
+  checkOut.onclick=()=>record("check_out",checkOut);
+  openModal("ลงเวลาแทนพนักงาน",body,[cancel,checkIn,checkOut]);
+}
+
 function settingsDialog(s){
   const body=el(`<div></div>`);
   const freqField=el(`<div class="field"><label>รอบการจ่าย</label><select id="sFreq" style="width:100%;padding:9px 10px;border:1px solid #d7dce5;border-radius:8px;font:inherit">
@@ -1416,10 +1506,13 @@ function settingsDialog(s){
   body.append(el(`<div style="border-top:1px solid var(--line);margin:14px 0 2px;padding-top:12px"><div class="label">เวลาทำงาน / OT</div></div>`));
   const tg=el(`<div class="grid2" style="margin-top:8px"></div>`);
   tg.append(
-    field("เวลาเข้างานมาตรฐาน", `<input id="sShift" type="time" value="${esc(s.shift_start||"09:00")}">`),
+    field("เวลาเข้างาน", `<input id="sShift" type="time" value="${esc(s.shift_start||"09:00")}">`),
+    field("เวลาเลิกงาน", `<input id="sShiftEnd" type="time" value="${esc(s.shift_end||"18:00")}">`),
     field("ผ่อนผันสาย (นาที)", `<input id="sGrace" type="number" min="0" step="1" value="${esc(s.shift_grace_min||"5")}">`),
     field("พักเที่ยง (นาที)", `<input id="sLunch" type="number" min="0" step="5" value="${esc(s.lunch_break_min||"60")}">`),
     field("เริ่มคิด OT เมื่อเกิน (ชม.)", `<input id="sOtTh" type="number" min="1" max="24" step="0.5" value="${esc(s.ot_threshold_hours||"8")}">`),
+    field("เตือนก่อนเข้างาน (นาที)", `<input id="sRemBef" type="number" min="0" step="1" value="${esc(s.remind_before_min||"15")}">`),
+    field("เตือนเช็กเอาต์หลังเลิก (นาที)", `<input id="sRemOut" type="number" min="0" step="1" value="${esc(s.remind_checkout_after_min||"10")}">`),
   );
   body.append(tg);
   body.append(el(`<label class="check" style="margin-top:8px"><input type="checkbox" id="sHolOt" ${String(s.holiday_ot_enabled).toLowerCase()==="true"?"checked":""}> คิด OT เมื่อทำงานวันหยุด (ทั้งวันเป็น OT)</label>`));
@@ -1430,7 +1523,8 @@ function settingsDialog(s){
     try{ await api("admin_save_settings",{settings:{pay_frequency:$("#sFreq").value, pay_day_1:$("#sPay1").value.trim(), pay_day_2:$("#sPay2").value.trim(), workdays,
         sso_enabled:$("#sSso").checked, sso_rate:$("#sSsoRate").value, sso_cap:$("#sSsoCap").value,
         quota_sick:$("#sQSick").value, quota_personal:$("#sQPer").value, quota_vacation:$("#sQVac").value,
-        shift_start:$("#sShift").value, shift_grace_min:$("#sGrace").value, lunch_break_min:$("#sLunch").value, ot_threshold_hours:$("#sOtTh").value, holiday_ot_enabled:$("#sHolOt").checked}});
+        shift_start:$("#sShift").value, shift_end:$("#sShiftEnd").value, shift_grace_min:$("#sGrace").value, lunch_break_min:$("#sLunch").value, ot_threshold_hours:$("#sOtTh").value, holiday_ot_enabled:$("#sHolOt").checked,
+        remind_before_min:$("#sRemBef").value, remind_checkout_after_min:$("#sRemOut").value}});
       closeModal(); toast("บันทึกการตั้งค่าแล้ว","good"); renderOwner();
     }catch(err){ toast(err.message,"bad"); }
   });

@@ -7,7 +7,7 @@ const SPREADSHEET_ID = '1-deVDtN8sZQmDyXTH7cR2TtmXgmm4RHOkONRk-HFdT4';
 const SHEETS = Object.freeze({
   sites: 'Work_Sites', employees: 'Employees', attendance: 'Attendance_Log',
   payroll: 'Payroll_Periods', payrollLines: 'Payroll_Lines', payrollRules: 'Payroll_Rules', invoices: 'Invoices', tokens: 'Mobile_Access', leaves: 'Leave_Requests', timeRequests: 'Time_Requests',
-  settings: 'Settings', advances: 'Advances', pwRequests: 'Password_Requests', adminUsers: 'Admin_Users', audit: 'Audit_Log', holidays: 'Holidays',
+  settings: 'Settings', advances: 'Advances', pwRequests: 'Password_Requests', adminUsers: 'Admin_Users', adminSessions: 'Admin_Sessions', audit: 'Audit_Log', holidays: 'Holidays',
 });
 const ICT = 'Asia/Bangkok';
 const MAX_ACCURACY_METRES = 100;
@@ -45,6 +45,7 @@ function doPost(e) {
     if (action === 'admin_review_time_request') return adminReviewTimeRequest_(payload);
     if (action === 'admin_add_overtime') return adminAddOvertime_(payload);
     if (action === 'admin_console_login') return adminConsoleLogin_(payload);
+    if (action === 'admin_console_logout') return adminConsoleLogout_(payload);
     if (action === 'admin_list_admin_users') return adminListAdminUsers_(payload);
     if (action === 'admin_upsert_admin_user') return adminUpsertAdminUser_(payload);
     if (action === 'admin_delete_admin_user') return adminDeleteAdminUser_(payload);
@@ -253,7 +254,8 @@ function autoCreateOvertime_(employeeId, checkoutTime) {
 // Admin records a check-in/out on behalf of an employee (manual, no GPS). Same
 // per-business-day duplicate/order guards. Logged as admin_manual for the audit trail.
 function adminRecordAttendance_(payload) {
-  requireAdmin_(payload);
+  requireOperationsRole_(payload);
+  const reviewer = adminActor_(payload);
   const employeeId = String(payload.employeeId || '').trim().toUpperCase();
   const employee = findEmployee_(employeeId);
   if (!employee) return reply_(false, 'ไม่พบพนักงาน');
@@ -267,14 +269,14 @@ function adminRecordAttendance_(payload) {
     if (eventType === 'check_in' && todayState.checkedIn) return reply_(false, 'พนักงานคนนี้บันทึกเข้างานวันนี้แล้ว', todayState);
     if (eventType === 'check_out' && !todayState.checkedIn) return reply_(false, 'ต้องบันทึกเข้างานก่อนจึงจะบันทึกออกงานได้', todayState);
     if (eventType === 'check_out' && todayState.checkedOut) return reply_(false, 'พนักงานคนนี้บันทึกออกงานวันนี้แล้ว', todayState);
-    log.appendRow([Utilities.getUuid(), employee.id, employee.siteId, eventType, new Date(), '', '', '', '', 'accepted', '', 'admin_manual:' + String(payload.reviewer || 'Admin'), 'accepted', new Date()]);
+    log.appendRow([Utilities.getUuid(), employee.id, employee.siteId, eventType, new Date(), '', '', '', '', 'accepted', '', 'admin_manual:' + reviewer, 'accepted', new Date()]);
   } finally { lock.releaseLock(); }
-  audit_(String(payload.reviewer || 'Admin'), 'attendance_manual_' + eventType, employeeId, '');
+  audit_(reviewer, 'attendance_manual_' + eventType, employeeId, '');
   return reply_(true, eventType === 'check_in' ? 'ลงเวลาเข้างานแล้ว' : 'ลงเวลาออกงานแล้ว');
 }
 
 function adminDashboard_(payload) {
-  if (!constantTimeEqual_(String(payload.adminToken || ''), requiredProperty_('ADMIN_API_KEY'))) return reply_(false, 'Administrator authentication failed');
+  try { requireAdmin_(payload); } catch (error) { return reply_(false, 'Administrator authentication failed'); }
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const employees = values_(ss.getSheetByName(SHEETS.employees));
   const logs = values_(ss.getSheetByName(SHEETS.attendance));
@@ -283,7 +285,13 @@ function adminDashboard_(payload) {
   const timeRequests = valuesIfSheet_(ss.getSheetByName(SHEETS.timeRequests));
   const payrolls = valuesIfSheet_(ss.getSheetByName(SHEETS.payroll));
   const today = Utilities.formatDate(new Date(), ICT, 'yyyy-MM-dd');
-  const activeIds = new Set(employees.slice(1).filter(r => normalise_(r[5]) === 'active').map(r => String(r[0])));
+  // Resolve columns by header: Employee sheets have evolved and a fixed column
+  // index can make Dashboard totals disagree with the Admin employee directory.
+  const employeeCols = employeeColumns_(employees[0]);
+  const activeIds = new Set(employees.slice(1)
+    .map(row => employeeFromRow_(row, employeeCols))
+    .filter(employee => employee && employee.status === 'active')
+    .map(employee => employee.id));
   const presentIds = new Set(logs.slice(1).filter(r => String(r[9]) === 'accepted' && String(r[3]) === 'check_in' && Utilities.formatDate(new Date(r[4]), ICT, 'yyyy-MM-dd') === today).map(r => String(r[1])));
   const exceptions = logs.slice(1).filter(r => String(r[9]) !== 'accepted' || String(r[12]) === 'pending').length;
   const overdue = invoices.slice(1).filter(r => normalise_(r[7]) === 'issued' && Utilities.formatDate(new Date(r[5]), ICT, 'yyyy-MM-dd') < today).reduce((sum, r) => sum + Number(r[6] || 0), 0);
@@ -313,7 +321,10 @@ function employeeProfile_(payload) {
   const employeeId = authenticateMobile_(payload.mobileToken);
   const employee = findEmployee_(employeeId);
   if (!employee) return reply_(false, 'Mobile authentication failed');
-  return reply_(true, 'Employee profile loaded', { employeeId: employee.id, name: employee.name, role: employee.role, siteId: employee.siteId, locationRequired: employee.locationRequired });
+  const s = readSettings_();
+  return reply_(true, 'Employee profile loaded', { employeeId: employee.id, name: employee.name, role: employee.role, siteId: employee.siteId, locationRequired: employee.locationRequired,
+    shiftStart: s.shift_start || '09:00', shiftEnd: s.shift_end || '18:00', workdays: s.workdays || '1,2,3,4,5',
+    remindBeforeMin: Number(s.remind_before_min || 15), remindCheckoutAfterMin: Number(s.remind_checkout_after_min || 10) });
 }
 
 function employeeDirectory_() {
@@ -328,20 +339,26 @@ function employeeDirectory_() {
 function employeeLogin_(payload) {
   const employee = findEmployee_(String(payload.employeeId || '').trim().toUpperCase());
   const password = String(payload.password || '');
-  if (!employee || employee.status !== 'active' || !employee.passwordHash || !constantTimeEqual_(employee.passwordHash, hashEmployeePassword_(password))) return reply_(false, 'ชื่อพนักงานหรือรหัสผ่านไม่ถูกต้อง');
+  if (!employee || employee.status !== 'active' || !employee.passwordHash) return reply_(false, 'ชื่อพนักงานหรือรหัสผ่านไม่ถูกต้อง');
+  const stored = String(employee.passwordHash), hashed = hashEmployeePassword_(password);
+  const valid = stored.indexOf('h1:') === 0 ? constantTimeEqual_(stored, hashed) : constantTimeEqual_(stored, password);
+  if (!valid) return reply_(false, 'ชื่อพนักงานหรือรหัสผ่านไม่ถูกต้อง');
+  if (stored.indexOf('h1:') !== 0) migrateEmployeePasswordHash_(employee.id, hashed);
   revokeEmployeeTokens_(employee.id);
   const token = issueMobileToken(employee.id, String(payload.deviceLabel || 'Mobile login'));
   return reply_(true, 'Login successful', { employeeId: employee.id, mobileToken: token, name: employee.name });
 }
 
 function adminListEmployees_(payload) {
-  requireAdmin_(payload);
+  requireOperationsRole_(payload);
   const source = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.employees)), columns = employeeColumns_(source[0]);
-  return reply_(true, 'Employees loaded', { employees: source.slice(1).map(row => employeeFromRow_(row, columns)).filter(Boolean) });
+  // Password hashes are authentication material, not Admin directory data.
+  // Keep them inside server-only employee objects used by employeeLogin_.
+  return reply_(true, 'Employees loaded', { employees: source.slice(1).map(row => employeeForAdmin_(employeeFromRow_(row, columns))).filter(Boolean) });
 }
 
 function adminUpsertEmployee_(payload) {
-  requireAdmin_(payload); initializeEmployeesSheet();
+  requireOperationsRole_(payload); initializeEmployeesSheet();
   const requestedId = String(payload.employeeId || '').trim().toUpperCase(), name = String(payload.name || '').trim(), role = String(payload.role || '').trim(), siteId = String(payload.siteId || '').trim();
   const status = normalise_(payload.status || 'active') === 'inactive' ? 'inactive' : 'active';
   const locationRequired = payload.locationRequired === false ? 'false' : 'true';
@@ -349,32 +366,36 @@ function adminUpsertEmployee_(payload) {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.employees), rows = values_(sheet), columns = employeeColumns_(rows[0]);
   const id = requestedId || nextEmployeeId_(rows);
   const rowIndex = rows.slice(1).findIndex(r => String(r[columns.id]).trim().toUpperCase() === id);
-  const existingPassword = rowIndex < 0 ? '' : String(rows[rowIndex + 1][columns.passwordHash] || '');
+  const existingPasswordHash = rowIndex < 0 ? '' : String(rows[rowIndex + 1][columns.passwordHash] || '');
   const providedPassword = String(payload.password || '').trim();
-  // Admin may set a chosen password; otherwise keep the current one, or generate one when none exists.
-  const finalPassword = providedPassword || existingPassword || temporaryPassword_();
+  // Never re-hash an existing hash. Empty password on edit means keep it; a new
+  // account gets an initial password exactly once.
+  const generatedPassword = !providedPassword && !existingPasswordHash ? temporaryPassword_() : '';
+  const passwordHash = providedPassword ? hashEmployeePassword_(providedPassword) : (existingPasswordHash ? (existingPasswordHash.indexOf('h1:') === 0 ? existingPasswordHash : hashEmployeePassword_(existingPasswordHash)) : hashEmployeePassword_(generatedPassword));
   const values = rowIndex < 0 ? Array(rows[0].length).fill('') : rows[rowIndex + 1].slice();
-  values[columns.id] = id; values[columns.name] = name; values[columns.role] = role || 'Employee'; values[columns.department] = String(payload.department || ''); values[columns.siteId] = siteId; values[columns.status] = status; values[columns.locationRequired] = locationRequired; values[columns.passwordHash] = hashEmployeePassword_(finalPassword);
+  values[columns.id] = id; values[columns.name] = name; values[columns.role] = role || 'Employee'; values[columns.department] = String(payload.department || ''); values[columns.siteId] = siteId; values[columns.status] = status; values[columns.locationRequired] = locationRequired; values[columns.passwordHash] = passwordHash;
   if (rowIndex >= 0) sheet.getRange(rowIndex + 2, 1, 1, values.length).setValues([values]); else sheet.appendRow(values);
   cacheDel_('dir_v1');
-  return reply_(true, 'Employee saved', { employee: employeeFromRow_(values, columns), initialPassword: finalPassword });
+  audit_(adminActor_(payload), rowIndex < 0 ? 'employee_created' : 'employee_updated', id, 'status ' + status);
+  return reply_(true, 'Employee saved', { employee: employeeForAdmin_(employeeFromRow_(values, columns)), initialPassword: rowIndex < 0 ? (providedPassword || generatedPassword) : '' });
 }
 
 function adminResetEmployeePassword_(payload) {
-  requireAdmin_(payload); const employeeId = String(payload.employeeId || '').trim().toUpperCase();
+  requireOperationsRole_(payload); const employeeId = String(payload.employeeId || '').trim().toUpperCase();
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.employees), rows = values_(sheet), columns = employeeColumns_(rows[0]), index = rows.slice(1).findIndex(r => String(r[columns.id]).trim().toUpperCase() === employeeId);
   if (index < 0) return reply_(false, 'Employee was not found');
   revokeEmployeeTokens_(employeeId);
   const password = String(payload.password || '').trim() || temporaryPassword_();
   sheet.getRange(index + 2, columns.passwordHash + 1).setValue(hashEmployeePassword_(password));
-  if (payload.requestId) resolvePwRequest_(String(payload.requestId), String(payload.reviewer || 'Admin'));
-  audit_(String(payload.reviewer || 'Admin'), 'password_reset', employeeId, '');
+  const reviewer = adminActor_(payload);
+  if (payload.requestId) resolvePwRequest_(String(payload.requestId), reviewer);
+  audit_(reviewer, 'password_reset', employeeId, '');
   return reply_(true, 'Temporary password reset', { employeeId: employeeId, temporaryPassword: password });
 }
 
 function adminReviewLeave_(payload) {
-  requireAdmin_(payload); initializeLeaveRequestsSheet();
-  const requestId = String(payload.requestId || ''), decision = normalise_(payload.decision), reviewer = String(payload.reviewer || 'Admin').trim();
+  requireOperationsRole_(payload); initializeLeaveRequestsSheet();
+  const requestId = String(payload.requestId || ''), decision = normalise_(payload.decision), reviewer = adminActor_(payload);
   if (!requestId || !['approved', 'rejected'].includes(decision)) return reply_(false, 'Invalid leave decision');
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.leaves), rows = values_(sheet);
   const index = rows.slice(1).findIndex(r => String(r[0]) === requestId && normalise_(r[6]) === 'pending');
@@ -387,7 +408,7 @@ function adminReviewLeave_(payload) {
 // #4 Leave quota usage: per active employee, approved leave days used this year by
 // type vs the annual quota from Settings.
 function adminLeaveUsage_(payload) {
-  requireAdmin_(payload); initializeLeaveRequestsSheet();
+  requireOperationsRole_(payload); initializeLeaveRequestsSheet();
   const settings = readSettings_();
   const quota = { sick: Number(settings.quota_sick || 0), personal: Number(settings.quota_personal || 0), vacation: Number(settings.quota_vacation || 0) };
   const typeKey = (t) => { t = String(t || ''); if (t.indexOf('ป่วย') >= 0) return 'sick'; if (t.indexOf('พักร้อน') >= 0) return 'vacation'; if (t.indexOf('กิจ') >= 0) return 'personal'; return 'other'; };
@@ -410,14 +431,14 @@ function adminLeaveUsage_(payload) {
 }
 
 function adminListLeaveRequests_(payload) {
-  requireAdmin_(payload); initializeLeaveRequestsSheet();
+  requireOperationsRole_(payload); initializeLeaveRequestsSheet();
   const rows = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.leaves)).slice(1);
   const requests = rows.map(r => ({ requestId: String(r[0]), employeeId: String(r[1]), leaveType: String(r[2]), startDate: Utilities.formatDate(new Date(r[3]), ICT, 'yyyy-MM-dd'), endDate: Utilities.formatDate(new Date(r[4]), ICT, 'yyyy-MM-dd'), reason: String(r[5]), status: String(r[6]), submittedAt: Utilities.formatDate(new Date(r[7]), ICT, "yyyy-MM-dd'T'HH:mm:ssXXX") })).filter(r => r.requestId);
   return reply_(true, 'Leave requests loaded', { requests: requests });
 }
 
 function adminUpsertPayRule_(payload) {
-  requireAdmin_(payload); initializePayrollRulesSheet();
+  requireRole_(payload, ['owner', 'manager', 'finance']); initializePayrollRulesSheet();
   const employeeId = String(payload.employeeId || '').trim().toUpperCase();
   const basis = normalise_(payload.payBasis);
   const rate = finiteNumber_(payload.baseRate), hours = finiteNumber_(payload.standardHours || 8), otMultiplier = finiteNumber_(payload.otMultiplier || 1.5), premiumMultiplier = finiteNumber_(payload.premiumMultiplier || 1);
@@ -429,15 +450,16 @@ function adminUpsertPayRule_(payload) {
   if (daysPerMonth === null || daysPerMonth <= 0 || daysPerMonth > 31) return reply_(false, 'วันทำงาน/เดือน ไม่ถูกต้อง');
   if (premiumDate && !parseIsoDate_(premiumDate)) return reply_(false, 'Premium date must be YYYY-MM-DD');
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.payrollRules), rows = values_(sheet);
-  const row = [employeeId, basis, rate, hours, payload.otEnabled === true ? 'true' : 'false', otMultiplier, premiumDate, premiumMultiplier, new Date(), String(payload.updatedBy || 'Admin'), otherDeduction, daysPerMonth];
+  const actor = adminActor_(payload, payload.updatedBy);
+  const row = [employeeId, basis, rate, hours, payload.otEnabled === true ? 'true' : 'false', otMultiplier, premiumDate, premiumMultiplier, new Date(), actor, otherDeduction, daysPerMonth];
   const index = rows.slice(1).findIndex(r => String(r[0]).trim().toUpperCase() === employeeId);
   if (index >= 0) sheet.getRange(index + 2, 1, 1, row.length).setValues([row]); else sheet.appendRow(row);
-  audit_(String(payload.updatedBy || 'Admin'), 'pay_rule_saved', employeeId, basis + ' @ ' + rate);
+  audit_(actor, 'pay_rule_saved', employeeId, basis + ' @ ' + rate);
   return reply_(true, 'Pay rule saved', { employeeId: employeeId, payBasis: basis, baseRate: rate });
 }
 
 function adminListPayRules_(payload) {
-  requireAdmin_(payload); initializePayrollRulesSheet();
+  requireRole_(payload, ['owner', 'manager', 'finance']); initializePayrollRulesSheet();
   const names = employeeNameMap_();
   const rules = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.payrollRules)).slice(1)
     .reduce((m, r) => { if (String(r[0])) m[String(r[0]).trim().toUpperCase()] = r; return m; }, {});
@@ -457,7 +479,7 @@ function adminListPayRules_(payload) {
 }
 
 function adminPreviewPayroll_(payload) {
-  requireAdmin_(payload); initializePayrollRulesSheet(); initializePayrollSheets(); initializeTimeRequestsSheet();
+  requireRole_(payload, ['owner', 'manager', 'finance']); initializePayrollRulesSheet(); initializePayrollSheets(); initializeTimeRequestsSheet();
   const start = parseIsoDate_(payload.startDate), end = parseIsoDate_(payload.endDate);
   if (!start || !end || end < start) return reply_(false, 'Invalid payroll period');
   const startText = Utilities.formatDate(start, ICT, 'yyyy-MM-dd'), endText = Utilities.formatDate(end, ICT, 'yyyy-MM-dd');
@@ -492,10 +514,13 @@ function adminPreviewPayroll_(payload) {
   const ssoRate = Number(settings.sso_rate || 5), ssoCap = Number(settings.sso_cap || 750);
   const lines = Object.values(result).map(line => {
     const grossPay = roundMoney_(line.baseGross + line.otGross);
-    const fit = advanceFit_(outstanding[line.employeeId], grossPay);
     const rule = rules[line.employeeId] || [];
     const sso = ssoEnabled ? roundMoney_(Math.min(grossPay * ssoRate / 100, ssoCap)) : 0;
     const otherDeduction = roundMoney_(Number(rule[10] || 0));
+    // Advances are recovered only from the amount remaining after statutory and
+    // configured deductions. Preview and payroll lock must use this identical
+    // ceiling, otherwise a locked snapshot can settle debt that was not paid.
+    const fit = advanceFit_(outstanding[line.employeeId], Math.max(0, grossPay - sso - otherDeduction));
     if (incompleteByEmp[line.employeeId]) line.warnings.push('ลืมเช็กเอาต์/เวลาไม่ครบ ' + incompleteByEmp[line.employeeId] + ' วัน (ไม่ถูกคิดเงิน)');
     const netPay = roundMoney_(Math.max(0, grossPay - fit.deduction - sso - otherDeduction));
     return { ...line, baseGross: roundMoney_(line.baseGross), otGross: roundMoney_(line.otGross), grossPay: grossPay, advanceDeduction: fit.deduction, sso: sso, otherDeduction: otherDeduction, netPay: netPay };
@@ -519,25 +544,31 @@ function outstandingAdvancesByEmployee_() {
   return map;
 }
 
-// Greedy fit: include whole advances (oldest first) while they still fit within gross,
-// so net pay never goes negative and the remainder carries to the next period.
-function advanceFit_(list, gross) {
+// Include whole advances in strict oldest-first order while they fit within the
+// available net amount. Do not skip an older advance to settle a newer one.
+function advanceFit_(list, availableAmount) {
   let deduction = 0; const sheetRows = [];
-  (list || []).forEach(it => { if (deduction + it.amount <= gross) { deduction += it.amount; sheetRows.push(it.sheetRow); } });
+  for (const it of (list || [])) {
+    if (deduction + it.amount > availableAmount) break;
+    deduction += it.amount; sheetRows.push(it.sheetRow);
+  }
   return { deduction: roundMoney_(deduction), sheetRows: sheetRows };
 }
 
 function adminLockPayroll_(payload) {
-  requireAdmin_(payload); initializePayrollSheets();
-  const preview = adminPreviewPayroll_(payload); const body = JSON.parse(preview.getContent());
-  if (!body.ok) return preview;
-  const data = body.data, payrollId = 'PAY-' + data.startDate.replace(/-/g, '') + '-' + data.endDate.replace(/-/g, '');
-  const periods = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.payroll), existing = values_(periods).slice(1).find(row => String(row[0]) === payrollId);
-  if (existing) return reply_(false, 'Payroll period is already locked');
+  requireRole_(payload, ['owner', 'manager', 'finance']); initializePayrollSheets();
   const lock = LockService.getScriptLock(); lock.waitLock(10000);
-  let settledCount = 0;
   try {
-    periods.appendRow([payrollId, data.startDate, data.endDate, 'locked', new Date(), String(payload.lockedBy || 'Admin')]);
+    // Preview, duplicate check and snapshot write must be one critical section.
+    // Otherwise two Admins can lock the same period or settle advances that were
+    // not present in the preview they reviewed.
+    const preview = adminPreviewPayroll_(payload); const body = JSON.parse(preview.getContent());
+    if (!body.ok) return preview;
+    const data = body.data, payrollId = 'PAY-' + data.startDate.replace(/-/g, '') + '-' + data.endDate.replace(/-/g, '');
+    const periods = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.payroll), existing = values_(periods).slice(1).find(row => String(row[0]) === payrollId);
+    if (existing) return reply_(false, 'Payroll period is already locked');
+    let settledCount = 0;
+    periods.appendRow([payrollId, data.startDate, data.endDate, 'locked', new Date(), adminActor_(payload, payload.lockedBy)]);
     const lines = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.payrollLines);
     const advanceSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.advances);
     const outstanding = outstandingAdvancesByEmployee_();
@@ -547,16 +578,17 @@ function adminLockPayroll_(payload) {
       lines.appendRow([payrollId, line.employeeId, line.regularMinutes, line.otMinutes, line.baseGross, line.otGross, line.grossPay, line.advanceDeduction || 0, line.netPay != null ? line.netPay : line.grossPay, new Date(), line.sso || 0, line.otherDeduction || 0]);
       // Recover exactly the advances this paycheck covered → mark them 'settled' so
       // they are never deducted again in a future period.
-      const fit = advanceFit_(outstanding[line.employeeId], line.grossPay);
+      const availableForAdvance = Math.max(0, Number(line.grossPay || 0) - Number(line.sso || 0) - Number(line.otherDeduction || 0));
+      const fit = advanceFit_(outstanding[line.employeeId], availableForAdvance);
       fit.sheetRows.forEach(rowNo => { advanceSheet.getRange(rowNo, 6).setValue('settled'); advanceSheet.getRange(rowNo, 11).setValue(payrollId); settledCount++; });
     });
+    audit_(adminActor_(payload, payload.lockedBy), 'payroll_locked', payrollId, 'net ' + data.totalNet + ' · settled ' + settledCount);
+    return reply_(true, 'Payroll period locked', { payrollId: payrollId, totalGross: data.totalGross, totalNet: data.totalNet, advancesSettled: settledCount });
   } finally { lock.releaseLock(); }
-  audit_(String(payload.lockedBy || 'Admin'), 'payroll_locked', payrollId, 'net ' + data.totalNet + ' · settled ' + settledCount);
-  return reply_(true, 'Payroll period locked', { payrollId: payrollId, totalGross: data.totalGross, totalNet: data.totalNet, advancesSettled: settledCount });
 }
 
 function adminListPayrolls_(payload) {
-  requireAdmin_(payload); initializePayrollSheets();
+  requireRole_(payload, ['owner', 'manager', 'finance']); initializePayrollSheets();
   const periods = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.payroll)).slice(1)
     .map(row => ({ payrollId: String(row[0]), startDate: Utilities.formatDate(new Date(row[1]), ICT, 'yyyy-MM-dd'), endDate: Utilities.formatDate(new Date(row[2]), ICT, 'yyyy-MM-dd'), status: String(row[3]), lockedAt: row[4] ? Utilities.formatDate(new Date(row[4]), ICT, "yyyy-MM-dd'T'HH:mm:ssXXX") : '', lockedBy: String(row[5] || '') }))
     .filter(period => period.payrollId).reverse();
@@ -564,7 +596,7 @@ function adminListPayrolls_(payload) {
 }
 
 function adminGetPayroll_(payload) {
-  requireAdmin_(payload); initializePayrollSheets();
+  requireRole_(payload, ['owner', 'manager', 'finance']); initializePayrollSheets();
   const payrollId = String(payload.payrollId || '').trim();
   if (!payrollId) return reply_(false, 'Payroll ID is required');
   const period = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.payroll)).slice(1).find(row => String(row[0]) === payrollId);
@@ -585,7 +617,7 @@ function adminGetPayroll_(payload) {
 }
 
 /* =========================== Owner settings & analytics =========================== */
-var SETTINGS_DEFAULTS = { pay_frequency: 'monthly', pay_day_1: 'end', pay_day_2: '15', workdays: '1,2,3,4,5', sso_enabled: 'false', sso_rate: '5', sso_cap: '750', quota_sick: '30', quota_personal: '6', quota_vacation: '6', shift_start: '09:00', shift_grace_min: '5', lunch_break_min: '60', ot_threshold_hours: '8', holiday_ot_enabled: 'false' };
+var SETTINGS_DEFAULTS = { pay_frequency: 'monthly', pay_day_1: 'end', pay_day_2: '15', workdays: '1,2,3,4,5', sso_enabled: 'false', sso_rate: '5', sso_cap: '750', quota_sick: '30', quota_personal: '6', quota_vacation: '6', shift_start: '09:00', shift_end: '18:00', shift_grace_min: '5', lunch_break_min: '60', ot_threshold_hours: '8', holiday_ot_enabled: 'false', remind_before_min: '15', remind_checkout_after_min: '10' };
 var TH_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
 
 function initializeSettingsSheet() {
@@ -604,10 +636,10 @@ function readSettings_() {
   return out;
 }
 
-function adminGetSettings_(payload) { requireAdmin_(payload); return reply_(true, 'Settings loaded', { settings: readSettings_() }); }
+function adminGetSettings_(payload) { requireOwner_(payload); return reply_(true, 'Settings loaded', { settings: readSettings_() }); }
 
 function adminSaveSettings_(payload) {
-  requireAdmin_(payload); initializeSettingsSheet();
+  requireOwner_(payload); initializeSettingsSheet();
   const incoming = payload.settings && typeof payload.settings === 'object' ? payload.settings : {};
   const freq = normalise_(incoming.pay_frequency);
   if (freq && !['monthly', 'semimonthly', 'weekly'].includes(freq)) return reply_(false, 'Invalid pay frequency');
@@ -626,6 +658,8 @@ function adminSaveSettings_(payload) {
   if (incoming.sso_cap != null) { const c = finiteNumber_(incoming.sso_cap); if (c === null || c < 0) return reply_(false, 'เพดานประกันสังคมไม่ถูกต้อง'); next.sso_cap = String(c); }
   ['quota_sick', 'quota_personal', 'quota_vacation'].forEach(k => { if (incoming[k] != null) { const q = finiteNumber_(incoming[k]); if (q !== null && q >= 0) next[k] = String(q); } });
   if (incoming.shift_start != null) { const t = String(incoming.shift_start).trim(); if (!/^\d{1,2}:\d{2}$/.test(t)) return reply_(false, 'เวลาเข้างานต้องเป็น HH:MM'); next.shift_start = t.length === 4 ? '0' + t : t; }
+  if (incoming.shift_end != null) { const t = String(incoming.shift_end).trim(); if (!/^\d{1,2}:\d{2}$/.test(t)) return reply_(false, 'เวลาเลิกงานต้องเป็น HH:MM'); next.shift_end = t.length === 4 ? '0' + t : t; }
+  ['remind_before_min', 'remind_checkout_after_min'].forEach(k => { if (incoming[k] != null) { const n = finiteNumber_(incoming[k]); if (n !== null && n >= 0) next[k] = String(Math.round(n)); } });
   ['shift_grace_min', 'lunch_break_min'].forEach(k => { if (incoming[k] != null) { const n = finiteNumber_(incoming[k]); if (n !== null && n >= 0) next[k] = String(Math.round(n)); } });
   if (incoming.ot_threshold_hours != null) { const h = finiteNumber_(incoming.ot_threshold_hours); if (h !== null && h > 0 && h <= 24) next.ot_threshold_hours = String(h); }
   if (incoming.holiday_ot_enabled != null) next.holiday_ot_enabled = (incoming.holiday_ot_enabled === true || normalise_(incoming.holiday_ot_enabled) === 'true') ? 'true' : 'false';
@@ -634,7 +668,7 @@ function adminSaveSettings_(payload) {
     const idx = rows.slice(1).findIndex(r => String(r[0]) === key);
     if (idx >= 0) sheet.getRange(idx + 2, 2).setValue(next[key]); else sheet.appendRow([key, next[key]]);
   });
-  audit_(String(payload.reviewer || 'Admin'), 'settings_saved', '', 'freq ' + next.pay_frequency);
+  audit_(adminActor_(payload), 'settings_saved', '', 'freq ' + next.pay_frequency);
   return reply_(true, 'Settings saved', { settings: next });
 }
 
@@ -670,7 +704,7 @@ function employeeNameMap_() {
 }
 
 function adminAttendanceDays_(payload) {
-  requireAdmin_(payload);
+  requireOperationsRole_(payload);
   const range = (parseIsoDate_(payload.startDate) && parseIsoDate_(payload.endDate))
     ? { start: Utilities.formatDate(parseIsoDate_(payload.startDate), ICT, 'yyyy-MM-dd'), end: Utilities.formatDate(parseIsoDate_(payload.endDate), ICT, 'yyyy-MM-dd') }
     : currentMonthRange_();
@@ -696,7 +730,7 @@ function adminAttendanceDays_(payload) {
 }
 
 function adminOwnerOverview_(payload) {
-  requireAdmin_(payload);
+  requireRole_(payload, ['owner', 'manager', 'finance']);
   const settings = readSettings_();
   const range = (parseIsoDate_(payload.startDate) && parseIsoDate_(payload.endDate))
     ? { start: Utilities.formatDate(parseIsoDate_(payload.startDate), ICT, 'yyyy-MM-dd'), end: Utilities.formatDate(parseIsoDate_(payload.endDate), ICT, 'yyyy-MM-dd'), label: '' }
@@ -730,14 +764,14 @@ function initializeWorkSitesSheet() {
   if (!ss.getSheetByName(SHEETS.sites)) { const s = ss.insertSheet(SHEETS.sites); s.appendRow(['Site ID', 'Name', 'Latitude', 'Longitude', 'Radius (m)', 'Active']); s.setFrozenRows(1); }
 }
 function adminListSites_(payload) {
-  requireAdmin_(payload); initializeWorkSitesSheet();
+  requireRole_(payload, ['owner', 'manager', 'operations']); initializeWorkSitesSheet();
   const rows = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.sites)).slice(1)
     .map(r => ({ siteId: String(r[0]), name: String(r[1] || ''), lat: Number(r[2] || 0), lng: Number(r[3] || 0), radius: Number(r[4] || 0), active: normalise_(r[5]) !== 'false' }))
     .filter(x => x.siteId);
   return reply_(true, 'Sites loaded', { sites: rows });
 }
 function adminSaveSite_(payload) {
-  requireAdmin_(payload); initializeWorkSitesSheet();
+  requireOwner_(payload); initializeWorkSitesSheet();
   const siteId = String(payload.siteId || '').trim(), name = String(payload.name || '').trim();
   const lat = finiteNumber_(payload.lat), lng = finiteNumber_(payload.lng), radius = finiteNumber_(payload.radius);
   if (!siteId) return reply_(false, 'ต้องระบุรหัสร้าน/ไซต์');
@@ -749,6 +783,7 @@ function adminSaveSite_(payload) {
   const row = [siteId, name, lat, lng, radius, active];
   if (idx >= 0) sheet.getRange(idx + 2, 1, 1, row.length).setValues([row]); else sheet.appendRow(row);
   cacheDel_('sites_v1');
+  audit_(adminActor_(payload), idx >= 0 ? 'site_updated' : 'site_created', siteId, name + ' · radius ' + radius + 'm');
   return reply_(true, 'บันทึกตำแหน่งร้านแล้ว', { siteId: siteId });
 }
 
@@ -781,7 +816,7 @@ function employeeAdvances_(payload) {
   return reply_(true, 'Advances loaded', { advances: rows });
 }
 function adminListAdvances_(payload) {
-  requireAdmin_(payload); initializeAdvancesSheet();
+  requireOperationsRole_(payload); initializeAdvancesSheet();
   const names = employeeNameMap_();
   const wanted = normalise_(payload.status || '');
   const rows = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.advances)).slice(1)
@@ -790,8 +825,8 @@ function adminListAdvances_(payload) {
   return reply_(true, 'Advances loaded', { advances: rows });
 }
 function adminDecideAdvance_(payload) {
-  requireAdmin_(payload); initializeAdvancesSheet();
-  const advanceId = String(payload.advanceId || '').trim(), decision = normalise_(payload.decision), reviewer = String(payload.reviewer || 'Admin').trim();
+  requireOperationsRole_(payload); initializeAdvancesSheet();
+  const advanceId = String(payload.advanceId || '').trim(), decision = normalise_(payload.decision), reviewer = adminActor_(payload);
   if (!advanceId || !['approved', 'rejected'].includes(decision)) return reply_(false, 'คำสั่งไม่ถูกต้อง');
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.advances), rows = values_(sheet);
   const idx = rows.slice(1).findIndex(r => String(r[0]) === advanceId && normalise_(r[5]) === 'pending');
@@ -801,15 +836,18 @@ function adminDecideAdvance_(payload) {
   return reply_(true, 'คำขอเบิกเงิน' + (decision === 'approved' ? 'ได้รับการอนุมัติ' : 'ถูกปฏิเสธ'));
 }
 function adminMarkAdvancePaid_(payload) {
-  requireAdmin_(payload); initializeAdvancesSheet();
+  requireOperationsRole_(payload); initializeAdvancesSheet();
   const advanceId = String(payload.advanceId || '').trim();
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.advances), rows = values_(sheet);
-  const idx = rows.slice(1).findIndex(r => String(r[0]) === advanceId && normalise_(r[5]) === 'approved');
-  if (idx < 0) return reply_(false, 'ต้องเป็นคำขอที่อนุมัติแล้วเท่านั้น');
-  sheet.getRange(idx + 2, 6).setValue('paid');
-  sheet.getRange(idx + 2, 9).setValue(new Date());
-  audit_(String(payload.reviewer || 'Admin'), 'advance_paid', advanceId, '');
-  return reply_(true, 'บันทึกการจ่ายเงินเบิกล่วงหน้าแล้ว');
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.advances), rows = values_(sheet);
+    const idx = rows.slice(1).findIndex(r => String(r[0]) === advanceId && normalise_(r[5]) === 'approved');
+    if (idx < 0) return reply_(false, 'ต้องเป็นคำขอที่อนุมัติแล้วเท่านั้น');
+    sheet.getRange(idx + 2, 6).setValue('paid');
+    sheet.getRange(idx + 2, 9).setValue(new Date());
+    audit_(adminActor_(payload), 'advance_paid', advanceId, '');
+    return reply_(true, 'บันทึกการจ่ายเงินเบิกล่วงหน้าแล้ว');
+  } finally { lock.releaseLock(); }
 }
 
 /* =========================== Password: self-change & reset requests =========================== */
@@ -843,7 +881,7 @@ function employeeRequestPasswordReset_(payload) {
   return reply_(true, 'ส่งคำขอรีเซ็ตรหัสผ่านให้แอดมินแล้ว', { requestId: id });
 }
 function adminListPasswordRequests_(payload) {
-  requireAdmin_(payload); initializePwRequestsSheet();
+  requireOperationsRole_(payload); initializePwRequestsSheet();
   const names = employeeNameMap_();
   const rows = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.pwRequests)).slice(1)
     .map(r => ({ requestId: String(r[0]), employeeId: String(r[1]), name: (names[String(r[1])] || {}).name || String(r[1]), requestedAt: r[2] ? Utilities.formatDate(new Date(r[2]), ICT, "yyyy-MM-dd'T'HH:mm:ssXXX") : '', status: normalise_(r[3]) }))
@@ -893,14 +931,14 @@ function seedDemoData() {
 }
 
 function adminListInvoices_(payload) {
-  requireAdmin_(payload); initializeInvoicesSheet();
+  requireRole_(payload, ['owner', 'manager', 'finance']); initializeInvoicesSheet();
   const today = Utilities.formatDate(new Date(), ICT, 'yyyy-MM-dd');
   const invoices = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.invoices)).slice(1).map((row, index) => invoiceFromRow_(row, index + 2, today)).filter(invoice => invoice.invoiceNo);
   return reply_(true, 'Invoices loaded', { invoices: invoices });
 }
 
 function adminCreateInvoice_(payload) {
-  requireAdmin_(payload); initializeInvoicesSheet();
+  requireRole_(payload, ['owner', 'manager', 'finance']); initializeInvoicesSheet();
   const customer = String(payload.customer || '').trim(), description = String(payload.description || '').trim(), subtotal = finiteNumber_(payload.subtotal), due = parseIsoDate_(payload.dueDate);
   if (!customer || !description || subtotal === null || subtotal < 0 || !due) return reply_(false, 'Invalid invoice');
   const lock = LockService.getScriptLock(); lock.waitLock(10000);
@@ -914,7 +952,7 @@ function adminCreateInvoice_(payload) {
 }
 
 function adminUpdateInvoiceStatus_(payload) {
-  requireAdmin_(payload); initializeInvoicesSheet();
+  requireRole_(payload, ['owner', 'manager', 'finance']); initializeInvoicesSheet();
   const invoiceNo = String(payload.invoiceNo || '').trim(), status = normalise_(payload.status);
   if (!invoiceNo || !['draft', 'issued', 'paid', 'void'].includes(status)) return reply_(false, 'Invalid invoice status');
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.invoices), rows = values_(sheet), index = rows.slice(1).findIndex(row => String(row[0]) === invoiceNo);
@@ -924,6 +962,7 @@ function adminUpdateInvoiceStatus_(payload) {
   const paymentReference = String(payload.paymentReference || '').trim();
   if (status === 'paid' && !paymentReference) return reply_(false, 'Payment reference is required when marking paid');
   sheet.getRange(index + 2, 8, 1, 5).setValues([[status, rows[index + 1][8], new Date(), status === 'paid' ? paymentReference : rows[index + 1][10], status === 'paid' ? new Date() : rows[index + 1][11]]]);
+  audit_(adminActor_(payload), 'invoice_' + status, invoiceNo, paymentReference);
   return reply_(true, 'Invoice status updated');
 }
 
@@ -987,16 +1026,16 @@ function employeeTimeRequests_(payload) {
 }
 
 function adminListTimeRequests_(payload) {
-  requireAdmin_(payload); initializeTimeRequestsSheet();
+  requireOperationsRole_(payload); initializeTimeRequestsSheet();
   const requests = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.timeRequests)).slice(1)
     .map(row => timeRequestFromRow_(row)).filter(request => request.requestId);
   return reply_(true, 'Time requests loaded', { requests: requests });
 }
 
 function adminReviewTimeRequest_(payload) {
-  requireAdmin_(payload); initializeTimeRequestsSheet();
+  requireOperationsRole_(payload); initializeTimeRequestsSheet();
   const requestId = String(payload.requestId || '').trim(), decision = normalise_(payload.decision);
-  const reviewer = String(payload.reviewer || 'Admin').trim(), note = String(payload.reviewerNote || '').trim();
+  const reviewer = adminActor_(payload), note = String(payload.reviewerNote || '').trim();
   if (!requestId || !['approved', 'rejected'].includes(decision)) return reply_(false, 'Invalid time request decision');
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.timeRequests), rows = values_(sheet);
   const index = rows.slice(1).findIndex(row => String(row[0]) === requestId && normalise_(row[6]) === 'pending');
@@ -1010,10 +1049,10 @@ function adminReviewTimeRequest_(payload) {
 // rows of that Bangkok date). Non-destructive: the row stays in the sheet for audit,
 // its status becomes 'voided' so payroll and the attendance view stop counting it.
 function adminVoidAttendanceDay_(payload) {
-  requireAdmin_(payload);
+  requireOperationsRole_(payload);
   const employeeId = String(payload.employeeId || '').trim().toUpperCase();
   const date = String(payload.date || '').trim();
-  const reviewer = String(payload.reviewer || 'Admin').trim();
+  const reviewer = adminActor_(payload);
   if (!employeeId || !parseIsoDate_(date)) return reply_(false, 'ต้องระบุพนักงานและวันที่');
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.attendance);
   const lock = LockService.getScriptLock(); lock.waitLock(10000);
@@ -1050,7 +1089,7 @@ function audit_(actor, action, target, detail) {
   } catch (e) { /* ignore logging failures */ }
 }
 function adminListAuditLog_(payload) {
-  requireAdmin_(payload); initializeAuditLogSheet();
+  requireRole_(payload, ['owner', 'manager']); initializeAuditLogSheet();
   const rows = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.audit)).slice(1)
     .map(r => ({ at: r[0] ? Utilities.formatDate(new Date(r[0]), ICT, "yyyy-MM-dd'T'HH:mm:ssXXX") : '', actor: String(r[1] || ''), action: String(r[2] || ''), target: String(r[3] || ''), detail: String(r[4] || '') }))
     .filter(r => r.at).reverse().slice(0, 400);
@@ -1058,82 +1097,179 @@ function adminListAuditLog_(payload) {
 }
 
 /* =========================== Admin console accounts (user + password login) =========================== */
-// Simple internal admin accounts. On successful user/password login the console
-// is handed the ADMIN_API_KEY so it can call protected actions — no admin token
-// is typed on the login screen. Passwords are stored plaintext by design (internal use).
+// Passwords are HMAC-hashed with the server-side pepper. Legacy plaintext rows
+// are migrated only after a successful login and are never returned via the API.
 function initializeAdminUsersSheet() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   let sheet = ss.getSheetByName(SHEETS.adminUsers);
-  if (!sheet) { sheet = ss.insertSheet(SHEETS.adminUsers); sheet.appendRow(['Username', 'Password', 'Display name', 'Active', 'Created at']); sheet.setFrozenRows(1); }
-  if (values_(sheet).length <= 1) sheet.appendRow(['admin', 'bvnadmin', 'ผู้ดูแลระบบ', 'true', new Date()]);
+  if (!sheet) { sheet = ss.insertSheet(SHEETS.adminUsers); sheet.appendRow(['Username', 'Password hash', 'Display name', 'Active', 'Created at', 'Role']); sheet.setFrozenRows(1); }
+  if (normalise_(sheet.getRange(1, 2).getValue()) === 'password') sheet.getRange(1, 2).setValue('Password hash');
+  const headers = values_(sheet)[0] || [];
+  if (!headers.some(value => normalise_(value) === 'role')) sheet.getRange(1, headers.length + 1).setValue('Role');
   return sheet;
+}
+
+/**
+ * Editor-only, one-time owner bootstrap. Set INITIAL_ADMIN_USERNAME and
+ * INITIAL_ADMIN_PASSWORD in Script Properties, then run this function manually
+ * as the Sheet owner. It refuses to run when any Admin already exists and
+ * deletes the temporary properties immediately after writing the HMAC hash.
+ */
+function bootstrapInitialAdmin() {
+  const sheet = initializeAdminUsersSheet(), rows = values_(sheet);
+  if (rows.slice(1).some(row => String(row[0] || '').trim())) throw new Error('มีบัญชี Admin อยู่แล้ว — ใช้ Admin Codex เพื่อสร้างบัญชีใหม่');
+  const props = PropertiesService.getScriptProperties();
+  const username = String(props.getProperty('INITIAL_ADMIN_USERNAME') || '').trim();
+  const password = String(props.getProperty('INITIAL_ADMIN_PASSWORD') || '');
+  const displayName = String(props.getProperty('INITIAL_ADMIN_DISPLAY_NAME') || username).trim();
+  if (!username || password.length < 8) throw new Error('ตั้ง INITIAL_ADMIN_USERNAME และ INITIAL_ADMIN_PASSWORD (อย่างน้อย 8 ตัวอักษร) ก่อน bootstrap');
+  sheet.appendRow([username, hashAdminPassword_(password), displayName || username, 'true', new Date(), 'owner']);
+  ['INITIAL_ADMIN_USERNAME', 'INITIAL_ADMIN_PASSWORD', 'INITIAL_ADMIN_DISPLAY_NAME'].forEach(key => props.deleteProperty(key));
+  return { username: username, displayName: displayName || username, role: 'owner' };
+}
+
+/** Ephemeral sessions mean the desktop never needs the owner API key after login. */
+function initializeAdminSessionsSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(SHEETS.adminSessions);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.adminSessions);
+    sheet.appendRow(['Token hash', 'Username', 'Display name', 'Expires at', 'Last used at', 'Status', 'Role']);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function issueAdminSession_(username, displayName, role) {
+  const rawToken = Utilities.getUuid() + Utilities.getUuid();
+  const now = new Date(), expiresAt = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const sheet = initializeAdminSessionsSheet();
+  pruneAdminSessions_(sheet, now);
+  sheet.appendRow([hashMobileToken_(rawToken), username, displayName, expiresAt, now, 'active', normaliseAdminRole_(role)]);
+  return { token: rawToken, expiresAt: Utilities.formatDate(expiresAt, ICT, "yyyy-MM-dd'T'HH:mm:ssXXX") };
+}
+
+// Keep the temporary-session sheet operationally bounded. The most recent
+// sessions remain; expired/revoked sessions older than 30 days are audit noise.
+function pruneAdminSessions_(sheet, now) {
+  const rows = values_(sheet), cutoff = now.getTime() - 30 * 24 * 60 * 60 * 1000;
+  for (let i = rows.length - 1; i >= 1; i--) {
+    const expiresAt = new Date(rows[i][3]).getTime(), status = normalise_(rows[i][5]);
+    if ((status === 'revoked' || status === 'expired' || (expiresAt && expiresAt < now.getTime())) && (expiresAt || 0) < cutoff) sheet.deleteRow(i + 1);
+  }
+}
+
+function authenticateAdminSession_(rawToken) {
+  if (!rawToken) return null;
+  const sheet = initializeAdminSessionsSheet(), rows = values_(sheet), tokenHash = hashMobileToken_(rawToken), now = new Date();
+  const index = rows.slice(1).findIndex(row => constantTimeEqual_(String(row[0] || ''), tokenHash)
+    && normalise_(row[5]) === 'active' && new Date(row[3]).getTime() > now.getTime());
+  if (index < 0) return null;
+  const row = rows[index + 1];
+  sheet.getRange(index + 2, 5).setValue(now);
+  return { username: String(row[1] || ''), displayName: String(row[2] || row[1] || 'Admin'), role: normaliseAdminRole_(row[6]) };
+}
+
+function adminConsoleLogout_(payload) {
+  const rawToken = String(payload.adminToken || '');
+  if (!rawToken) return reply_(true, 'ออกจากระบบแล้ว');
+  const sheet = initializeAdminSessionsSheet(), rows = values_(sheet), tokenHash = hashMobileToken_(rawToken);
+  const index = rows.slice(1).findIndex(row => constantTimeEqual_(String(row[0] || ''), tokenHash));
+  if (index >= 0) sheet.getRange(index + 2, 6).setValue('revoked');
+  return reply_(true, 'ออกจากระบบแล้ว');
+}
+
+function revokeAdminSessionsForUser_(username) {
+  const sheet = initializeAdminSessionsSheet(), rows = values_(sheet), target = String(username || '').trim().toLowerCase();
+  rows.slice(1).forEach((row, index) => {
+    if (String(row[1] || '').trim().toLowerCase() === target && normalise_(row[5]) === 'active') sheet.getRange(index + 2, 6).setValue('revoked');
+  });
 }
 
 function adminConsoleLogin_(payload) {
   const sheet = initializeAdminUsersSheet();
   const username = String(payload.username || '').trim(), password = String(payload.password || '');
   if (!username || !password) return reply_(false, 'กรอกชื่อผู้ใช้และรหัสผ่าน');
-  const row = values_(sheet).slice(1).find(r => String(r[0]).trim().toLowerCase() === username.toLowerCase() && normalise_(r[3]) !== 'false');
-  if (!row || String(row[1]) !== password) return reply_(false, 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
-  return reply_(true, 'เข้าสู่ระบบสำเร็จ', { adminToken: requiredProperty_('ADMIN_API_KEY'), username: String(row[0]), displayName: String(row[2] || row[0]) });
+  if (adminLoginLocked_(username)) return reply_(false, 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+  const rows = values_(sheet);
+  const rowIndex = rows.slice(1).findIndex(r => String(r[0]).trim().toLowerCase() === username.toLowerCase() && normalise_(r[3]) !== 'false');
+  if (rowIndex < 0) { recordFailedAdminLogin_(username); return reply_(false, 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'); }
+  const row = rows[rowIndex + 1], stored = String(row[1] || ''), hashed = hashAdminPassword_(password);
+  const valid = stored.indexOf('h1:') === 0 ? constantTimeEqual_(stored, hashed) : constantTimeEqual_(stored, password);
+  if (!valid) { recordFailedAdminLogin_(username); return reply_(false, 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'); }
+  if (stored.indexOf('h1:') !== 0) sheet.getRange(rowIndex + 2, 2).setValue(hashed);
+  clearFailedAdminLogin_(username);
+  const role = normaliseAdminRole_(row[5]);
+  const session = issueAdminSession_(String(row[0]), String(row[2] || row[0]), role);
+  audit_(String(row[2] || row[0]), 'admin_login', String(row[0]), 'console session issued');
+  return reply_(true, 'เข้าสู่ระบบสำเร็จ', { adminToken: session.token, username: String(row[0]), displayName: String(row[2] || row[0]), role: role, expiresAt: session.expiresAt });
 }
 
 function adminListAdminUsers_(payload) {
-  requireAdmin_(payload);
+  requireOwner_(payload);
   const rows = values_(initializeAdminUsersSheet()).slice(1)
-    .map(r => ({ username: String(r[0]), password: String(r[1]), displayName: String(r[2] || r[0]), active: normalise_(r[3]) !== 'false' }))
+    .map(r => ({ username: String(r[0]), displayName: String(r[2] || r[0]), active: normalise_(r[3]) !== 'false', role: normaliseAdminRole_(r[5]) }))
     .filter(u => u.username);
   return reply_(true, 'Admin users loaded', { users: rows });
 }
 
 function adminUpsertAdminUser_(payload) {
-  requireAdmin_(payload);
+  requireOwner_(payload);
   const sheet = initializeAdminUsersSheet();
   const username = String(payload.username || '').trim();
   const password = String(payload.password || '');
   const displayName = String(payload.displayName || username).trim();
+  const role = normaliseAdminRole_(payload.role);
   const active = payload.active === false ? 'false' : 'true';
   if (!username) return reply_(false, 'ต้องมีชื่อผู้ใช้');
+  if (password && password.length < 8) return reply_(false, 'รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร');
   const rows = values_(sheet);
   const idx = rows.slice(1).findIndex(r => String(r[0]).trim().toLowerCase() === username.toLowerCase());
   if (idx >= 0) {
     const existing = rows[idx + 1];
-    const finalPassword = password || String(existing[1]);
-    if (!finalPassword) return reply_(false, 'ต้องมีรหัสผ่าน');
-    sheet.getRange(idx + 2, 1, 1, 4).setValues([[username, finalPassword, displayName, active]]);
+    const activeOwners = rows.slice(1).filter(r => normalise_(r[3]) !== 'false' && normaliseAdminRole_(r[5]) === 'owner').length;
+    if (normaliseAdminRole_(existing[5]) === 'owner' && activeOwners <= 1 && (role !== 'owner' || active === 'false')) return reply_(false, 'ต้องมีบัญชี Owner ที่ใช้งานได้อย่างน้อย 1 บัญชี');
+    const finalPasswordHash = password ? hashAdminPassword_(password) : String(existing[1] || '');
+    if (!finalPasswordHash) return reply_(false, 'ต้องมีรหัสผ่าน');
+    sheet.getRange(idx + 2, 1, 1, 6).setValues([[username, finalPasswordHash, displayName, active, existing[4] || new Date(), role]]);
   } else {
     if (!password) return reply_(false, 'ผู้ใช้ใหม่ต้องตั้งรหัสผ่าน');
-    sheet.appendRow([username, password, displayName, active, new Date()]);
+    sheet.appendRow([username, hashAdminPassword_(password), displayName, active, new Date(), role]);
   }
-  audit_(String(payload.reviewer || 'Admin'), 'admin_user_saved', username, '');
+  revokeAdminSessionsForUser_(username);
+  audit_(adminActor_(payload), 'admin_user_saved', username, '');
   return reply_(true, 'บันทึกบัญชีแอดมินแล้ว', { username: username });
 }
 
 function adminDeleteAdminUser_(payload) {
-  requireAdmin_(payload);
+  requireOwner_(payload);
   const sheet = initializeAdminUsersSheet();
   const username = String(payload.username || '').trim();
   if (!username) return reply_(false, 'ต้องมีชื่อผู้ใช้');
   const rows = values_(sheet).slice(1).filter(r => String(r[0]));
   const activeOthers = rows.filter(r => String(r[0]).trim().toLowerCase() !== username.toLowerCase() && normalise_(r[3]) !== 'false');
   if (activeOthers.length === 0) return reply_(false, 'ต้องมีบัญชีแอดมินที่ใช้งานได้อย่างน้อย 1 บัญชี');
+  const target = rows.find(r => String(r[0]).trim().toLowerCase() === username.toLowerCase());
+  const activeOwners = rows.filter(r => normalise_(r[3]) !== 'false' && normaliseAdminRole_(r[5]) === 'owner').length;
+  if (target && normaliseAdminRole_(target[5]) === 'owner' && activeOwners <= 1) return reply_(false, 'ต้องมีบัญชี Owner ที่ใช้งานได้อย่างน้อย 1 บัญชี');
   const all = values_(sheet);
   const idx = all.slice(1).findIndex(r => String(r[0]).trim().toLowerCase() === username.toLowerCase());
   if (idx < 0) return reply_(false, 'ไม่พบบัญชีนี้');
+  revokeAdminSessionsForUser_(username);
   sheet.deleteRow(idx + 2);
-  audit_(String(payload.reviewer || 'Admin'), 'admin_user_deleted', username, '');
+  audit_(adminActor_(payload), 'admin_user_deleted', username, '');
   return reply_(true, 'ลบบัญชีแอดมินแล้ว', { username: username });
 }
 
 // Admin records overtime directly (OT is no longer submitted from the mobile app).
 // Writes an already-approved OT row so payroll picks it up immediately.
 function adminAddOvertime_(payload) {
-  requireAdmin_(payload); initializeTimeRequestsSheet();
+  requireOperationsRole_(payload); initializeTimeRequestsSheet();
   const employeeId = String(payload.employeeId || '').trim().toUpperCase();
   const workDate = parseIsoDate_(payload.workDate);
   const requestedMinutes = finiteNumber_(payload.requestedMinutes);
   const reason = String(payload.reason || 'OT (บันทึกโดยแอดมิน)').trim();
-  const reviewer = String(payload.reviewer || 'Admin').trim();
+  const reviewer = adminActor_(payload);
   if (!findEmployee_(employeeId)) return reply_(false, 'Employee was not found');
   if (!workDate || requestedMinutes === null || requestedMinutes <= 0 || requestedMinutes > 1440) return reply_(false, 'Invalid overtime entry');
   const lock = LockService.getScriptLock(); lock.waitLock(10000);
@@ -1176,13 +1312,23 @@ function findEmployee_(employeeId) {
   const row = rows.slice(1).find(r => String(r[columns.id]) === employeeId);
   return employeeFromRow_(row, columns);
 }
+
+function migrateEmployeePasswordHash_(employeeId, passwordHash) {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.employees), rows = values_(sheet), columns = employeeColumns_(rows[0]);
+  const index = rows.slice(1).findIndex(row => String(row[columns.id]) === String(employeeId));
+  if (index >= 0) sheet.getRange(index + 2, columns.passwordHash + 1).setValue(passwordHash);
+}
 function employeeColumns_(headers) {
   const position = (name) => headers.findIndex(h => normalise_(h) === name);
   const columns = { id: position('employee id'), name: position('name'), role: position('role'), department: position('department'), siteId: position('work site id'), status: position('status'), locationRequired: position('location required'), passwordHash: position('password hash') };
   if (Object.values(columns).some(index => index < 0)) throw new Error('Employees sheet headers are incomplete. Run initializeEmployeesSheet.');
   return columns;
 }
-function employeeFromRow_(row, columns) { const c = columns || { id: 0, name: 1, role: 2, siteId: 4, status: 5, locationRequired: 6, passwordHash: 7 }; if (!row) return null; const locRaw = row[c.locationRequired]; const locationRequired = !(locRaw === false || String(locRaw).trim().toLowerCase() === 'false'); return { id: String(row[c.id]), name: String(row[c.name] || ''), role: String(row[c.role] || ''), siteId: String(row[c.siteId] || ''), status: normalise_(row[c.status]), locationRequired: locationRequired, passwordHash: String(row[c.passwordHash] || '') }; }
+function employeeFromRow_(row, columns) { const c = columns || { id: 0, name: 1, role: 2, department: 3, siteId: 4, status: 5, locationRequired: 6, passwordHash: 7 }; if (!row) return null; const locRaw = row[c.locationRequired]; const locationRequired = !(locRaw === false || String(locRaw).trim().toLowerCase() === 'false'); return { id: String(row[c.id]), name: String(row[c.name] || ''), role: String(row[c.role] || ''), department: String(row[c.department] || ''), siteId: String(row[c.siteId] || ''), status: normalise_(row[c.status]), locationRequired: locationRequired, passwordHash: String(row[c.passwordHash] || '') }; }
+function employeeForAdmin_(employee) {
+  if (!employee) return null;
+  return { id: employee.id, name: employee.name, role: employee.role, department: employee.department, siteId: employee.siteId, status: employee.status, locationRequired: employee.locationRequired };
+}
 function findSite_(siteId) {
   const row = values_(SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.sites)).slice(1).find(r => String(r[0]) === siteId && normalise_(r[5]) === 'true');
   return row ? { id: String(row[0]), lat: Number(row[2]), lng: Number(row[3]), radius: Number(row[4]) } : null;
@@ -1215,35 +1361,35 @@ function holidayMap_() {
   }, {});
 }
 function adminListHolidays_(payload) {
-  requireAdmin_(payload);
+  requireOwner_(payload);
   const map = holidayMap_();
   const rows = Object.keys(map).sort().map(function (d) { return { date: d, name: map[d] }; });
   return reply_(true, 'Holidays loaded', { holidays: rows });
 }
 function adminSaveHoliday_(payload) {
-  requireAdmin_(payload); initializeHolidaysSheet();
+  requireOwner_(payload); initializeHolidaysSheet();
   const date = String(payload.date || '').trim(), name = String(payload.name || 'วันหยุด').trim();
   if (!parseIsoDate_(date)) return reply_(false, 'วันที่ต้องเป็น YYYY-MM-DD');
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.holidays), rows = values_(sheet);
   const idx = rows.slice(1).findIndex(function (r) { return r[0] && Utilities.formatDate(new Date(r[0]), ICT, 'yyyy-MM-dd') === date; });
   if (idx >= 0) sheet.getRange(idx + 2, 1, 1, 2).setValues([[date, name]]); else sheet.appendRow([date, name]);
-  audit_(String(payload.reviewer || 'Admin'), 'holiday_saved', date, name);
+  audit_(adminActor_(payload), 'holiday_saved', date, name);
   return reply_(true, 'บันทึกวันหยุดแล้ว', { date: date, name: name });
 }
 function adminDeleteHoliday_(payload) {
-  requireAdmin_(payload); initializeHolidaysSheet();
+  requireOwner_(payload); initializeHolidaysSheet();
   const date = String(payload.date || '').trim();
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.holidays), rows = values_(sheet);
   const idx = rows.slice(1).findIndex(function (r) { return r[0] && Utilities.formatDate(new Date(r[0]), ICT, 'yyyy-MM-dd') === date; });
   if (idx < 0) return reply_(false, 'ไม่พบวันหยุดนี้');
   sheet.deleteRow(idx + 2);
-  audit_(String(payload.reviewer || 'Admin'), 'holiday_deleted', date, '');
+  audit_(adminActor_(payload), 'holiday_deleted', date, '');
   return reply_(true, 'ลบวันหยุดแล้ว', { date: date });
 }
 
 // Import Thai public holidays for a year from a free source (date.nager.at), skipping any already present.
 function adminImportHolidays_(payload) {
-  requireAdmin_(payload); initializeHolidaysSheet();
+  requireOwner_(payload); initializeHolidaysSheet();
   const year = parseInt(payload.year, 10) || Number(Utilities.formatDate(new Date(), ICT, 'yyyy'));
   let added = 0;
   try {
@@ -1255,7 +1401,7 @@ function adminImportHolidays_(payload) {
     const existing = holidayMap_();
     list.forEach(function (h) { const d = String(h.date || ''); const name = String(h.localName || h.name || 'วันหยุด'); if (d && !existing[d]) { sheet.appendRow([d, name]); existing[d] = name; added++; } });
   } catch (e) { return reply_(false, 'ดึงข้อมูลไม่สำเร็จ: ' + e.message); }
-  audit_(String(payload.reviewer || 'Admin'), 'holidays_imported', String(year), 'added ' + added);
+  audit_(adminActor_(payload), 'holidays_imported', String(year), 'added ' + added);
   return reply_(true, 'ดึงวันหยุดราชการปี ' + year + ' แล้ว (เพิ่ม ' + added + ' วัน)', { year: year, added: added });
 }
 
@@ -1325,11 +1471,55 @@ function parsePayload_(e) { if (!e || !e.postData || !e.postData.contents || e.p
 function values_(sheet) { if (!sheet) throw new Error('Required spreadsheet tab is missing'); return sheet.getDataRange().getValues(); }
 function valuesIfSheet_(sheet) { return sheet ? sheet.getDataRange().getValues() : [[]]; }
 function requiredProperty_(key) { const value = PropertiesService.getScriptProperties().getProperty(key); if (!value) throw new Error('Missing Script Property: ' + key); return value; }
-function requireAdmin_(payload) { if (!constantTimeEqual_(String(payload.adminToken || ''), requiredProperty_('ADMIN_API_KEY'))) throw new Error('Administrator authentication failed'); }
+function requireAdmin_(payload) {
+  const token = String(payload.adminToken || '');
+  // Compatibility path for the original desktop client and emergency owner recovery.
+  // The normal Admin Codex login never receives this master key.
+  if (constantTimeEqual_(token, requiredProperty_('ADMIN_API_KEY'))) {
+    payload._adminActor = 'System owner';
+    payload._adminRole = 'owner';
+    return { username: 'system-owner', displayName: 'System owner', role: 'owner', master: true };
+  }
+  const session = authenticateAdminSession_(token);
+  if (!session) throw new Error('Administrator authentication failed');
+  payload._adminActor = session.displayName;
+  payload._adminRole = session.role;
+  return session;
+}
+function normaliseAdminRole_(value) {
+  const role = normalise_(value);
+  // Blank is intentionally Owner for existing rows so deployment cannot lock
+  // out the business owner. New account creation always persists an explicit role.
+  return ['owner', 'manager', 'operations', 'finance'].indexOf(role) >= 0 ? role : 'owner';
+}
+function adminLoginThrottleKey_(username) { return 'bvn_admin_login_' + hashMobileToken_(normalise_(username)); }
+function adminLoginLocked_(username) {
+  const raw = CacheService.getScriptCache().get(adminLoginThrottleKey_(username));
+  if (!raw) return false;
+  try { return Number(JSON.parse(raw).lockedUntil || 0) > Date.now(); } catch (_) { return false; }
+}
+function recordFailedAdminLogin_(username) {
+  const cache = CacheService.getScriptCache(), key = adminLoginThrottleKey_(username), now = Date.now();
+  let previous = {};
+  try { previous = JSON.parse(cache.get(key) || '{}'); } catch (_) { previous = {}; }
+  const count = Number(previous.count || 0) + 1;
+  // Five failures cause a short lock. The generic client response avoids
+  // revealing whether a username exists or whether it is temporarily locked.
+  const lockedUntil = count >= 5 ? now + 15 * 60 * 1000 : 0;
+  cache.put(key, JSON.stringify({ count: count, lockedUntil: lockedUntil }), lockedUntil ? 15 * 60 : 15 * 60);
+}
+function clearFailedAdminLogin_(username) { CacheService.getScriptCache().remove(adminLoginThrottleKey_(username)); }
+function requireRole_(payload, allowedRoles) {
+  const actor = requireAdmin_(payload);
+  if (allowedRoles.indexOf(actor.role) < 0) throw new Error('บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้');
+  return actor;
+}
+function requireOwner_(payload) { return requireRole_(payload, ['owner']); }
+function requireOperationsRole_(payload) { return requireRole_(payload, ['owner', 'manager', 'operations']); }
+function adminActor_(payload, fallback) { return String(payload._adminActor || fallback || payload.reviewer || 'Admin'); }
 function hashMobileToken_(rawToken) { return Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(String(rawToken), requiredProperty_('MOBILE_TOKEN_PEPPER'))); }
-// Plain-text password storage (internal "บ้านๆ" mode): admin can view and set passwords.
-// NOTE: anyone with access to the Employees sheet can read every password. Keep sheet access tight.
-function hashEmployeePassword_(password) { return String(password); }
+function hashAdminPassword_(password) { return 'h1:' + Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(String(password), requiredProperty_('MOBILE_TOKEN_PEPPER'))); }
+function hashEmployeePassword_(password) { return 'h1:' + Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(String(password), requiredProperty_('MOBILE_TOKEN_PEPPER'))); }
 function temporaryPassword_() { return String(Math.floor(10000000 + Math.random() * 90000000)); }
 function nextEmployeeId_(rows) { const idColumn = employeeColumns_(rows[0]).id; const numbers = rows.slice(1).map(r => /^EMP-(\d+)$/.exec(String(r[idColumn] || ''))).filter(Boolean).map(m => Number(m[1])); return 'EMP-' + String((numbers.length ? Math.max(...numbers) : 0) + 1).padStart(4, '0'); }
 function finiteNumber_(value) { const n = Number(value); return Number.isFinite(n) ? n : null; }
