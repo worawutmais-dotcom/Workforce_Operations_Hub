@@ -63,3 +63,5 @@ desktop.ini
 .DS_Store
 .vscode/
 .idea/
+
+employee_mobile/android/build/
