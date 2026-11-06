@@ -7,7 +7,7 @@ const SPREADSHEET_ID = '1-deVDtN8sZQmDyXTH7cR2TtmXgmm4RHOkONRk-HFdT4';
 const SHEETS = Object.freeze({
   sites: 'Work_Sites', employees: 'Employees', attendance: 'Attendance_Log',
   payroll: 'Payroll_Periods', payrollLines: 'Payroll_Lines', payrollRules: 'Payroll_Rules', invoices: 'Invoices', tokens: 'Mobile_Access', leaves: 'Leave_Requests', timeRequests: 'Time_Requests',
-  settings: 'Settings', advances: 'Advances', pwRequests: 'Password_Requests',
+  settings: 'Settings', advances: 'Advances', pwRequests: 'Password_Requests', adminUsers: 'Admin_Users',
 });
 const ICT = 'Asia/Bangkok';
 const MAX_ACCURACY_METRES = 100;
@@ -38,6 +38,11 @@ function doPost(e) {
     if (action === 'admin_list_time_requests') return adminListTimeRequests_(payload);
     if (action === 'admin_review_time_request') return adminReviewTimeRequest_(payload);
     if (action === 'admin_add_overtime') return adminAddOvertime_(payload);
+    if (action === 'admin_console_login') return adminConsoleLogin_(payload);
+    if (action === 'admin_list_admin_users') return adminListAdminUsers_(payload);
+    if (action === 'admin_upsert_admin_user') return adminUpsertAdminUser_(payload);
+    if (action === 'admin_delete_admin_user') return adminDeleteAdminUser_(payload);
+    if (action === 'admin_delete_attendance_day') return adminDeleteAttendanceDay_(payload);
     if (action === 'admin_upsert_pay_rule') return adminUpsertPayRule_(payload);
     if (action === 'admin_preview_payroll') return adminPreviewPayroll_(payload);
     if (action === 'admin_lock_payroll') return adminLockPayroll_(payload);
@@ -804,6 +809,95 @@ function adminReviewTimeRequest_(payload) {
   if (index < 0) return reply_(false, 'Pending time request was not found');
   sheet.getRange(index + 2, 7, 1, 5).setValues([[decision, rows[index + 1][7], reviewer, new Date(), note]]);
   return reply_(true, 'Time request ' + decision);
+}
+
+// Admin deletes a whole attendance day for one employee (both check-in and check-out
+// rows of that Bangkok date). Destructive by request — used from the right-click menu.
+function adminDeleteAttendanceDay_(payload) {
+  requireAdmin_(payload);
+  const employeeId = String(payload.employeeId || '').trim().toUpperCase();
+  const date = String(payload.date || '').trim();
+  if (!employeeId || !parseIsoDate_(date)) return reply_(false, 'ต้องระบุพนักงานและวันที่');
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.attendance);
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  let removed = 0;
+  try {
+    const rows = values_(sheet);
+    for (let i = rows.length - 1; i >= 1; i--) {
+      const r = rows[i];
+      if (String(r[1]).trim().toUpperCase() !== employeeId) continue;
+      const day = Utilities.formatDate(new Date(r[4]), ICT, 'yyyy-MM-dd');
+      if (day === date) { sheet.deleteRow(i + 1); removed++; }
+    }
+  } finally { lock.releaseLock(); }
+  if (!removed) return reply_(false, 'ไม่พบบันทึกเวลาของวันนั้น');
+  return reply_(true, 'ลบบันทึกเวลาแล้ว', { employeeId: employeeId, date: date, removed: removed });
+}
+
+/* =========================== Admin console accounts (user + password login) =========================== */
+// Simple internal admin accounts. On successful user/password login the console
+// is handed the ADMIN_API_KEY so it can call protected actions — no admin token
+// is typed on the login screen. Passwords are stored plaintext by design (internal use).
+function initializeAdminUsersSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(SHEETS.adminUsers);
+  if (!sheet) { sheet = ss.insertSheet(SHEETS.adminUsers); sheet.appendRow(['Username', 'Password', 'Display name', 'Active', 'Created at']); sheet.setFrozenRows(1); }
+  if (values_(sheet).length <= 1) sheet.appendRow(['admin', 'bvnadmin', 'ผู้ดูแลระบบ', 'true', new Date()]);
+  return sheet;
+}
+
+function adminConsoleLogin_(payload) {
+  const sheet = initializeAdminUsersSheet();
+  const username = String(payload.username || '').trim(), password = String(payload.password || '');
+  if (!username || !password) return reply_(false, 'กรอกชื่อผู้ใช้และรหัสผ่าน');
+  const row = values_(sheet).slice(1).find(r => String(r[0]).trim().toLowerCase() === username.toLowerCase() && normalise_(r[3]) !== 'false');
+  if (!row || String(row[1]) !== password) return reply_(false, 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+  return reply_(true, 'เข้าสู่ระบบสำเร็จ', { adminToken: requiredProperty_('ADMIN_API_KEY'), username: String(row[0]), displayName: String(row[2] || row[0]) });
+}
+
+function adminListAdminUsers_(payload) {
+  requireAdmin_(payload);
+  const rows = values_(initializeAdminUsersSheet()).slice(1)
+    .map(r => ({ username: String(r[0]), password: String(r[1]), displayName: String(r[2] || r[0]), active: normalise_(r[3]) !== 'false' }))
+    .filter(u => u.username);
+  return reply_(true, 'Admin users loaded', { users: rows });
+}
+
+function adminUpsertAdminUser_(payload) {
+  requireAdmin_(payload);
+  const sheet = initializeAdminUsersSheet();
+  const username = String(payload.username || '').trim();
+  const password = String(payload.password || '');
+  const displayName = String(payload.displayName || username).trim();
+  const active = payload.active === false ? 'false' : 'true';
+  if (!username) return reply_(false, 'ต้องมีชื่อผู้ใช้');
+  const rows = values_(sheet);
+  const idx = rows.slice(1).findIndex(r => String(r[0]).trim().toLowerCase() === username.toLowerCase());
+  if (idx >= 0) {
+    const existing = rows[idx + 1];
+    const finalPassword = password || String(existing[1]);
+    if (!finalPassword) return reply_(false, 'ต้องมีรหัสผ่าน');
+    sheet.getRange(idx + 2, 1, 1, 4).setValues([[username, finalPassword, displayName, active]]);
+  } else {
+    if (!password) return reply_(false, 'ผู้ใช้ใหม่ต้องตั้งรหัสผ่าน');
+    sheet.appendRow([username, password, displayName, active, new Date()]);
+  }
+  return reply_(true, 'บันทึกบัญชีแอดมินแล้ว', { username: username });
+}
+
+function adminDeleteAdminUser_(payload) {
+  requireAdmin_(payload);
+  const sheet = initializeAdminUsersSheet();
+  const username = String(payload.username || '').trim();
+  if (!username) return reply_(false, 'ต้องมีชื่อผู้ใช้');
+  const rows = values_(sheet).slice(1).filter(r => String(r[0]));
+  const activeOthers = rows.filter(r => String(r[0]).trim().toLowerCase() !== username.toLowerCase() && normalise_(r[3]) !== 'false');
+  if (activeOthers.length === 0) return reply_(false, 'ต้องมีบัญชีแอดมินที่ใช้งานได้อย่างน้อย 1 บัญชี');
+  const all = values_(sheet);
+  const idx = all.slice(1).findIndex(r => String(r[0]).trim().toLowerCase() === username.toLowerCase());
+  if (idx < 0) return reply_(false, 'ไม่พบบัญชีนี้');
+  sheet.deleteRow(idx + 2);
+  return reply_(true, 'ลบบัญชีแอดมินแล้ว', { username: username });
 }
 
 // Admin records overtime directly (OT is no longer submitted from the mobile app).

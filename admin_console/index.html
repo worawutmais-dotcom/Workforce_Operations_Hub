@@ -117,6 +117,15 @@
   .person .sub{display:block;font-size:12px;color:var(--muted);font-weight:400;margin-top:2px}
   .empty{padding:40px;text-align:center;color:var(--muted)}
   .row-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+  tbody tr{cursor:default}
+  .ctxmenu{position:fixed;z-index:200;min-width:168px;background:#fff;border:1px solid var(--line);
+    border-radius:12px;box-shadow:0 14px 40px rgba(16,34,64,.22);padding:6px;animation:ctxIn .1s ease}
+  @keyframes ctxIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  .ctxmenu button{display:block;width:100%;text-align:left;border:0;background:none;font:inherit;font-size:13px;
+    color:var(--ink);padding:9px 12px;border-radius:8px;cursor:pointer}
+  .ctxmenu button:hover{background:var(--blue-soft);color:#174e9c}
+  .ctxmenu button.danger{color:var(--red)} .ctxmenu button.danger:hover{background:#fdecec}
+  .pw-dot,.pw-real{font-family:ui-monospace,monospace;letter-spacing:1px}
 
   .badge{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700;background:var(--green-soft);color:#0a7350}
   .badge.amber{background:var(--amber-soft);color:#946200}
@@ -175,20 +184,29 @@
   <form class="login-card" id="loginForm" autocomplete="off">
     <div class="logo">BVN PACKAGE<small>Admin Console · ระบบหลังบ้าน</small></div>
     <div class="field">
-      <label>Apps Script Endpoint</label>
-      <input id="inEndpoint" type="url" placeholder="https://script.google.com/macros/s/.../exec" required>
+      <label>ชื่อผู้ใช้</label>
+      <input id="inUser" type="text" placeholder="เช่น admin" autocomplete="username" required>
     </div>
     <div class="field">
-      <label>Admin Token</label>
-      <input id="inToken" type="password" placeholder="ADMIN_API_KEY" required>
-      <div class="hint">Token เก็บไว้เฉพาะในหน่วยความจำของแท็บนี้ (sessionStorage) ไม่บันทึกลงดิสก์</div>
-    </div>
-    <div class="field">
-      <label>ชื่อผู้อนุมัติ (สำหรับ audit trail)</label>
-      <input id="inReviewer" type="text" placeholder="เช่น Worawut">
+      <label>รหัสผ่าน</label>
+      <input id="inPass" type="password" placeholder="รหัสผ่านแอดมิน" autocomplete="current-password" required>
     </div>
     <div class="login-err" id="loginErr"></div>
     <button class="btn block" id="loginBtn" type="submit">เข้าสู่ระบบ</button>
+    <div style="margin-top:14px;text-align:center">
+      <a href="#" id="advToggle" style="font-size:12px;color:var(--muted);text-decoration:none">ตั้งค่าการเชื่อมต่อขั้นสูง ▾</a>
+    </div>
+    <div id="advBox" style="display:none;margin-top:12px;border-top:1px dashed var(--line);padding-top:12px">
+      <div class="field">
+        <label>Apps Script Endpoint</label>
+        <input id="inEndpoint" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+      </div>
+      <div class="field">
+        <label>Admin Token (ทางเลือก — ปกติไม่ต้องกรอก)</label>
+        <input id="inToken" type="password" placeholder="ADMIN_API_KEY">
+        <div class="hint">ปกติล็อกอินด้วยชื่อผู้ใช้/รหัสผ่านแล้วระบบจะดึง token ให้เอง กรอกตรงนี้เฉพาะกรณีเชื่อมต่อตรง</div>
+      </div>
+    </div>
   </form>
 </div>
 
@@ -205,6 +223,7 @@
       <button data-page="advances"><span class="ico">⇅</span> เบิกเงินล่วงหน้า <span class="pill" id="navAdvances" style="display:none">0</span></button>
       <button data-page="payrules"><span class="ico">⚖</span> เรตค่าจ้าง</button>
       <button data-page="invoices"><span class="ico">▤</span> ใบแจ้งหนี้</button>
+      <button data-page="settings"><span class="ico">⚙</span> ตั้งค่า</button>
     </nav>
     <div class="foot">
       <b id="footReviewer">—</b>
@@ -233,6 +252,7 @@
       <section class="page" id="page-advances"></section>
       <section class="page" id="page-payrules"></section>
       <section class="page" id="page-invoices"></section>
+      <section class="page" id="page-settings"></section>
     </div>
   </div>
 </div>
@@ -344,21 +364,32 @@ function field(label, inputHTML, hint){
    ================================================================= */
 async function doLogin(e){
   e.preventDefault();
-  const endpoint=$("#inEndpoint").value.trim();
-  const token=$("#inToken").value.trim();
-  const reviewer=$("#inReviewer").value.trim();
+  const username=$("#inUser").value.trim();
+  const password=$("#inPass").value;
+  const endpoint=($("#inEndpoint").value||"").trim() || DEFAULT_ENDPOINT;
+  const manualToken=($("#inToken").value||"").trim();
   const errBox=$("#loginErr"); errBox.textContent="";
-  if(!endpoint||!token){ errBox.textContent="กรุณากรอก endpoint และ token"; return; }
-  state.endpoint=endpoint; state.token=token; state.reviewer=reviewer;
+  state.endpoint=endpoint;
+  LS.setItem("bvn_endpoint", endpoint);
   await withBtn($("#loginBtn"), async ()=>{
     try{
-      const data=await api("dashboard");          // verifies admin token
+      let token=manualToken, reviewer=username||"ผู้ดูแลระบบ";
+      if(!manualToken){
+        // Normal path: authenticate with user/password; server returns the admin token.
+        if(!username||!password){ errBox.textContent="กรอกชื่อผู้ใช้และรหัสผ่าน"; return; }
+        state.token="";
+        const login=await api("admin_console_login",{username, password});
+        token=login.adminToken; reviewer=login.displayName||username;
+      }
+      state.token=token; state.reviewer=reviewer;
+      const data=await api("dashboard");          // verifies the token works
       SS.setItem("bvn_token", token);
-      LS.setItem("bvn_endpoint", endpoint);
       LS.setItem("bvn_reviewer", reviewer);
       enterApp(data);
     }catch(err){
-      errBox.textContent = /authentication/i.test(err.message) ? "Admin token ไม่ถูกต้อง" : err.message;
+      const m=err.message||"";
+      errBox.textContent = /Unsupported action/i.test(m) ? "ยังไม่ได้ deploy backend ตัวใหม่ — ใช้ “ตั้งค่าการเชื่อมต่อขั้นสูง” กรอก Admin Token ชั่วคราว"
+        : /authentication/i.test(m) ? "ยืนยันตัวตนไม่ผ่าน" : m;
     }
   });
 }
@@ -389,6 +420,7 @@ const PAGES = {
   advances:{title:"เบิกเงินล่วงหน้า", sub:"อนุมัติคำขอเบิกเงิน และบันทึกการจ่าย", load:()=>renderAdvances()},
   payrules:{title:"เรตค่าจ้าง", sub:"ตั้งฐานค่าจ้าง OT และวันพิเศษต่อพนักงาน", load:()=>renderPayrules()},
   invoices:{title:"ใบแจ้งหนี้", sub:"ออกบิล ติดตามสถานะ และบันทึกการชำระ", load:()=>renderInvoices()},
+  settings:{title:"ตั้งค่า", sub:"การเชื่อมต่อ · บัญชีแอดมิน (ชื่อผู้ใช้ / รหัสผ่าน)", load:()=>renderSettings()},
 };
 function go(page){
   if(!PAGES[page]) return;
@@ -504,7 +536,7 @@ async function renderEmployees(){
       const tb=$("#empRows");
       if(!rows.length){ tb.innerHTML=`<tr><td colspan="7"><div class="empty">ไม่พบพนักงาน</div></td></tr>`; return; }
       tb.innerHTML=rows.map(e=>`
-        <tr>
+        <tr data-id="${esc(e.id)}">
           <td class="person">${esc(e.name)}<span class="sub">${esc(e.id)}</span></td>
           <td>${esc(e.role||"—")}<span class="sub">${esc(e.department||"")}</span></td>
           <td>${esc(e.siteId||"—")}</td>
@@ -520,6 +552,13 @@ async function renderEmployees(){
       tb.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>employeeDialog(state.empById[b.dataset.edit]));
       tb.querySelectorAll("[data-reset]").forEach(b=>b.onclick=()=>resetPassword(state.empById[b.dataset.reset]));
       tb.querySelectorAll("[data-off]").forEach(b=>b.onclick=()=>deactivate(state.empById[b.dataset.off]));
+      tb.querySelectorAll("tr[data-id]").forEach(tr=>{ const e=state.empById[tr.dataset.id]; if(!e) return;
+        attachRowMenu(tr, [
+          {label:"✏️ แก้ไขข้อมูล", fn:()=>employeeDialog(e)},
+          {label:"🔑 รีเซ็ตรหัสผ่าน", fn:()=>resetPassword(e)},
+          ...(e.status==="active"?[{label:"⛔ ปิดใช้งาน", danger:true, fn:()=>deactivate(e)}]:[]),
+        ]);
+      });
     };
     draw();
     $("#empSearch").oninput=e=>draw(e.target.value);
@@ -990,11 +1029,17 @@ async function renderOwner(){
     fillSel();
     const loadAtt=async()=>{ const tb=$("#ownAtt");
       try{ const a=await api("admin_attendance_days", ownerState.emp?{employeeId:ownerState.emp}:{});
-        tb.innerHTML=(a.days&&a.days.length)? a.days.map(d=>`<tr>
+        const days=a.days||[];
+        tb.innerHTML=days.length? days.map((d,i)=>`<tr data-att="${i}">
           <td>${fmtDate(d.date)}</td><td>${esc(d.name)}</td><td>${esc(d.checkIn||"—")}</td><td>${esc(d.checkOut||"—")}</td>
           <td class="num">${d.workedMinutes?fmtHours(d.workedMinutes):"—"}</td>
-          <td>${d.status==="complete"?'<span class="badge">ครบ</span>':'<span class="badge red">ไม่ครบ</span>'}</td></tr>`).join("")
+          <td>${d.status==="complete"?'<span class="badge">ครบ</span>':'<span class="badge red">ไม่ครบ</span>'}
+            <button class="btn danger sm" data-attdel="${i}" style="margin-left:8px">ลบ</button></td></tr>`).join("")
         : `<tr><td colspan="6"><div class="empty">ไม่มีบันทึกเวลาในงวดนี้</div></td></tr>`;
+        const delDay=(d)=>deleteAttendanceDay(d, loadAtt);
+        tb.querySelectorAll("[data-attdel]").forEach(b=>b.onclick=()=>delDay(days[+b.dataset.attdel]));
+        tb.querySelectorAll("tr[data-att]").forEach(tr=>{ const d=days[+tr.dataset.att];
+          attachRowMenu(tr, [{label:"🗑 ลบบันทึกวันนี้", danger:true, fn:()=>delDay(d)}]); });
       }catch(err){ tb.innerHTML=`<tr><td colspan="6"><div class="empty">${esc(err.message)}</div></td></tr>`; } };
     sel.onchange=()=>{ ownerState.emp=sel.value; loadAtt(); };
     $("#ownIn").onclick=()=>adminClock("check_in");
@@ -1352,12 +1397,121 @@ function payInvoice(invoiceNo){
   openModal("บันทึกการชำระ "+invoiceNo, body, [cancel, ok]);
 }
 
+async function deleteAttendanceDay(d, reload){
+  if(!d) return;
+  if(!await confirmDialog("ลบบันทึกเวลา",
+    `ลบบันทึกเวลาของ <b>${esc(d.name)}</b> วันที่ <b>${fmtDate(d.date)}</b>?<br>การลบนี้ย้อนกลับไม่ได้`,
+    {danger:true, okText:"ลบ"})) return;
+  try{ const r=await api("admin_delete_attendance_day",{employeeId:d.employeeId, date:d.date});
+    toast("ลบแล้ว ("+(r.removed||0)+" รายการ)","good"); if(reload) reload();
+  }catch(err){ toast(err.message,"bad"); }
+}
+
+/* =================================================================
+   SETTINGS (connection + admin accounts)
+   ================================================================= */
+async function renderSettings(){
+  const node=$("#page-settings");
+  node.innerHTML=`
+    <div class="panel"><div class="head"><h2>การเชื่อมต่อ</h2></div>
+      <div class="body">
+        <div class="field"><label>Apps Script Endpoint (/exec)</label>
+          <input id="setEndpoint" type="url" value="${esc(state.endpoint||"")}"></div>
+        <div class="notice blue">บันทึกไว้ในเครื่องนี้ (localStorage) — เปลี่ยนเมื่อ deploy URL ใหม่เท่านั้น</div>
+        <div class="toolbar"><button class="btn" id="saveEndpoint">บันทึก Endpoint</button></div>
+      </div>
+    </div>
+    <div class="panel"><div class="head"><h2>บัญชีผู้ดูแลระบบ</h2><span class="sub" style="margin-left:8px">ใช้ชื่อผู้ใช้ + รหัสผ่านสำหรับเข้าสู่ระบบ</span>
+      <div class="spacer"></div><button class="btn ok sm" id="addAdmin">➕ เพิ่มบัญชี</button></div>
+      <div class="body flush"><table>
+        <thead><tr><th>ชื่อผู้ใช้</th><th>ชื่อแสดง</th><th>รหัสผ่าน</th><th>สถานะ</th><th></th></tr></thead>
+        <tbody id="adminRows"><tr><td colspan="5"><div class="empty">กำลังโหลด…</div></td></tr></tbody>
+      </table></div>
+    </div>`;
+  $("#setEndpoint").value = state.endpoint || LS.getItem("bvn_endpoint") || DEFAULT_ENDPOINT;
+  $("#saveEndpoint").onclick=(e)=>{ const v=$("#setEndpoint").value.trim(); if(!v){ toast("กรอก endpoint","bad"); return; }
+    state.endpoint=v; LS.setItem("bvn_endpoint", v); toast("บันทึก endpoint แล้ว","good"); };
+  $("#addAdmin").onclick=()=>adminUserDialog(null);
+  loadAdminUsers();
+}
+
+async function loadAdminUsers(){
+  const tb=$("#adminRows");
+  try{
+    const data=await api("admin_list_admin_users");
+    const users=data.users||[];
+    tb.innerHTML = users.length? users.map(u=>`<tr oncontextmenu="return false" data-user="${esc(u.username)}">
+        <td class="person">${esc(u.username)}</td><td>${esc(u.displayName)}</td>
+        <td><span class="pw-dot">••••••</span><span class="pw-real" style="display:none">${esc(u.password)}</span></td>
+        <td>${u.active?'<span class="badge">ใช้งาน</span>':'<span class="badge red">ปิด</span>'}</td>
+        <td><div class="row-actions">
+          <button class="btn sub sm" data-eye>👁 รหัส</button>
+          <button class="btn sub sm" data-edit>แก้ไข</button>
+          <button class="btn danger sm" data-del>ลบ</button></div></td></tr>`).join("")
+      : `<tr><td colspan="5"><div class="empty">ยังไม่มีบัญชี</div></td></tr>`;
+    tb.querySelectorAll("tr[data-user]").forEach(tr=>{
+      const u=users.find(x=>x.username===tr.dataset.user);
+      tr.querySelector("[data-eye]").onclick=()=>{ const d=tr.querySelector(".pw-dot"), r=tr.querySelector(".pw-real"); const show=r.style.display==="none"; r.style.display=show?"inline":"none"; d.style.display=show?"none":"inline"; };
+      tr.querySelector("[data-edit]").onclick=()=>adminUserDialog(u);
+      tr.querySelector("[data-del]").onclick=()=>deleteAdminUser(u);
+      attachRowMenu(tr, [
+        {label:"👁 ดู/ซ่อนรหัส", fn:()=>tr.querySelector("[data-eye]").click()},
+        {label:"✏️ แก้ไข", fn:()=>adminUserDialog(u)},
+        {label:"🗑 ลบบัญชี", danger:true, fn:()=>deleteAdminUser(u)},
+      ]);
+    });
+  }catch(err){ tb.innerHTML=`<tr><td colspan="5"><div class="empty">${esc(err.message)}</div></td></tr>`; }
+}
+
+function adminUserDialog(u){
+  const body=el(`<div></div>`);
+  body.append(field("ชื่อผู้ใช้", `<input id="auUser" type="text" value="${u?esc(u.username):""}" ${u?"readonly":""} placeholder="เช่น admin2">`));
+  body.append(field("ชื่อแสดง", `<input id="auName" type="text" value="${u?esc(u.displayName):""}" placeholder="เช่น คุณวรวุฒิ">`));
+  body.append(field(u?"รหัสผ่านใหม่ (เว้นว่าง = คงเดิม)":"รหัสผ่าน", `<input id="auPass" type="text" value="" placeholder="รหัสผ่าน">`));
+  if(u) body.append(el(`<label class="check" style="margin-top:6px"><input type="checkbox" id="auActive" ${u.active?"checked":""}> เปิดใช้งานบัญชีนี้</label>`));
+  const ok=el(`<button class="btn ok">บันทึก</button>`);
+  const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
+  ok.onclick=()=>withBtn(ok, async ()=>{
+    const username=($("#auUser").value||"").trim(), displayName=($("#auName").value||"").trim(), password=$("#auPass").value;
+    const active=u?$("#auActive").checked:true;
+    if(!username){ toast("กรอกชื่อผู้ใช้","bad"); return; }
+    if(!u && !password){ toast("ตั้งรหัสผ่านให้บัญชีใหม่","bad"); return; }
+    try{ await api("admin_upsert_admin_user",{username, displayName:displayName||username, password, active});
+      closeModal(); toast("บันทึกบัญชีแล้ว","good"); loadAdminUsers();
+    }catch(err){ toast(err.message,"bad"); }
+  });
+  openModal(u?"แก้ไขบัญชีแอดมิน":"เพิ่มบัญชีแอดมิน", body, [cancel, ok]);
+}
+
+async function deleteAdminUser(u){
+  if(!u) return;
+  if(!await confirmDialog("ลบบัญชีแอดมิน", `ลบบัญชี <b>${esc(u.username)}</b>?`, {danger:true, okText:"ลบ"})) return;
+  try{ await api("admin_delete_admin_user",{username:u.username}); toast("ลบบัญชีแล้ว","good"); loadAdminUsers(); }
+  catch(err){ toast(err.message,"bad"); }
+}
+
+/* ---------- reusable right-click row menu ---------- */
+function attachRowMenu(tr, items){
+  tr.addEventListener("contextmenu",(e)=>{ e.preventDefault(); openRowMenu(e.clientX, e.clientY, items); });
+}
+function openRowMenu(x, y, items){
+  closeRowMenu();
+  const menu=el(`<div class="ctxmenu"></div>`);
+  items.forEach(it=>{ const b=el(`<button class="${it.danger?"danger":""}">${it.label}</button>`); b.onclick=()=>{ closeRowMenu(); it.fn(); }; menu.append(b); });
+  document.body.append(menu);
+  const w=menu.offsetWidth, h=menu.offsetHeight;
+  menu.style.left=Math.min(x, window.innerWidth-w-8)+"px";
+  menu.style.top=Math.min(y, window.innerHeight-h-8)+"px";
+  setTimeout(()=>document.addEventListener("click", closeRowMenu, {once:true}),0);
+}
+function closeRowMenu(){ const m=$(".ctxmenu"); if(m) m.remove(); }
+
 /* =================================================================
    BOOT
    ================================================================= */
 $("#inEndpoint").value = LS.getItem("bvn_endpoint") || DEFAULT_ENDPOINT;
-$("#inReviewer").value = LS.getItem("bvn_reviewer") || "";
 $("#loginForm").addEventListener("submit", doLogin);
+$("#advToggle").addEventListener("click", (e)=>{ e.preventDefault(); const b=$("#advBox"); const open=b.style.display==="none"; b.style.display=open?"block":"none"; $("#advToggle").textContent="ตั้งค่าการเชื่อมต่อขั้นสูง "+(open?"▴":"▾"); });
 
 // Auto-resume a session token kept in this tab.
 (function resume(){
