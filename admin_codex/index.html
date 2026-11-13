@@ -1019,7 +1019,7 @@ $("#logoutLink").addEventListener("click", e=>{e.preventDefault();logout();});
    is open or the tab is hidden, and it refreshes immediately when the tab is
    refocused. Apps Script has no push, so this is a gentle poll of the active
    page only; the per-read cache is cleared each tick so data is fresh. ===== */
-const AUTO_REFRESH_MS={dashboard:10000, owner:15000};
+const AUTO_REFRESH_MS={dashboard:6000, owner:10000};
 var silentRefresh=false, _arTimer=null;
 function modalOpen(){ const s=$("#scrim"); return !!(s && s.classList.contains("show")); }
 function syncLiveBadge(){ const b=$("#liveBadge"); if(b) b.style.display=(state.token && AUTO_REFRESH_MS[state.page])?"":"none"; }
@@ -1029,6 +1029,7 @@ function scheduleAutoRefresh(){
   if(!state.token || !AUTO_REFRESH_MS[state.page]) return;
   _arTimer=setTimeout(runAutoRefresh, AUTO_REFRESH_MS[state.page]);
 }
+var _dashSig=null;
 async function runAutoRefresh(){
   const page=state.page;
   if(!state.token || !AUTO_REFRESH_MS[page]) return;
@@ -1036,15 +1037,20 @@ async function runAutoRefresh(){
   silentRefresh=true; document.body.classList.add("ar-busy");
   try{
     invalidateVolatile();
-    if(page==="owner"){
-      // Only refresh the per-person month pane, and only when it is the one on
-      // screen, so we never yank the user off บันทึกเวลา/จุดเช็กอิน or reset a selection.
+    if(page==="dashboard"){
+      // Cheap heartbeat: pull only the light `dashboard` summary each tick and
+      // re-render the full screen (team grid + queues) ONLY when a headline
+      // number actually changed. Keeps 6s polling near-realtime without burning
+      // the Apps Script daily quota on every tick.
+      const d=await api("dashboard");
+      const sig=[d.present,d.totalEmployees,d.pendingApprovals,d.exceptions,d.overdueInvoices].join("|");
+      if(sig!==_dashSig){ _dashSig=sig; await renderDashboard(d); }
+    } else if(page==="owner"){
+      // Only the per-person month pane, and only while it is the visible subtab,
+      // so we never yank the user off บันทึกเวลา/จุดเช็กอิน or reset a selection.
       const pp=document.querySelector('.subpane[data-pane="person"]');
       if(pp && pp.style.display!=="none" && typeof loadPersonMonth==="function") await loadPersonMonth();
-    } else {
-      await PAGES[page].load();
     }
-    refreshApprovalBadge();
   }catch(_){ /* keep current view; next tick retries */ }
   finally{ silentRefresh=false; document.body.classList.remove("ar-busy"); }
   scheduleAutoRefresh();
