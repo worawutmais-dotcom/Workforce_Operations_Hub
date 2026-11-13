@@ -52,6 +52,47 @@ node tools/migrate_sheets_to_supabase.mjs ./path/to/csv_folder
 - **ทางเลือก A (แนะนำ, เปลี่ยนน้อย):** ทำ **Supabase Edge Function** 1 ตัวเลียนแบบ `doPost` ของ Apps Script (action-dispatch เดิม) ให้ถือ `service_role` อ่าน/เขียน Postgres — แล้วแค่เปลี่ยน endpoint ในแอป/คอนโซลไปชี้ Edge Function จบ (โครง client เดิมแทบไม่ต้องแก้ ได้ realtime ผ่าน Supabase Realtime เพิ่ม)
 - **ทางเลือก B (เปลี่ยนเยอะ):** ให้แอป (Flutter `supabase_flutter`) และคอนโซล (`@supabase/supabase-js`) คุย Supabase ตรงๆ ด้วย anon key + เขียน RLS ต่อผู้ใช้จริง — ได้ realtime `onSnapshot`/stream เต็มตัว แต่ต้องรื้อ auth ใหม่
 
+---
+
+## ⭐ เวอร์ชันทดลองใช้งานจริงบน Supabase — v1 (core) ด้วย Edge Function
+
+ไฟล์ `supabase/functions/bvn-api/index.ts` คือ "ตัวกลาง" ใหม่ (แทน Apps Script) — พูดภาษาเดียวกับคอนโซลเป๊ะ แต่คุยกับ Supabase แทน Sheets
+
+**v1 ทำได้:** ล็อกอินแอดมิน, หน้าวันนี้ (dashboard), รายชื่อ/แก้พนักงาน, ลงเวลาแทน + ดูการลงเวลา (รายคน/รายวัน) + realtime, ตั้งค่าระบบ, วันหยุด, รายการลา/OT (อ่าน)
+**v1 ยังไม่ทำ:** เงินเดือน/บิล/เบิกเงิน/อนุมัติ OT/เรตค่าจ้าง/audit — กดแล้วจะขึ้น "ยังไม่พร้อมในเวอร์ชันทดลอง" (ไว้เพิ่มรอบถัดถ้า trial ผ่าน)
+
+### Deploy (คุณรันเอง — ต้องมี Supabase CLI)
+```bash
+# 1) ติดตั้ง CLI (ครั้งเดียว) — เลือกวิธีใดก็ได้
+npm i -g supabase            # หรือ: scoop install supabase / brew install supabase/tap/supabase
+
+# 2) ล็อกอิน + ผูกโปรเจกต์
+supabase login               # เปิดเบราว์เซอร์ให้ยืนยัน
+supabase link --project-ref vqualksnbctfukcbxqdd
+
+# 3) deploy ฟังก์ชัน (เปิดให้เรียกได้โดยไม่ต้องแนบ JWT — ฟังก์ชันเช็ก session เอง)
+supabase functions deploy bvn-api --no-verify-jwt
+```
+`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` แพลตฟอร์มใส่ให้อัตโนมัติ ไม่ต้องตั้งเอง
+
+URL ฟังก์ชันที่ได้:
+```
+https://vqualksnbctfukcbxqdd.supabase.co/functions/v1/bvn-api
+```
+
+### ชี้คอนโซลมาที่ Supabase (ไม่ต้องแก้โค้ด)
+1. เปิดคอนโซล → หน้า **login** มีช่อง endpoint (หรือเข้าแล้วไป **ตั้งค่า → การเชื่อมต่อ** ช่อง endpoint)
+2. วาง URL ฟังก์ชันด้านบน → บันทึก
+3. ล็อกอินด้วย **admin / changeme** (จาก setup.sql — เปลี่ยนรหัสทีหลังได้)
+4. ลอง: เพิ่มพนักงาน → หน้าวันนี้ → ลงเวลาแทน → เปิด 2 แท็บ เช็กว่าหน้าวันนี้อัปเดตเอง (poll ~6 วิ)
+
+> อยากกลับไปใช้ Sheets: แค่เปลี่ยน endpoint กลับเป็น `/exec` เดิม — ข้อมูลใน Sheets ยังอยู่ครบ (คนละ database กับ Supabase)
+
+### realtime จริง (ทางเลือก, ทำทีหลัง)
+ตอนนี้คอนโซลยังใช้ poll 6 วิ (เหมือนเดิม) ซึ่งพอสำหรับ trial ถ้าอยาก push จริง <1 วิ ค่อยเพิ่ม Supabase Realtime (`.channel().on('postgres_changes')`) ที่ตาราง `attendance_log` ในคอนโซลรอบถัดไป
+
+---
+
 ## Rollback (ถ้าเจอปัญหา)
 - จนกว่าจะทำขั้น 5 เสร็จ ระบบจริงยังอยู่บน Google Sheets → **rollback = ไม่ต้องทำอะไร** แค่ไม่ไปขั้น 5
 - ถ้าเริ่มสลับแล้วอยากถอย: ชี้ endpoint เดิมกลับไป Apps Script `/exec` (ข้อมูลใน Sheets ยังอยู่ครบ) — แนะนำ **หยุดเขียน Sheets หรือ Supabase อย่างใดอย่างหนึ่งช่วงทดสอบ** กันข้อมูลสองที่ไม่ตรงกัน
