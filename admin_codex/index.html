@@ -751,7 +751,22 @@ const READ_CACHE_TTL = Object.freeze({
   admin_list_holidays: 30000,
   admin_leave_usage: 10000,
   admin_list_password_requests: 10000,
+  // Heavy payroll computations — cache briefly so navigation and the per-tick
+  // auto-refresh don't recompute them every time (they are "ประมาณการ" anyway).
+  admin_preview_payroll: 20000,
+  admin_owner_overview: 20000,
 });
+// Data that changes often enough to re-fetch on every auto-refresh tick; the
+// rest (settings, holidays, employees, pay rules, sites, payroll preview) stays
+// cached across ticks so a silent refresh only pulls what actually moves.
+const VOLATILE_ACTIONS = new Set([
+  "dashboard","admin_attendance_days","admin_list_leave_requests",
+  "admin_list_time_requests","admin_list_advances","admin_list_invoices",
+  "admin_list_payrolls","admin_list_audit_log","admin_list_password_requests",
+]);
+function invalidateVolatile(){
+  for(const key of apiReadCache.keys()){ const act=key.split("|")[2]; if(VOLATILE_ACTIONS.has(act)) apiReadCache.delete(key); }
+}
 const apiReadCache = new Map();
 const apiInFlight = new Map();
 function cloneApiData(value){ return JSON.parse(JSON.stringify(value)); }
@@ -1020,7 +1035,7 @@ async function runAutoRefresh(){
   if(document.hidden || modalOpen()){ scheduleAutoRefresh(); return; }
   silentRefresh=true; document.body.classList.add("ar-busy");
   try{
-    clearApiReadCache();
+    invalidateVolatile();
     if(page==="owner"){
       // Only refresh the per-person month pane, and only when it is the one on
       // screen, so we never yank the user off บันทึกเวลา/จุดเช็กอิน or reset a selection.
