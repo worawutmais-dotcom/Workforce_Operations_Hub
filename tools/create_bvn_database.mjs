@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import { SpreadsheetFile, Workbook } from "@oai/artifact-tool";
 
-const outputDir = "C:/Users/M_S_I/OneDrive/Desktop/Cowork/Workforce_Operations_Hub/outputs/20261102-bvn-database";
+const outputDir = "D:/Cowork/Workforce_Operations_Hub/outputs/20261102-bvn-database";
 await fs.mkdir(outputDir, { recursive: true });
 
 const wb = Workbook.create();

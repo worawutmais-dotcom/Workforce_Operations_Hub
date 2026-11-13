@@ -43,9 +43,42 @@ class BvnApiException implements Exception {
   String toString() => message;
 }
 
+class _CachedValue<T> {
+  const _CachedValue(this.value, this.savedAt);
+  final T value;
+  final DateTime savedAt;
+  bool isFresh(Duration ttl) => DateTime.now().difference(savedAt) < ttl;
+}
+
 class BvnApi {
   BvnApi({http.Client? client}) : _client = client ?? http.Client();
   final http.Client _client;
+  // Apps Script has noticeable cold-start and redirect overhead. Keep only
+  // read-only, employee-scoped snapshots here; every write invalidates them.
+  static final Map<String, _CachedValue<dynamic>> _readCache = {};
+
+  Future<T> _cached<T>(
+    String key,
+    Duration ttl,
+    Future<T> Function() loader,
+  ) async {
+    final cached = _readCache[key];
+    if (cached != null && cached.isFresh(ttl)) return cached.value as T;
+    final value = await loader();
+    _readCache[key] = _CachedValue<T>(value, DateTime.now());
+    return value;
+  }
+
+  void _invalidateEmployee(String token) {
+    _readCache.remove('profile:$token');
+    _readCache.remove('timeline:$token');
+    _readCache.removeWhere((key, _) => key.startsWith('month:$token:'));
+  }
+
+  /// Explicit refresh controls must bypass the short-lived read cache.
+  void clearEmployeeCache(String token) => _invalidateEmployee(token);
+
+  void _invalidate(String key) => _readCache.remove(key);
 
   Future<Map<String, dynamic>> post(Map<String, dynamic> body) async {
     final response = await _send(body);
@@ -119,29 +152,58 @@ class BvnApi {
     return returnedId;
   }
 
-  Future<List<Map<String, dynamic>>> employeeDirectory() async {
-    final response = await post({'action': 'employee_directory'});
-    final rows = (response['data'] as Map<String, dynamic>?)?['employees'];
-    return rows is List ? rows.whereType<Map<String, dynamic>>().toList() : [];
-  }
+  Future<List<Map<String, dynamic>>> employeeDirectory() =>
+      _cached('employee-directory', const Duration(minutes: 5), () async {
+        final response = await post({'action': 'employee_directory'});
+        final rows = (response['data'] as Map<String, dynamic>?)?['employees'];
+        return rows is List
+            ? rows.whereType<Map<String, dynamic>>().toList()
+            : <Map<String, dynamic>>[];
+      });
 
-  Future<Map<String, dynamic>> month(String token, int year, int mon) async =>
-      ((await post({
-            'action': 'employee_month',
-            'mobileToken': token,
-            'year': year,
-            'month': mon,
-          }))['data']
-          as Map<String, dynamic>?) ??
-      {};
+  /// Public, non-sensitive branding. The app has an embedded PPP mark as a
+  /// reliable fallback; this URL lets the owner update the visible logo later
+  /// from the Admin billing settings without issuing a new APK.
+  // Public app/backend version manifest. The APK binary itself lives on Drive
+  // (apkUrl); this only returns the small version metadata to compare against.
+  Future<Map<String, dynamic>> version() async =>
+      ((await post({'action': 'version'}))['data'] as Map<String, dynamic>?) ??
+      <String, dynamic>{};
 
-  Future<List<Map<String, dynamic>>> sites(String token) async {
-    final data =
-        (await post({'action': 'sites', 'mobileToken': token}))['data']
-            as Map<String, dynamic>?;
-    final rows = data?['sites'];
-    return rows is List ? rows.whereType<Map<String, dynamic>>().toList() : [];
-  }
+  Future<Map<String, dynamic>> branding() => _cached(
+    'branding',
+    const Duration(hours: 6),
+    () async =>
+        ((await post({'action': 'public_branding'}))['data']
+            as Map<String, dynamic>?) ??
+        <String, dynamic>{},
+  );
+
+  Future<Map<String, dynamic>> month(String token, int year, int mon) =>
+      _cached(
+        'month:$token:$year:$mon',
+        const Duration(seconds: 30),
+        () async =>
+            ((await post({
+                  'action': 'employee_month',
+                  'mobileToken': token,
+                  'year': year,
+                  'month': mon,
+                }))['data']
+                as Map<String, dynamic>?) ??
+            <String, dynamic>{},
+      );
+
+  Future<List<Map<String, dynamic>>> sites(String token) =>
+      _cached('sites:$token', const Duration(minutes: 2), () async {
+        final data =
+            (await post({'action': 'sites', 'mobileToken': token}))['data']
+                as Map<String, dynamic>?;
+        final rows = data?['sites'];
+        return rows is List
+            ? rows.whereType<Map<String, dynamic>>().toList()
+            : <Map<String, dynamic>>[];
+      });
 
   Future<({String employeeId, String mobileToken})> login(
     String employeeId,
@@ -171,13 +233,49 @@ class BvnApi {
         true;
   }
 
-  Future<Map<String, dynamic>> profile(String token) async =>
-      ((await post({
-            'action': 'employee_profile',
-            'mobileToken': token,
-          }))['data']
-          as Map<String, dynamic>?) ??
-      {};
+  Future<Map<String, dynamic>> profile(String token) => _cached(
+    'profile:$token',
+    // The employee profile includes the company shift. Keep this very
+    // short so an Admin schedule change appears promptly, while the
+    // heavier timeline/map requests remain cached independently.
+    const Duration(seconds: 8),
+    () async {
+      final raw =
+          ((await post({
+                'action': 'employee_profile',
+                'mobileToken': token,
+              }))['data']
+              as Map<String, dynamic>?) ??
+          <String, dynamic>{};
+      // Older Apps Script deployments used snake_case while the current
+      // contract uses camelCase. Normalise at the boundary so a saved
+      // Admin schedule is never hidden merely because of a field rename.
+      return <String, dynamic>{
+        ...raw,
+        'shiftStart': _firstScheduleValue(raw, const [
+          'shiftStart',
+          'shift_start',
+          'startTime',
+        ]),
+        'shiftEnd': _firstScheduleValue(raw, const [
+          'shiftEnd',
+          'shift_end',
+          'endTime',
+        ]),
+      };
+    },
+  );
+
+  static dynamic _firstScheduleValue(
+    Map<String, dynamic> values,
+    List<String> keys,
+  ) {
+    for (final key in keys) {
+      final value = values[key];
+      if (value != null && value.toString().trim().isNotEmpty) return value;
+    }
+    return null;
+  }
 
   Future<Map<String, dynamic>> attendance({
     required String token,
@@ -186,27 +284,34 @@ class BvnApi {
     required double longitude,
     required double accuracy,
     bool mocked = false,
-  }) => post({
-    'action': 'attendance',
-    'mobileToken': token,
-    'eventType': eventType,
-    'latitude': latitude,
-    'longitude': longitude,
-    'accuracy': accuracy,
-    'mocked': mocked,
-    'deviceTimezone': DateTime.now().timeZoneName,
-  });
-
-  Future<List<Map<String, dynamic>>> timeline(String token) async {
-    final data =
-        (await post({
-              'action': 'employee_timeline',
-              'mobileToken': token,
-            }))['data']
-            as Map<String, dynamic>?;
-    final rows = data?['attendance'];
-    return rows is List ? rows.whereType<Map<String, dynamic>>().toList() : [];
+  }) async {
+    final result = await post({
+      'action': 'attendance',
+      'mobileToken': token,
+      'eventType': eventType,
+      'latitude': latitude,
+      'longitude': longitude,
+      'accuracy': accuracy,
+      'mocked': mocked,
+      'deviceTimezone': DateTime.now().timeZoneName,
+    });
+    _invalidateEmployee(token);
+    return result;
   }
+
+  Future<List<Map<String, dynamic>>> timeline(String token) =>
+      _cached('timeline:$token', const Duration(seconds: 15), () async {
+        final data =
+            (await post({
+                  'action': 'employee_timeline',
+                  'mobileToken': token,
+                }))['data']
+                as Map<String, dynamic>?;
+        final rows = data?['attendance'];
+        return rows is List
+            ? rows.whereType<Map<String, dynamic>>().toList()
+            : <Map<String, dynamic>>[];
+      });
 
   Future<void> submitLeave({
     required String token,
@@ -224,15 +329,22 @@ class BvnApi {
       'endDate': iso(end),
       'reason': reason,
     });
+    _invalidate('leave-calendar:$token');
   }
 
-  Future<List<Map<String, dynamic>>> leaveCalendar(String token) async {
-    final data =
-        (await post({'action': 'leave_calendar', 'mobileToken': token}))['data']
-            as Map<String, dynamic>?;
-    final rows = data?['requests'];
-    return rows is List ? rows.whereType<Map<String, dynamic>>().toList() : [];
-  }
+  Future<List<Map<String, dynamic>>> leaveCalendar(String token) =>
+      _cached('leave-calendar:$token', const Duration(seconds: 30), () async {
+        final data =
+            (await post({
+                  'action': 'leave_calendar',
+                  'mobileToken': token,
+                }))['data']
+                as Map<String, dynamic>?;
+        final rows = data?['requests'];
+        return rows is List
+            ? rows.whereType<Map<String, dynamic>>().toList()
+            : <Map<String, dynamic>>[];
+      });
 
   Future<void> submitTimeRequest({
     required String token,
@@ -250,37 +362,50 @@ class BvnApi {
       'requestedMinutes': requestedMinutes,
       'reason': reason,
     });
+    _invalidate('time-requests:$token');
   }
 
-  Future<List<Map<String, dynamic>>> timeRequests(String token) async {
-    final data =
-        (await post({
-              'action': 'employee_time_requests',
-              'mobileToken': token,
-            }))['data']
-            as Map<String, dynamic>?;
-    final rows = data?['requests'];
-    return rows is List ? rows.whereType<Map<String, dynamic>>().toList() : [];
-  }
+  Future<List<Map<String, dynamic>>> timeRequests(String token) =>
+      _cached('time-requests:$token', const Duration(seconds: 30), () async {
+        final data =
+            (await post({
+                  'action': 'employee_time_requests',
+                  'mobileToken': token,
+                }))['data']
+                as Map<String, dynamic>?;
+        final rows = data?['requests'];
+        return rows is List
+            ? rows.whereType<Map<String, dynamic>>().toList()
+            : <Map<String, dynamic>>[];
+      });
 
   Future<void> submitAdvance({
     required String token,
     required double amount,
     required String reason,
-  }) => post({
-    'action': 'employee_submit_advance',
-    'mobileToken': token,
-    'amount': amount,
-    'reason': reason,
-  });
-
-  Future<List<Map<String, dynamic>>> advances(String token) async {
-    final data =
-        (await post({'action': 'employee_advances', 'mobileToken': token}))['data']
-            as Map<String, dynamic>?;
-    final rows = data?['advances'];
-    return rows is List ? rows.whereType<Map<String, dynamic>>().toList() : [];
+  }) async {
+    await post({
+      'action': 'employee_submit_advance',
+      'mobileToken': token,
+      'amount': amount,
+      'reason': reason,
+    });
+    _invalidate('advances:$token');
   }
+
+  Future<List<Map<String, dynamic>>> advances(String token) =>
+      _cached('advances:$token', const Duration(seconds: 30), () async {
+        final data =
+            (await post({
+                  'action': 'employee_advances',
+                  'mobileToken': token,
+                }))['data']
+                as Map<String, dynamic>?;
+        final rows = data?['advances'];
+        return rows is List
+            ? rows.whereType<Map<String, dynamic>>().toList()
+            : <Map<String, dynamic>>[];
+      });
 
   Future<void> changePassword({
     required String token,

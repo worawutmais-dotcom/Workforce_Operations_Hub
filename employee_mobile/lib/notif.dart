@@ -20,6 +20,30 @@ class Notif {
     } catch (_) {}
   }
 
+  static AndroidFlutterLocalNotificationsPlugin? get _android => _p
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+
+  // Whether the OS currently allows this app to post notifications.
+  static Future<bool> isEnabled() async {
+    try {
+      return (await _android?.areNotificationsEnabled()) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Ask the OS for notification permission (Android 13+). Returns the result.
+  static Future<bool> requestPermission() async {
+    try {
+      if (!_ready) await init();
+      final granted = await _android?.requestNotificationsPermission();
+      return granted ?? await isEnabled();
+    } catch (_) {
+      return false;
+    }
+  }
+
   static const _details = NotificationDetails(
     android: AndroidNotificationDetails(
       'bvn_shift',

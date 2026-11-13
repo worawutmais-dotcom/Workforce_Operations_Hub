@@ -992,7 +992,7 @@ function go(page){
 $("#nav").querySelectorAll("button[data-page]").forEach(b=>b.setAttribute("aria-controls","page-"+b.dataset.page));
 $("#nav").addEventListener("click", e=>{ const b=e.target.closest("button[data-page]"); if(b) go(b.dataset.page); });
 document.addEventListener("click", e=>{ const b=e.target.closest("[data-grp]"); if(b){ e.preventDefault(); go(b.dataset.grp); } });
-$("#refreshBtn").addEventListener("click", ()=>{ clearApiReadCache(); PAGES[state.page].load(); refreshApprovalBadge(); });
+$("#refreshBtn").addEventListener("click", ()=>{ clearApiReadCache(); withBtn($("#refreshBtn"), async()=>{ await PAGES[state.page].load(); refreshApprovalBadge(); }); });
 $("#menuBtn").addEventListener("click", ()=>{
   const opened=$("#side").classList.toggle("open");
   $("#menuBtn").setAttribute("aria-expanded",String(opened));
@@ -2125,30 +2125,32 @@ async function renderOwner(){
           <td>${d.status==="complete"?'<span class="badge">ครบ</span>':'<span class="badge red">ไม่ครบ</span>'}${act}
             <button class="btn danger sm" data-attvoid="${i}" style="margin-left:8px">ยกเลิก</button></td></tr>`;}).join("")
         : `<tr><td colspan="6"><div class="empty">ไม่มีบันทึกเวลาในงวดนี้</div></td></tr>`;
-        const voidDay=(d)=>voidAttendanceDay(d, loadAtt);
-        tb.querySelectorAll("[data-attvoid]").forEach(b=>b.onclick=()=>voidDay(days[+b.dataset.attvoid]));
-        tb.querySelectorAll("[data-attin]").forEach(b=>b.onclick=()=>adminClock("check_in", days[+b.dataset.attin].employeeId, loadAtt));
-        tb.querySelectorAll("[data-attout]").forEach(b=>b.onclick=()=>adminClock("check_out", days[+b.dataset.attout].employeeId, loadAtt));
+        const voidDay=(d,btn)=>voidAttendanceDay(d, loadAtt, btn);
+        tb.querySelectorAll("[data-attvoid]").forEach(b=>b.onclick=()=>voidDay(days[+b.dataset.attvoid], b));
+        tb.querySelectorAll("[data-attin]").forEach(b=>b.onclick=()=>adminClock("check_in", days[+b.dataset.attin].employeeId, loadAtt, b));
+        tb.querySelectorAll("[data-attout]").forEach(b=>b.onclick=()=>adminClock("check_out", days[+b.dataset.attout].employeeId, loadAtt, b));
         tb.querySelectorAll("tr[data-att]").forEach(tr=>{ const d=days[+tr.dataset.att];
           attachRowMenu(tr, [{label:"ยกเลิกบันทึกวันนี้", danger:true, fn:()=>voidDay(d)}]); });
       }catch(err){ tb.innerHTML=`<tr><td colspan="6"><div class="empty">${esc(err.message)}</div></td></tr>`; } };
     sel.onchange=()=>{ ownerState.emp=sel.value; loadAtt(); };
-    $("#ownIn").onclick=()=>adminClock("check_in");
-    $("#ownOut").onclick=()=>adminClock("check_out");
+    $("#ownIn").onclick=()=>adminClock("check_in", null, null, $("#ownIn"));
+    $("#ownOut").onclick=()=>adminClock("check_out", null, null, $("#ownOut"));
     loadAtt();
     loadPersonMonth();
   }catch(err){ errorBox(node, err, renderOwner); }
 }
 
-async function adminClock(eventType, empId, after){
+async function adminClock(eventType, empId, after, btn){
   const target=empId||ownerState.emp;
   if(!target){ toast("เลือกพนักงานก่อน (ต้องไม่ใช่ 'ทุกคน')","bad"); return; }
   const emp=(state.employees||[]).find(e=>e.id===target);
   const label=eventType==="check_in"?"ลงเวลาเข้า":"ลงเวลาออก";
   if(!await confirmDialog(label, `${label}ให้ <b>${esc(emp?emp.name:target)}</b> (${esc(target)}) ณ เวลาปัจจุบัน?`, {okText:label})) return;
-  try{ const d=await api("admin_record_attendance",{employeeId:target, eventType, reviewer:state.reviewer||"Admin"});
-    toast(d.message||"บันทึกแล้ว","good"); if(typeof after==="function") after(); else renderOwner();
-  }catch(err){ toast(err.message,"bad"); }
+  await withBtn(btn, async()=>{
+    try{ const d=await api("admin_record_attendance",{employeeId:target, eventType, reviewer:state.reviewer||"Admin"});
+      toast(d.message||"บันทึกแล้ว","good"); if(typeof after==="function") after(); else renderOwner();
+    }catch(err){ toast(err.message,"bad"); }
+  });
 }
 
 /* ============ Per-employee monthly view (รายคน) ============
@@ -2873,14 +2875,16 @@ function payInvoice(invoiceNo){
   openModal("บันทึกการชำระ "+invoiceNo, body, [cancel, ok]);
 }
 
-async function voidAttendanceDay(d, reload){
+async function voidAttendanceDay(d, reload, btn){
   if(!d) return;
   if(!await confirmDialog("ยกเลิกบันทึกเวลา",
     `ยกเลิก (void) บันทึกเวลาของ <b>${esc(d.name)}</b> วันที่ <b>${fmtDate(d.date)}</b>?<br>วันนี้จะไม่ถูกนับในเงินเดือน แต่ยัง<b>เก็บไว้ใน Sheet เพื่อ audit</b> (ไม่ลบจริง)`,
     {danger:true, okText:"ยกเลิกวันนี้"})) return;
-  try{ const r=await api("admin_void_attendance_day",{employeeId:d.employeeId, date:d.date, reviewer:state.reviewer||"Admin"});
-    toast("ยกเลิกแล้ว ("+(r.voided||0)+" รายการ)","good"); if(reload) reload();
-  }catch(err){ toast(err.message,"bad"); }
+  await withBtn(btn, async()=>{
+    try{ const r=await api("admin_void_attendance_day",{employeeId:d.employeeId, date:d.date, reviewer:state.reviewer||"Admin"});
+      toast("ยกเลิกแล้ว ("+(r.voided||0)+" รายการ)","good"); if(reload) reload();
+    }catch(err){ toast(err.message,"bad"); }
+  });
 }
 
 /* =================================================================
