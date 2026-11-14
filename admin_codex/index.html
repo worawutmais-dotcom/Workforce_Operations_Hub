@@ -560,6 +560,11 @@
   .meter-track{height:5px;background:var(--line-soft);border-radius:3px;overflow:hidden}
   .meter-fill{height:100%;background:var(--blue);border-radius:3px}
   .ar-busy #asof{opacity:.5;transition:opacity .25s}
+  .be-badge{display:inline-flex;align-items:center;font-size:11px;border-radius:20px;padding:3px 10px;white-space:nowrap;font-weight:500}
+  .be-badge.be-sup{color:var(--blue-ink);background:var(--blue-soft)}
+  .be-badge.be-sup::before{content:"● "}
+  .be-badge.be-legacy{color:#8a560f;background:#f6ecd9}
+  .be-badge.be-legacy::before{content:"▲ "}
   .live-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--blue-ink);background:var(--blue-soft);border-radius:20px;padding:3px 10px;white-space:nowrap}
   .live-badge i{width:7px;height:7px;border-radius:50%;background:#259b24;box-shadow:0 0 0 0 rgba(37,155,36,.5);animation:livePulse 1.8s infinite}
   @keyframes livePulse{0%{box-shadow:0 0 0 0 rgba(37,155,36,.5)}70%{box-shadow:0 0 0 6px rgba(37,155,36,0)}100%{box-shadow:0 0 0 0 rgba(37,155,36,0)}}
@@ -631,6 +636,7 @@
         <div class="page-sub" id="pageSub">เริ่มจากงานที่ต้องตัดสินใจในวันนี้</div>
       </div>
       <div class="spacer"></div>
+      <span id="beBadge" class="be-badge" title="หลังบ้านที่กำลังเชื่อมต่อ"></span>
       <span id="liveBadge" class="live-badge" style="display:none"><i></i>อัปเดตสด</span>
       <div class="asof" id="asof"></div>
       <button class="btn sm" id="quickBtn">+ สร้าง</button>
@@ -662,7 +668,12 @@
    ================================================================= */
 "use strict";
 
-const DEFAULT_ENDPOINT = "https://script.google.com/macros/s/AKfycbzIlBl0KxAI2ibRDiODZDu-m4WYYUHloSvGkm37rMAsc_be0jUikQP0ytPRho-62wN2/exec";
+// Primary backend is now Supabase. Apps Script is retired as the default (kept
+// only as a manual fallback an admin can still type into the connection fields).
+const DEFAULT_ENDPOINT = "https://vqualksnbctfukcbxqdd.supabase.co/functions/v1/swift-handler";
+const DEFAULT_APIKEY = "sb_publishable_E302-Dm85ztBPl-3o5xL_w_0UkW2fG4";
+const LEGACY_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbzIlBl0KxAI2ibRDiODZDu-m4WYYUHloSvGkm37rMAsc_be0jUikQP0ytPRho-62wN2/exec";
+const isSupabaseEndpoint = (u)=>/\.supabase\.co\/functions\//.test(String(u||""));
 const SS = sessionStorage, LS = localStorage;
 
 /* ---------- ผู้ออกใบแจ้งหนี้ (หัวบิล) ---------- */
@@ -1016,6 +1027,7 @@ function go(page){
   $("#mainContent").focus({preventScroll:true});
   PAGES[page].load();
   scheduleAutoRefresh();
+  syncBackendBadge();
 }
 $("#nav").querySelectorAll("button[data-page]").forEach(b=>b.setAttribute("aria-controls","page-"+b.dataset.page));
 $("#nav").addEventListener("click", e=>{ const b=e.target.closest("button[data-page]"); if(b) go(b.dataset.page); });
@@ -1036,6 +1048,7 @@ const AUTO_REFRESH_MS={dashboard:6000, owner:10000};
 var silentRefresh=false, _arTimer=null;
 function modalOpen(){ const s=$("#scrim"); return !!(s && s.classList.contains("show")); }
 function syncLiveBadge(){ const b=$("#liveBadge"); if(b) b.style.display=(state.token && AUTO_REFRESH_MS[state.page])?"":"none"; }
+function syncBackendBadge(){ const b=$("#beBadge"); if(!b) return; const sup=isSupabaseEndpoint(state.endpoint||LS.getItem("bvn_endpoint")||""); b.textContent=sup?"Supabase":"Apps Script"; b.className="be-badge "+(sup?"be-sup":"be-legacy"); }
 function scheduleAutoRefresh(){
   clearTimeout(_arTimer);
   syncLiveBadge();
@@ -3037,7 +3050,7 @@ async function renderSettings(){
   $("#setEndpoint").value = state.endpoint || LS.getItem("bvn_endpoint") || DEFAULT_ENDPOINT;
   $("#saveEndpoint").onclick=(e)=>{ const v=$("#setEndpoint").value.trim(); if(!v){ toast("กรอก endpoint","bad"); return; }
     const k=(($("#setApikey")&&$("#setApikey").value)||"").trim();
-    state.endpoint=v; state.apikey=k; LS.setItem("bvn_endpoint", v); LS.setItem("bvn_apikey", k); clearApiReadCache(); toast("บันทึกการเชื่อมต่อแล้ว","good"); };
+    state.endpoint=v; state.apikey=k; LS.setItem("bvn_endpoint", v); LS.setItem("bvn_apikey", k); clearApiReadCache(); syncBackendBadge(); toast("บันทึกการเชื่อมต่อแล้ว","good"); };
   $("#addAdmin").onclick=()=>adminUserDialog(null);
   $("#editWorkRules").onclick=async()=>{
     try{ const d=await api("admin_get_settings"); workScheduleDialog(d.settings||{}); }
@@ -3261,13 +3274,14 @@ function closeRowMenu(){ const m=$(".ctxmenu"); if(m) m.remove(); }
 // it to the default. The owner never overrides the endpoint intentionally, so this
 // guarantees the console always points at the latest deployment baked into this file.
 try{
-  const saved=LS.getItem("bvn_endpoint");
-  if(saved && saved!==DEFAULT_ENDPOINT && /script\.google\.com\/macros\/s\/.+\/exec/.test(saved)){
-    LS.setItem("bvn_endpoint", DEFAULT_ENDPOINT);
-  }
+  let ep=LS.getItem("bvn_endpoint");
+  // No endpoint, or still on the retired default Apps Script → move to Supabase.
+  // A custom /exec an owner typed is left alone (manual fallback).
+  if(!ep || ep===LEGACY_APPS_SCRIPT){ ep=DEFAULT_ENDPOINT; LS.setItem("bvn_endpoint", ep); }
+  if(isSupabaseEndpoint(ep) && !LS.getItem("bvn_apikey")){ LS.setItem("bvn_apikey", DEFAULT_APIKEY); }
 }catch(_){}
 $("#inEndpoint").value = LS.getItem("bvn_endpoint") || DEFAULT_ENDPOINT;
-$("#inApikey") && ($("#inApikey").value = LS.getItem("bvn_apikey") || "");
+$("#inApikey") && ($("#inApikey").value = LS.getItem("bvn_apikey") || (isSupabaseEndpoint($("#inEndpoint").value)?DEFAULT_APIKEY:""));
 state.apikey = LS.getItem("bvn_apikey") || "";
 $("#loginForm").addEventListener("submit", doLogin);
 
