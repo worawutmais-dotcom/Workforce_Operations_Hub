@@ -61,7 +61,7 @@
 
   /* ---------- Login ---------- */
   #login{position:fixed;inset:0;display:grid;place-items:center;
-    background:radial-gradient(1200px 700px at 15% -10%,#be4b0b,#30170d 60%),var(--navy);padding:20px;z-index:40}
+    background:radial-gradient(1200px 700px at 15% -10%,#1f7c33,#0c160a 62%),var(--navy);padding:20px;z-index:40}
   .login-card{width:100%;max-width:412px;background:var(--card);border-radius:22px;
     padding:36px 34px;box-shadow:0 40px 90px rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.06)}
   .login-card .logo{font-weight:600;font-size:18px;letter-spacing:0;color:var(--ink);display:flex;flex-direction:column}
@@ -1904,13 +1904,13 @@ async function printMonthlySummary(data){
   const html=`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>สรุปเงินเดือน ${esc(data.startDate)}</title>
     <style>*{box-sizing:border-box}body{font-family:"Sarabun","Tahoma",sans-serif;color:#111;margin:0;padding:24px;background:#f3f4f6}
     .sheet{max-width:900px;margin:0 auto;background:#fff;padding:36px 40px;box-shadow:0 1px 6px rgba(0,0,0,.12)}
-    .top{display:flex;justify-content:space-between;gap:22px;border-bottom:3px solid #ea580c;padding-bottom:14px}.issuer-brand{display:flex;gap:12px;align-items:flex-start}.issuer-logo{width:58px;height:58px;object-fit:contain;flex:none}
-    .co{font-size:18px;font-weight:700;color:#c2410c;margin:0}.co-l{font-size:12px;color:#374151}
+    .top{display:flex;justify-content:space-between;gap:22px;border-bottom:3px solid #1f7c33;padding-bottom:14px}.issuer-brand{display:flex;gap:12px;align-items:flex-start}.issuer-logo{width:58px;height:58px;object-fit:contain;flex:none}
+    .co{font-size:18px;font-weight:700;color:#1f7c33;margin:0}.co-l{font-size:12px;color:#374151}
     h1{font-size:20px;margin:0}.sub{font-size:12px;color:#6b7280}
     table{width:100%;border-collapse:collapse;margin-top:20px;font-size:13px}
-    th{background:#c2410c;color:#fff;text-align:left;padding:8px 10px}th.num,td.num{text-align:right}
-    td{padding:8px 10px;border-bottom:1px solid #e5e7eb}tfoot td{border-top:2px solid #ea580c;font-weight:700}
-    .pbtn{font:inherit;padding:8px 18px;border:0;border-radius:8px;background:#ea580c;color:#fff;cursor:pointer}
+    th{background:#1f7c33;color:#fff;text-align:left;padding:8px 10px}th.num,td.num{text-align:right}
+    td{padding:8px 10px;border-bottom:1px solid #e5e7eb}tfoot td{border-top:2px solid #1f7c33;font-weight:700}
+    .pbtn{font:inherit;padding:8px 18px;border:0;border-radius:8px;background:#1f7c33;color:#fff;cursor:pointer}
     .tb{max-width:900px;margin:0 auto 12px;text-align:right}@media print{body{background:#fff;padding:0}.sheet{box-shadow:none}.tb{display:none}}</style></head><body>
     <div class="tb"><button class="pbtn" onclick="window.print()">พิมพ์ / บันทึก PDF</button></div>
     <div class="sheet">
@@ -2819,23 +2819,23 @@ function printInvoice(i){
     <style>
       *{box-sizing:border-box} body{font-family:"Sarabun","TH Sarabun New","Tahoma",sans-serif;color:#111;margin:0;padding:24px;background:#f3f4f6}
       .sheet{max-width:780px;margin:0 auto;background:#fff;padding:40px 44px;box-shadow:0 1px 6px rgba(0,0,0,.12)}
-      .top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;border-bottom:3px solid #1e3a8a;padding-bottom:16px}
+      .top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;border-bottom:3px solid #1f7c33;padding-bottom:16px}
       .issuer-brand{display:flex;align-items:flex-start;gap:14px}.issuer-logo{width:74px;height:74px;object-fit:contain;flex:none}
-      .co-name{font-size:20px;font-weight:700;color:#1e3a8a;margin:0} .co-en{font-size:13px;color:#374151;margin:2px 0 8px}
+      .co-name{font-size:20px;font-weight:700;color:#1f7c33;margin:0} .co-en{font-size:13px;color:#374151;margin:2px 0 8px}
       .co-line{font-size:13px;color:#374151;line-height:1.5}
       .doc-title{text-align:right} .doc-title h1{font-size:26px;margin:0;letter-spacing:1px;color:#111} .doc-title .sub{font-size:12px;color:#6b7280}
       .meta{display:flex;justify-content:space-between;margin-top:20px;gap:24px}
       .meta .box{font-size:13px;line-height:1.7} .meta .k{color:#6b7280} .meta b{color:#111}
       table{width:100%;border-collapse:collapse;margin-top:22px;font-size:14px}
-      th{background:#1e3a8a;color:#fff;text-align:left;padding:9px 12px;font-weight:600} th.num,td.num{text-align:right}
+      th{background:#1f7c33;color:#fff;text-align:left;padding:9px 12px;font-weight:600} th.num,td.num{text-align:right}
       td{padding:10px 12px;border-bottom:1px solid #e5e7eb;vertical-align:top}
       .totals{margin-top:14px;margin-left:auto;width:280px;font-size:14px}
-      .totals div{display:flex;justify-content:space-between;padding:6px 2px} .totals .grand{border-top:2px solid #1e3a8a;margin-top:4px;padding-top:10px;font-size:17px;font-weight:700;color:#1e3a8a}
-      .status{display:inline-block;margin-top:4px;padding:2px 10px;border-radius:999px;font-size:12px;background:#eef2ff;color:#1e3a8a}
+      .totals div{display:flex;justify-content:space-between;padding:6px 2px} .totals .grand{border-top:2px solid #1f7c33;margin-top:4px;padding-top:10px;font-size:17px;font-weight:700;color:#1f7c33}
+      .status{display:inline-block;margin-top:4px;padding:2px 10px;border-radius:999px;font-size:12px;background:#e6f8ea;color:#1f7c33}
       .foot{margin-top:40px;display:flex;justify-content:space-between;font-size:13px;color:#374151}
       .sign{text-align:center;width:220px} .sign .line{margin-top:48px;border-top:1px dotted #9ca3af;padding-top:6px}
       .toolbar{max-width:780px;margin:0 auto 14px;text-align:right}
-      .pbtn{font:inherit;font-size:14px;padding:8px 18px;border:0;border-radius:8px;background:#1e3a8a;color:#fff;cursor:pointer}
+      .pbtn{font:inherit;font-size:14px;padding:8px 18px;border:0;border-radius:8px;background:#1f7c33;color:#fff;cursor:pointer}
       @media print{body{background:#fff;padding:0}.sheet{box-shadow:none;max-width:none;padding:24px}.toolbar{display:none}}
     </style></head><body>
     <div class="toolbar"><button class="pbtn" onclick="window.print()">พิมพ์ / บันทึก PDF</button></div>
