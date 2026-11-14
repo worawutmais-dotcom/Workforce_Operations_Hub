@@ -920,6 +920,7 @@ async function doLogin(e){
       const token=login.adminToken, reviewer=login.displayName||username;
       state.token=token; state.username=login.username||username; state.reviewer=reviewer; state.role=login.role||"owner";
       state.employees=[]; state.empById={};
+      if(login.weakPassword && state.role==="owner"){ setTimeout(()=>toast("⚠ รหัสผ่านยังไม่เข้ารหัส — ควรเปลี่ยนที่ ตั้งค่า → บัญชีแอดมิน","bad"),1200); }
       // Start independent Sheet reads now, rather than making the operator wait
       // for Dashboard and then wait for these three calls in a second round.
       const canOperate=["owner","manager","operations"].includes(state.role);
@@ -3039,7 +3040,7 @@ async function renderSettings(){
         <div class="toolbar"><button class="btn" id="saveAppVer">บันทึกเวอร์ชันแอป</button></div>
       </div>
     </div>
-    <details class="panel advanced-settings"><summary><span><b>การเชื่อมต่อขั้นสูง</b><small>สำหรับผู้ดูแลระบบเมื่อเปลี่ยน Apps Script URL</small></span><span aria-hidden="true">⌄</span></summary>
+    <details class="panel advanced-settings"><summary><span><b>การเชื่อมต่อขั้นสูง</b><small>สำหรับผู้ดูแลระบบเมื่อเปลี่ยน endpoint/หลังบ้าน</small></span><span aria-hidden="true">⌄</span></summary>
       <div class="body">
         <div class="field"><label>Endpoint (/exec หรือ Supabase function)</label><input id="setEndpoint" type="url" value="${esc(state.endpoint||"")}"></div>
         <div class="field"><label>Supabase apikey (publishable key)</label><input id="setApikey" type="text" value="${esc(state.apikey||"")}" placeholder="sb_publishable_... (เว้นว่างถ้าใช้ Apps Script)"></div>

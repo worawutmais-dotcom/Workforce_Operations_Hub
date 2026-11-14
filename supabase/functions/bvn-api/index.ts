@@ -181,6 +181,15 @@ async function loginFailed(id: string) {
   await db.from("login_attempts").upsert({ id, fail_count: locked ? 0 : fails, locked_until: locked }, { onConflict: "id" });
 }
 async function loginCleared(id: string) { try { await db.from("login_attempts").delete().eq("id", id); } catch { /* ignore */ } }
+// Opportunistic cleanup of dead rows (no cron needed for the basics).
+async function pruneDeadSessions() {
+  const cutoff = new Date(Date.now() - 30 * 86400000).toISOString();
+  try {
+    await db.from("admin_sessions").delete().or(`status.eq.revoked,expires_at.lt.${nowISO()}`).lt("last_used_at", cutoff);
+    await db.from("mobile_access").delete().eq("status", "revoked").lt("last_used_at", cutoff);
+    await db.from("login_attempts").delete().lt("locked_until", nowISO());
+  } catch { /* ignore */ }
+}
 
 // ---------- payroll preview (ported from adminPreviewPayroll_) ----------
 async function previewPayroll(start: string, end: string) {
@@ -265,7 +274,10 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     const expiresAt = new Date(Date.now() + 12 * 3600 * 1000).toISOString();
     await db.from("admin_sessions").insert({ token_hash: tk, username: u.username, display_name: u.display_name || u.username, expires_at: expiresAt, last_used_at: nowISO(), status: "active", role: u.role || "owner" });
     audit(u.display_name || u.username, "admin_login", u.username, "");
-    return reply(true, "เข้าสู่ระบบสำเร็จ", { adminToken: tk, username: u.username, displayName: u.display_name || u.username, role: u.role || "owner", expiresAt });
+    pruneDeadSessions();
+    // weakPassword = still stored as plaintext (not PBKDF2) → the console nudges a change.
+    const weakPassword = !String(u.password || "").startsWith("pbkdf2$");
+    return reply(true, "เข้าสู่ระบบสำเร็จ", { adminToken: tk, username: u.username, displayName: u.display_name || u.username, role: u.role || "owner", expiresAt, weakPassword });
   },
   async admin_console_logout(p) {
     if (p.adminToken) await db.from("admin_sessions").update({ status: "revoked" }).eq("token_hash", p.adminToken);
@@ -282,7 +294,9 @@ const H: Record<string, (p: any) => Promise<Response>> = {
       db.from("time_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
       db.from("invoices").select("total,status,due_date").eq("status", "issued").lt("due_date", day),
       db.from("payroll_periods").select("payroll_id,status").order("start_date", { ascending: true }),
-      db.from("attendance_log").select("*", { count: "exact", head: true }).eq("review_status", "pending"),
+      // "เวลาผิดปกติ" = rejected attendance (out of area / bad GPS) in the last 30 days — bounded, meaningful.
+      db.from("attendance_log").select("*", { count: "exact", head: true }).eq("validity", "rejected")
+        .gte("event_time", new Date(Date.now() - 30 * 86400000).toISOString()),
     ]);
     const active = (emps || []).filter((e: any) => (e.status || "active") === "active");
     const present = new Set((todayLogs || []).filter((r: any) => r.event_type === "check_in").map((r: any) => r.employee_id));
@@ -359,12 +373,19 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     const a = await verify(p.adminToken, ["owner"]); const y = Number(p.year) || new Date().getFullYear();
     const fixed: [string, string][] = [
       [`${y}-01-01`, "วันขึ้นปีใหม่"], [`${y}-04-06`, "วันจักรี"], [`${y}-04-13`, "วันสงกรานต์"], [`${y}-04-14`, "วันสงกรานต์"], [`${y}-04-15`, "วันสงกรานต์"],
-      [`${y}-05-01`, "วันแรงงาน"], [`${y}-05-04`, "วันฉัตรมงคล"], [`${y}-06-03`, "วันเฉลิมฯ พระราชินี"], [`${y}-07-28`, "วันเฉลิมฯ ร.10"],
-      [`${y}-08-12`, "วันแม่แห่งชาติ"], [`${y}-10-13`, "วันคล้ายวันสวรรคต ร.9"], [`${y}-10-23`, "วันปิยมหาราช"], [`${y}-12-05`, "วันพ่อแห่งชาติ"], [`${y}-12-10`, "วันรัฐธรรมนูญ"], [`${y}-12-31`, "วันสิ้นปี"],
+      [`${y}-05-01`, "วันแรงงานแห่งชาติ"], [`${y}-05-04`, "วันฉัตรมงคล"], [`${y}-06-03`, "วันเฉลิมฯ พระราชินี"], [`${y}-07-28`, "วันเฉลิมฯ ร.10"],
+      [`${y}-08-12`, "วันแม่แห่งชาติ"], [`${y}-10-13`, "วันนวมินทรมหาราช"], [`${y}-10-23`, "วันปิยมหาราช"], [`${y}-12-05`, "วันชาติและวันพ่อแห่งชาติ"], [`${y}-12-10`, "วันรัฐธรรมนูญ"], [`${y}-12-31`, "วันสิ้นปี"],
     ];
-    await db.from("holidays").upsert(fixed.map(([date, name]) => ({ date, name })), { onConflict: "date" });
-    audit(a.display_name, "holidays_imported", String(y), `${fixed.length} วัน (วันหยุดคงที่)`);
-    return reply(true, `เติมวันหยุดคงที่ปี ${y} แล้ว (${fixed.length} วัน) — วันหยุดตามจันทรคติเพิ่มเองภายหลัง`, { year: y, added: fixed.length });
+    // Lunar observances are confirmed per year (astronomical/announced; Cabinet may adjust).
+    const lunar: Record<number, [string, string][]> = {
+      2026: [["2026-03-03", "วันมาฆบูชา"], ["2026-06-01", "ชดเชยวันวิสาขบูชา"], ["2026-07-29", "วันอาสาฬหบูชา"]],
+      2027: [["2027-02-21", "วันมาฆบูชา"], ["2027-02-22", "ชดเชยวันมาฆบูชา"], ["2027-05-20", "วันวิสาขบูชา"], ["2027-07-18", "วันอาสาฬหบูชา"], ["2027-07-19", "วันเข้าพรรษา"]],
+    };
+    const all = [...fixed, ...(lunar[y] || [])];
+    await db.from("holidays").upsert(all.map(([date, name]) => ({ date, name })), { onConflict: "date" });
+    const hasLunar = !!lunar[y];
+    audit(a.display_name, "holidays_imported", String(y), `${all.length} วัน`);
+    return reply(true, `เติมวันหยุดปี ${y} แล้ว (${all.length} วัน)` + (hasLunar ? "" : " — ปีนี้ยังไม่มีวันพระในระบบ เพิ่มเองได้ที่เมนูวันหยุด"), { year: y, added: all.length });
   },
 
   async admin_record_attendance(p) {
@@ -714,7 +735,7 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     await db.from("attendance_log").insert({ employee_id: e.employee_id, site_id: matched ? matched.id : (e.work_site_id || ""), event_type: eventType, event_time: now,
       latitude: Number.isFinite(lat) ? lat : null, longitude: Number.isFinite(lng) ? lng : null, accuracy: Number.isFinite(acc) ? acc : null,
       distance_m: distance === null ? null : Math.round(distance * 100) / 100, validity: accepted ? "accepted" : "rejected",
-      device_timezone: String(p.deviceTimezone || ""), source: e.location_required !== false ? "mobile_api_location" : "mobile_api_no_location", review_status: accepted ? "pending" : "rejected" });
+      device_timezone: String(p.deviceTimezone || ""), source: e.location_required !== false ? "mobile_api_location" : "mobile_api_no_location", review_status: accepted ? "accepted" : "rejected" });
     let overtime = null;
     if (eventType === "check_out" && accepted) overtime = await autoOvertime(e.employee_id, Date.now());
     return reply(accepted, accepted ? "บันทึกเวลาแล้ว" : "อยู่นอกพื้นที่ที่อนุญาต หรือสัญญาณ GPS ไม่แม่นพอ",
@@ -805,7 +826,7 @@ const H: Record<string, (p: any) => Promise<Response>> = {
   async employee_change_password(p) {
     const e = await authMobile(p.mobileToken); if (!e) return reply(false, "Mobile authentication failed");
     const oldPw = String(p.oldPassword || ""), newPw = String(p.newPassword || "").trim();
-    if (newPw.length < 4) return reply(false, "รหัสผ่านใหม่ต้องยาวอย่างน้อย 4 ตัว");
+    if (newPw.length < 6) return reply(false, "รหัสผ่านใหม่ต้องยาวอย่างน้อย 6 ตัว");
     if (!e.password || !(await verifyPw(oldPw, String(e.password)))) return reply(false, "รหัสผ่านเดิมไม่ถูกต้อง");
     await db.from("employees").update({ password: await hashPw(newPw) }).eq("employee_id", e.employee_id);
     return reply(true, "เปลี่ยนรหัสผ่านแล้ว");
