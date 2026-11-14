@@ -3,35 +3,49 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
+// Default backend = Supabase Edge Function. (Publishable key is public by
+// design — safe to bake in. The secret service_role key is never in the app.)
 const bvnApiUrl = String.fromEnvironment(
   'BVN_API_URL',
-  defaultValue: 'https://script.google.com/macros/s/AKfycbzIlBl0KxAI2ibRDiODZDu-m4WYYUHloSvGkm37rMAsc_be0jUikQP0ytPRho-62wN2/exec',
+  defaultValue: 'https://vqualksnbctfukcbxqdd.supabase.co/functions/v1/swift-handler',
+);
+const bvnApiKey = String.fromEnvironment(
+  'BVN_API_KEY',
+  defaultValue: 'sb_publishable_E302-Dm85ztBPl-3o5xL_w_0UkW2fG4',
 );
 
-// Runtime-overridable endpoint (set in-app, persisted) so a changed /exec URL
-// does NOT require rebuilding the APK. Falls back to the baked default.
+// Runtime-overridable endpoint + apikey (set in-app, persisted) so a changed
+// URL does NOT require rebuilding the APK. Falls back to the baked defaults.
 class BvnConfig {
   static const _storage = FlutterSecureStorage();
   static const _key = 'bvn_endpoint';
+  static const _keyApi = 'bvn_apikey';
   static String endpoint = bvnApiUrl;
+  static String apikey = bvnApiKey;
   static Future<void> load() async {
     try {
       final v = await _storage.read(key: _key);
       if (v != null && v.trim().isNotEmpty) endpoint = v.trim();
+      final k = await _storage.read(key: _keyApi);
+      if (k != null) apikey = k.trim();
     } catch (_) {}
   }
 
-  static Future<void> setEndpoint(String url) async {
+  static Future<void> setEndpoint(String url, {String? apiKey}) async {
     endpoint = url.trim();
+    if (apiKey != null) apikey = apiKey.trim();
     try {
       await _storage.write(key: _key, value: endpoint);
+      if (apiKey != null) await _storage.write(key: _keyApi, value: apikey);
     } catch (_) {}
   }
 
   static Future<void> reset() async {
     endpoint = bvnApiUrl;
+    apikey = bvnApiKey;
     try {
       await _storage.delete(key: _key);
+      await _storage.delete(key: _keyApi);
     } catch (_) {}
   }
 }
@@ -112,6 +126,15 @@ class BvnApi {
   // redirect must be followed manually as a GET to receive the JSON body.
   Future<http.Response> _send(Map<String, dynamic> body) async {
     var uri = Uri.parse(BvnConfig.endpoint);
+    // Supabase Edge Functions need the public apikey to be routed. Pass it in the
+    // query string (not a header) so the request stays a simple, no-preflight call.
+    if (uri.host.endsWith('supabase.co') &&
+        uri.path.contains('/functions/') &&
+        BvnConfig.apikey.isNotEmpty) {
+      uri = uri.replace(
+        queryParameters: {...uri.queryParameters, 'apikey': BvnConfig.apikey},
+      );
+    }
     final request = http.Request('POST', uri)
       ..followRedirects = false
       ..headers['Content-Type'] = 'text/plain;charset=utf-8'
