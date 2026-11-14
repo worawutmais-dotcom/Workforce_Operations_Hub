@@ -6,8 +6,8 @@ import 'bvn_api.dart';
 /// Bump this on every release so it matches pubspec `version: x.y.z+<code>`.
 /// The backend's `version` action returns `appVersionCode`; when that is higher
 /// than this, the app offers the new APK (hosted on Drive).
-const int kAppVersionCode = 4;
-const String kAppVersionName = '1.0.3';
+const int kAppVersionCode = 5;
+const String kAppVersionName = '1.0.4';
 
 class UpdateInfo {
   const UpdateInfo({

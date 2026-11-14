@@ -7,15 +7,16 @@ import 'package:latlong2/latlong.dart';
 
 import 'bvn_api.dart';
 import 'notif.dart';
+import 'theme.dart';
 import 'update.dart';
 
-// Shared visual language with Admin Codex: operational, high contrast, and
-// deliberately restrained. Green means a completed/positive action; orange
-// is reserved for attention and pending work.
-const _ink = Color(0xFF17313F);
-const _greenDeep = Color(0xFF2D854D);
-const _orange = Color(0xFFDF6C1D);
-const _surfaceLight = Color(0xFFF4F6F7);
+// Brand language shared with Admin Codex: a light-first enterprise green
+// identity. Brand green is the single accent; amber = attention/late, red =
+// checked-out/danger. Tokens live in theme.dart — these aliases keep the
+// in-screen references short and on one system.
+const _ink = kInk;
+const _greenDeep = kBrandDeep;
+const _orange = kAmber;
 
 /// Embedded PPP mark: it is always available offline in a fresh APK. When the
 /// owner uploads a brand image in Admin, [logoUrl] replaces this fallback.
@@ -71,79 +72,9 @@ String _clockValue(Object? raw, {String fallback = '09:00'}) {
   return '${matched.group(1)!.padLeft(2, '0')}:${matched.group(2)}';
 }
 
-ThemeData _theme(Brightness brightness) {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: _greenDeep,
-    brightness: brightness,
-    primary: _greenDeep,
-    surface: Colors.white,
-  );
-  final base = ThemeData(
-    useMaterial3: true,
-    colorScheme: scheme,
-    visualDensity: VisualDensity.compact,
-  );
-  return base.copyWith(
-    scaffoldBackgroundColor: _surfaceLight,
-    appBarTheme: AppBarTheme(
-      backgroundColor: Colors.white,
-      foregroundColor: _ink,
-      elevation: 0,
-      surfaceTintColor: Colors.transparent,
-      titleTextStyle: const TextStyle(
-        fontSize: 15,
-        fontWeight: FontWeight.w600,
-      ),
-      toolbarHeight: 52,
-    ),
-    cardTheme: CardThemeData(
-      color: Colors.white,
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: const Color(0xFFDCE4E8)),
-      ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFCFD9DE)),
-      ),
-    ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        backgroundColor: _orange,
-        foregroundColor: Colors.white,
-        textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        foregroundColor: const Color(0xFF15536B),
-        side: const BorderSide(color: Color(0xFF9FC3D0)),
-        textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    ),
-    navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: Colors.white,
-      indicatorColor: const Color(0xFFE7F3F7),
-      labelTextStyle: WidgetStateProperty.all(
-        const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-      ),
-    ),
-    // Do not call TextTheme.apply(fontSizeFactor: ...): several Material 3
-    // text styles intentionally have a null fontSize and Flutter asserts at
-    // runtime when a scale factor is applied to them. Sizes are kept compact
-    // in the component styles instead.
-  );
-}
+// The whole app's visual language lives in theme.dart (see [bvnTheme]). Kept
+// here as a thin alias so the MaterialApp call below stays readable.
+ThemeData _theme(Brightness brightness) => bvnTheme(brightness);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -321,41 +252,79 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              PppBrandMark(size: 62, logoUrl: widget.brandLogoUrl),
-              const SizedBox(height: 18),
-              Text(
-                widget.brandName.toUpperCase(),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: _greenDeep,
-                  letterSpacing: 2,
-                  fontWeight: FontWeight.w600,
+    backgroundColor: kCanvas,
+    body: Column(
+      children: [
+        // Green hero crown — echoes the console's green login identity.
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(28, 0, 28, 34),
+          decoration: const BoxDecoration(
+            gradient: kHeroGradient,
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+          ),
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 26),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: kHeroShadow,
+                    ),
+                    child: PppBrandMark(size: 58, logoUrl: widget.brandLogoUrl),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    widget.brandName,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      letterSpacing: .3,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'ระบบลงเวลาพนักงาน',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFFD6F0D9),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(22, 26, 22, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'เข้าสู่ระบบ',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: _ink,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'เข้าสู่ระบบพนักงาน',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w600,
-                  color: _ink,
+                const SizedBox(height: 4),
+                const Text(
+                  'เลือกชื่อของคุณ แล้วกรอกรหัสผ่าน',
+                  style: TextStyle(fontSize: 13, color: kMuted),
                 ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'เลือกชื่อของคุณ แล้วกรอกรหัสผ่านของคุณ',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              if (!_loading && _people.isEmpty)
+                const SizedBox(height: 22),
+                if (!_loading && _people.isEmpty)
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -416,14 +385,38 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Text(
-                      _error!,
-                      style: const TextStyle(color: Colors.red),
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: kDangerSoft,
+                      borderRadius: BorderRadius.circular(kRadiusSm),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.error_outline_rounded,
+                          size: 18,
+                          color: kDanger,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _error!,
+                            style: const TextStyle(
+                              color: kDanger,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 22),
                 FilledButton(
                   onPressed: _loading || _people.isEmpty ? null : _submit,
                   child: Text(_loading ? 'กำลังโหลด…' : 'เข้าสู่ระบบ'),
@@ -441,10 +434,11 @@ class _LoginPageState extends State<LoginPage> {
                   child: const Text('โหลดรายชื่อใหม่'),
                 ),
               ],
-            ],
+              ],
+            ),
           ),
         ),
-      ),
+      ],
     ),
   );
 }
@@ -873,11 +867,11 @@ class _Today extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
-              color: _ink,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF2B382B)),
+              gradient: kHeroGradient,
+              borderRadius: BorderRadius.circular(kRadius),
+              boxShadow: kHeroShadow,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -886,66 +880,85 @@ class _Today extends StatelessWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
+                        horizontal: 9,
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: hasFinished
-                            ? const Color(0xFF314331)
-                            : const Color(0xFF224225),
-                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.white.withValues(alpha: .18),
+                        borderRadius: BorderRadius.circular(999),
                       ),
-                      child: Text(
-                        hasFinished
-                            ? 'เสร็จงานแล้ว'
-                            : hasStarted
-                            ? 'กำลังทำงาน'
-                            : 'รอเช็กอิน',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            hasFinished
+                                ? 'เสร็จงานแล้ว'
+                                : hasStarted
+                                ? 'กำลังทำงาน'
+                                : 'รอเช็กอิน',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const Spacer(),
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 14,
+                      color: Colors.white.withValues(alpha: .85),
+                    ),
+                    const SizedBox(width: 4),
                     Text(
                       nowStr,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFFC9D3C6),
-                        fontWeight: FontWeight.w600,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: Colors.white.withValues(alpha: .92),
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Text(
                   hasSchedule ? 'กะงานวันนี้' : 'ตารางงานวันนี้',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFFB7C5B2),
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Colors.white.withValues(alpha: .82),
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
                   hasSchedule ? '$shiftStart – $shiftEnd' : 'ยังไม่มีข้อมูล',
                   style: const TextStyle(
-                    fontSize: 22,
+                    fontSize: 26,
                     color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -.2,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -.3,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 7),
                 Text(
                   _hint(),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFFE6ECE2),
-                    fontSize: 11,
-                    height: 1.3,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: .9),
+                    fontSize: 11.5,
+                    height: 1.35,
                   ),
                 ),
                 if (!hasSchedule) ...[
@@ -990,6 +1003,7 @@ class _Today extends StatelessWidget {
                   checkOut ?? '—',
                   Icons.logout_rounded,
                   hasFinished,
+                  accent: kDanger,
                 ),
               ),
             ],
@@ -1054,36 +1068,53 @@ class _Today extends StatelessWidget {
     String label,
     String value,
     IconData icon,
-    bool completed,
-  ) {
-    final color = Theme.of(context).colorScheme;
+    bool completed, {
+    Color accent = kBrand,
+  }) {
+    final tint = completed ? accent : kMuted;
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(kRadiusSm),
+        border: Border.all(
+          color: completed ? accent.withValues(alpha: .35) : kHair,
+        ),
+        boxShadow: kSoftShadow,
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 18,
-            color: completed ? _greenDeep : color.onSurfaceVariant,
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: completed
+                  ? accent.withValues(alpha: .12)
+                  : const Color(0xFFF0F3F0),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, size: 18, color: tint),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 label,
-                style: TextStyle(fontSize: 10, color: color.onSurfaceVariant),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: kMuted,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 1),
               Text(
                 value,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -.3,
+                  color: completed ? kInk : const Color(0xFFAAB4AC),
                 ),
               ),
             ],
@@ -1795,17 +1826,21 @@ class _MonthCalendarState extends State<_MonthCalendar> {
               ],
             ),
             const SizedBox(height: 8),
-            Card(
-              color: _ink,
-              child: Padding(
-                padding: const EdgeInsets.all(11),
-                child: Row(
-                  children: [
-                    _stat('มาทำงาน', '${worked.length} วัน'),
-                    _stat('มาสาย', '$lateCnt วัน'),
-                    _stat('OT รวม', '${(otMin / 60).toStringAsFixed(1)} ชม.'),
-                  ],
-                ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+              decoration: BoxDecoration(
+                gradient: kHeroGradient,
+                borderRadius: BorderRadius.circular(kRadius),
+                boxShadow: kHeroShadow,
+              ),
+              child: Row(
+                children: [
+                  _stat('มาทำงาน', '${worked.length} วัน'),
+                  _statDivider(),
+                  _stat('มาสาย', '$lateCnt วัน'),
+                  _statDivider(),
+                  _stat('OT รวม', '${(otMin / 60).toStringAsFixed(1)} ชม.'),
+                ],
               ),
             ),
             if (_shiftStart.isNotEmpty) ...[
@@ -1822,23 +1857,33 @@ class _MonthCalendarState extends State<_MonthCalendar> {
 
   Widget _stat(String label, String value) => Expanded(
     child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
-        ),
-        const SizedBox(height: 2),
         Text(
           value,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontSize: 19,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -.3,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: .82),
+            fontSize: 11.5,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
     ),
+  );
+
+  Widget _statDivider() => Container(
+    width: 1,
+    height: 34,
+    color: Colors.white.withValues(alpha: .22),
   );
 
   Widget _legend(Color c, String t) => Row(
@@ -3053,24 +3098,25 @@ class _Account extends StatelessWidget {
     padding: const EdgeInsets.all(16),
     children: [
       Container(
-        padding: const EdgeInsets.all(15),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: _ink,
-          borderRadius: BorderRadius.circular(16),
+          gradient: kHeroGradient,
+          borderRadius: BorderRadius.circular(kRadius),
+          boxShadow: kHeroShadow,
         ),
         child: Row(
           children: [
             CircleAvatar(
-              radius: 24,
-              backgroundColor: Colors.white.withValues(alpha: 0.15),
+              radius: 26,
+              backgroundColor: Colors.white.withValues(alpha: 0.2),
               child: Text(
                 (name.isEmpty ? id : name).trim().isEmpty
                     ? '?'
                     : (name.isEmpty ? id : name).trim()[0].toUpperCase(),
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
@@ -3083,26 +3129,51 @@ class _Account extends StatelessWidget {
                     name.isEmpty ? id : name,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
-                    '$role · $id',
-                    style: const TextStyle(
-                      color: Color(0xFF9FB3CC),
+                    '${role.isEmpty ? 'พนักงาน' : role} · $id',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: .85),
                       fontSize: 13,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    locationRequired
-                        ? 'ตรวจตำแหน่งตามนโยบายบริษัท'
-                        : 'ไม่ต้องตรวจตำแหน่ง',
-                    style: const TextStyle(
-                      color: Color(0xFF9FB3CC),
-                      fontSize: 12,
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: .18),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          locationRequired
+                              ? Icons.location_on_rounded
+                              : Icons.location_off_rounded,
+                          size: 13,
+                          color: Colors.white.withValues(alpha: .9),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          locationRequired
+                              ? 'ตรวจตำแหน่งตามนโยบาย'
+                              : 'ไม่ต้องตรวจตำแหน่ง',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -3111,41 +3182,86 @@ class _Account extends StatelessWidget {
           ],
         ),
       ),
-      const SizedBox(height: 14),
+      const SizedBox(height: 16),
       const _NotifStatusCard(),
-      Card(
+      const SizedBox(height: 18),
+      const SectionLabel('บัญชีและคำขอ'),
+      SoftCard(
+        padding: EdgeInsets.zero,
         child: Column(
           children: [
-            ListTile(
-              leading: const Icon(Icons.payments_outlined),
-              title: const Text('ขอเบิกเงินล่วงหน้า'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _advanceDialog(context),
+            _accountTile(
+              context,
+              Icons.payments_outlined,
+              'ขอเบิกเงินล่วงหน้า',
+              null,
+              () => _advanceDialog(context),
             ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.password),
-              title: const Text('เปลี่ยนรหัสผ่าน'),
-              subtitle: const Text('ต้องใช้รหัสผ่านเดิม'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _changePasswordDialog(context),
+            const Divider(height: 1, indent: 58),
+            _accountTile(
+              context,
+              Icons.lock_outline_rounded,
+              'เปลี่ยนรหัสผ่าน',
+              'ต้องใช้รหัสผ่านเดิม',
+              () => _changePasswordDialog(context),
             ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.lock_reset),
-              title: const Text('ลืมรหัสผ่าน? ขอให้แอดมินรีเซ็ต'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _requestResetDialog(context),
+            const Divider(height: 1, indent: 58),
+            _accountTile(
+              context,
+              Icons.lock_reset_rounded,
+              'ลืมรหัสผ่าน? ขอให้แอดมินรีเซ็ต',
+              null,
+              () => _requestResetDialog(context),
             ),
           ],
         ),
       ),
+      const SizedBox(height: 20),
       OutlinedButton.icon(
         onPressed: onLogout,
-        icon: const Icon(Icons.logout),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: kDanger,
+          side: const BorderSide(color: Color(0xFFE6C3C3)),
+        ),
+        icon: const Icon(Icons.logout_rounded, size: 18),
         label: const Text('ออกจากระบบ'),
       ),
+      const SizedBox(height: 8),
+      Center(
+        child: Text(
+          'เวอร์ชัน $kAppVersionName',
+          style: const TextStyle(fontSize: 11.5, color: kMuted),
+        ),
+      ),
     ],
+  );
+
+  Widget _accountTile(
+    BuildContext context,
+    IconData icon,
+    String title,
+    String? subtitle,
+    VoidCallback onTap,
+  ) => ListTile(
+    onTap: onTap,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+    leading: Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: kBrandSoft,
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Icon(icon, size: 19, color: kBrandDeep),
+    ),
+    title: Text(
+      title,
+      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
+    ),
+    subtitle: subtitle == null
+        ? null
+        : Text(subtitle, style: const TextStyle(fontSize: 12, color: kMuted)),
+    trailing: const Icon(Icons.chevron_right_rounded, color: kMuted),
   );
 
   void _snack(BuildContext context, String msg) {
