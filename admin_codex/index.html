@@ -219,11 +219,11 @@
   .pm-cell[data-today]{outline:2px solid var(--blue-ink);outline-offset:1px}
   .pm-ot{width:5px;height:5px;border-radius:50%;background:#2f7fd6;box-shadow:0 0 0 1.5px #fff}
   .pm-av{width:30px;height:30px;border-radius:50%;background:#e1f1e6;color:#1f6c3a;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:0 0 auto}
-  .calm{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
-  .calm .dh{text-align:center;font-size:11px;color:var(--muted);padding-bottom:2px}
-  .calm .cd{border-radius:9px;background:var(--card);border:1px solid var(--line);padding:6px 7px;min-height:66px;display:flex;flex-direction:column}
-  .calm .cd .d{font-size:12px;font-weight:600}
-  .calm .cd .io{font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:-.2px}
+  .calm{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .calm .dh{text-align:center;font-size:10px;color:var(--muted);padding-bottom:1px}
+  .calm .cd{border-radius:7px;background:var(--card);border:1px solid var(--line);padding:4px 6px;min-height:48px;display:flex;flex-direction:column}
+  .calm .cd .d{font-size:11px;font-weight:600;line-height:1.1}
+  .calm .cd .io{font-size:9px;color:var(--muted);margin-top:2px;letter-spacing:-.2px}
   .calm .cd .hp{display:flex;justify-content:space-between;align-items:baseline;margin-top:auto}
   .calm .cd.off{background:var(--bg);border-style:dashed}
   .advanced-settings{padding:0}
@@ -1323,29 +1323,62 @@ function bar(label,val,total,color){
     <div class="track"><div class="fill" style="width:${pct}%;background:${color}"></div></div></div>`;
 }
 
-function openAttendanceCalendar(employeeId, days, range, owner){
+// Per-person attendance calendar modal: shows a full month (in–out + hours per
+// day) and lets the admin page to other months — fetches that month on demand.
+let _calEmp=null, _calMonth=null;
+const CAL_TH_MON=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+function openAttendanceCalendar(employeeId){
+  _calEmp=employeeId; _calMonth=new Date();
   const emp=state.empById[employeeId]||{id:employeeId,name:employeeId,role:""};
-  const start=range.startDate||todayISO(), end=range.endDate||todayISO();
-  const byDate={}; days.filter(d=>d.employeeId===employeeId).forEach(d=>byDate[d.date]=d);
-  const cursor=new Date(`${start}T00:00:00+07:00`), last=new Date(`${end}T00:00:00+07:00`);
-  const cells=[];
-  for(let i=0;i<cursor.getDay();i++) cells.push(`<div class="day blank"></div>`);
-  while(cursor<=last){
-    const key=cursor.toLocaleDateString("en-CA",{timeZone:"Asia/Bangkok"});
-    const item=byDate[key];
-    const cls=item?(item.status==="complete"?"complete":"incomplete"):"";
-    const label=item?(item.status==="complete"?`${esc(item.checkIn)}–${esc(item.checkOut)}`:"รอตรวจ"):"—";
-    cells.push(`<div class="day ${cls}"><span class="d">${cursor.getDate()}</span><span class="mark">${label}</span></div>`);
-    cursor.setDate(cursor.getDate()+1);
-  }
-  const complete=Object.values(byDate).filter(d=>d.status==="complete").length;
-  const incomplete=Object.values(byDate).filter(d=>d.status!=="complete").length;
-  const line=(owner.lines||[]).find(l=>l.employeeId===employeeId);
-  const body=el(`<div><div class="cal-dialog-meta"><div><b style="font-size:16px">${esc(emp.name)}</b><span class="sub" style="display:block">${esc(emp.id)}${emp.role?` · ${esc(emp.role)}`:""}</span></div><span class="badge blue">ครบ ${fmtInt(complete)} วัน</span></div><div class="att-calendar"><div class="day-name">อา</div><div class="day-name">จ</div><div class="day-name">อ</div><div class="day-name">พ</div><div class="day-name">พฤ</div><div class="day-name">ศ</div><div class="day-name">ส</div>${cells.join("")}</div><div class="calendar-legend"><span><i class="ok"></i>ลงเวลาครบ</span><span><i class="wait"></i>เวลาไม่ครบ/รอตรวจ</span><span><i class="none"></i>ไม่มีบันทึก</span><span>ไม่ครบ ${fmtInt(incomplete)} วัน</span></div></div>`);
+  const body=el(`<div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <div class="pm-av" style="width:40px;height:40px;font-size:14px">${esc((emp.name||emp.id).trim().slice(0,2))}</div>
+      <div style="flex:1;min-width:120px"><b style="font-size:15px">${esc(emp.name)}</b><span class="sub" style="display:block">${esc(emp.id)}${emp.role?` · ${esc(emp.role)}`:""}</span></div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button class="btn sub sm" id="calPrev" type="button" aria-label="เดือนก่อน">‹</button>
+        <b id="calLabel" style="min-width:108px;text-align:center">—</b>
+        <button class="btn sub sm" id="calNext" type="button" aria-label="เดือนถัดไป">›</button>
+      </div>
+    </div>
+    <div id="calBody"><div class="empty">กำลังโหลด…</div></div>
+    <div class="calendar-legend" style="margin-top:12px;display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap">
+      <span><span class="lgd" style="background:#1f7a1e"></span>ลงเวลาครบ</span>
+      <span><span class="lgd" style="background:#ef8b1f"></span>ไม่ครบ</span>
+      <span><span class="lgd" style="background:repeating-linear-gradient(45deg,#eef0f3,#eef0f3 2px,#dfe3e9 2px,#dfe3e9 4px);border:1px solid var(--line)"></span>หยุด/ไม่มีบันทึก</span>
+    </div>
+  </div>`);
   const close=el(`<button class="btn sub">ปิด</button>`); close.onclick=closeModal;
-  const slip=el(`<button class="btn" ${line?"":"disabled"}>เปิดสลิปเงินเดือน</button>`);
-  if(line) slip.onclick=()=>printPayslip(line,owner.period||{start,end});
-  openModal(`ปฏิทินการลงเวลา · ${fmtDate(start)}`,body,[close,slip]);
+  openModal("ปฏิทินการลงเวลา", body, [close]);
+  body.querySelector("#calPrev").onclick=()=>{ _calMonth=new Date(_calMonth.getFullYear(),_calMonth.getMonth()-1,1); calRender(); };
+  body.querySelector("#calNext").onclick=()=>{ _calMonth=new Date(_calMonth.getFullYear(),_calMonth.getMonth()+1,1); calRender(); };
+  calRender();
+}
+async function calRender(){
+  const y=_calMonth.getFullYear(), m=_calMonth.getMonth();
+  const lbl=$("#calLabel"); if(lbl) lbl.textContent=`${CAL_TH_MON[m]} ${y+543}`;
+  const host=$("#calBody"); if(!host) return;
+  const pad=n=>String(n).padStart(2,"0");
+  const start=`${y}-${pad(m+1)}-01`, end=`${y}-${pad(m+1)}-${pad(new Date(y,m+1,0).getDate())}`;
+  let days=[];
+  try{ const d=await api("admin_attendance_days",{employeeId:_calEmp,startDate:start,endDate:end}); days=d.days||[]; }
+  catch(e){ host.innerHTML=`<div class="empty">${esc(e.message)}</div>`; return; }
+  const byDate={}; days.forEach(x=>byDate[x.date]=x);
+  const today=todayISO(), head=["จ","อ","พ","พฤ","ศ","ส","อา"];
+  let cal=`<div class="calm">`+head.map((d,i)=>`<div class="dh" style="color:${i===5?"#2b5a86":i===6?"#8f322d":"var(--muted)"}">${d}</div>`).join("");
+  const lead=(new Date(y,m,1).getDay()+6)%7; for(let b=0;b<lead;b++) cal+=`<div></div>`;
+  const lastD=new Date(y,m+1,0).getDate();
+  for(let dn=1;dn<=lastD;dn++){
+    const ds=`${y}-${pad(m+1)}-${pad(dn)}`, rec=byDate[ds], isToday=ds===today, dow=new Date(ds+"T00:00:00+07:00").getDay();
+    const tif=isToday?";outline:2px solid var(--blue-ink);outline-offset:-2px":"";
+    if(rec){
+      const complete=rec.status==="complete", ink=complete?"#1f7a1e":"#b45309";
+      cal+=`<div class="cd" style="border-left:3px solid ${ink}${tif}"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="d">${dn}</span>${complete?'<span style="font-size:9px;color:#1f7a1e">✓</span>':'<span style="font-size:8px;color:#b45309;background:#fdecd8;padding:1px 4px;border-radius:8px">ไม่ครบ</span>'}</div><div class="io">${esc(rec.checkIn||"—")}–${esc(rec.checkOut||"—")}</div><div class="hp"><span class="sub">${rec.workedMinutes?fmtHours(rec.workedMinutes):"—"}</span></div></div>`;
+    } else {
+      const future=ds>today, off=(dow===0||dow===6);
+      cal+=`<div class="cd off" style="${tif}"><span class="d" style="color:${dow===0?"#8f322d":dow===6?"#2b5a86":"var(--muted)"};font-weight:400">${dn}</span><span class="sub" style="margin-top:auto;font-size:9px">${future?"":off?"หยุด":"—"}</span></div>`;
+    }
+  }
+  host.innerHTML=cal+`</div>`;
 }
 
 function setApprovalBadge(n){
