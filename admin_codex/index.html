@@ -586,10 +586,14 @@
     <details style="margin-top:14px;border-top:1px dashed var(--line);padding-top:10px">
       <summary style="font-size:12px;color:var(--muted);cursor:pointer;text-align:center">ตั้งค่าการเชื่อมต่อสำหรับผู้ดูแลระบบ</summary>
       <div class="field">
-        <label>Apps Script Endpoint</label>
-        <input id="inEndpoint" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+        <label>Endpoint (Apps Script /exec หรือ Supabase function)</label>
+        <input id="inEndpoint" type="url" placeholder="https://....supabase.co/functions/v1/...">
       </div>
-      <div class="hint" style="margin-top:8px">ใช้เฉพาะเมื่อผู้ดูแลระบบแจ้ง endpoint ใหม่ ไม่ต้องกรอกหรือคัดลอก API key</div>
+      <div class="field">
+        <label>Supabase apikey (เฉพาะเมื่อใช้ Supabase)</label>
+        <input id="inApikey" type="text" placeholder="sb_publishable_... (เว้นว่างถ้าใช้ Apps Script)">
+      </div>
+      <div class="hint" style="margin-top:8px">ใช้เฉพาะเมื่อผู้ดูแลระบบแจ้ง endpoint ใหม่ · apikey คือ publishable key ของ Supabase (public ไม่ลับ) จำเป็นสำหรับ endpoint แบบ Supabase</div>
     </details>
   </form>
 </div>
@@ -790,7 +794,14 @@ async function api(action, fields={}, timeoutMs=15000){
   const timer=setTimeout(()=>controller.abort(), timeoutMs);
   let res;
   try{
-    res = await fetch(state.endpoint, {
+    // Supabase Edge Functions need the project's public apikey to be routed.
+    // Pass it in the query string (not a header) so the request stays a simple
+    // CORS request (text/plain, no preflight) exactly like the Apps Script call.
+    let url=state.endpoint;
+    if(/\.supabase\.co\/functions\//.test(url) && state.apikey){
+      url += (url.indexOf("?")<0?"?":"&") + "apikey=" + encodeURIComponent(state.apikey);
+    }
+    res = await fetch(url, {
       method:"POST",
       headers:{ "Content-Type":"text/plain;charset=utf-8" },
       body: JSON.stringify({ action, adminToken: state.token, ...fields }),
@@ -882,9 +893,11 @@ async function doLogin(e){
   const username=$("#inUser").value.trim();
   const password=$("#inPass").value;
   const endpoint=($("#inEndpoint").value||"").trim() || DEFAULT_ENDPOINT;
+  const apikey=(($("#inApikey")&&$("#inApikey").value)||"").trim();
   const errBox=$("#loginErr"); errBox.textContent="";
-  state.endpoint=endpoint;
+  state.endpoint=endpoint; state.apikey=apikey;
   LS.setItem("bvn_endpoint", endpoint);
+  LS.setItem("bvn_apikey", apikey);
   await withBtn($("#loginBtn"), async ()=>{
     try{
       // This Codex console never accepts a master API key. The backend issues
@@ -3015,14 +3028,16 @@ async function renderSettings(){
     </div>
     <details class="panel advanced-settings"><summary><span><b>การเชื่อมต่อขั้นสูง</b><small>สำหรับผู้ดูแลระบบเมื่อเปลี่ยน Apps Script URL</small></span><span aria-hidden="true">⌄</span></summary>
       <div class="body">
-        <div class="field"><label>Apps Script Endpoint (/exec)</label><input id="setEndpoint" type="url" value="${esc(state.endpoint||"")}"></div>
-        <div class="notice blue">ค่าเชื่อมต่อนี้บันทึกในเครื่องนี้เท่านั้น เปลี่ยนเมื่อ deploy URL ใหม่</div>
+        <div class="field"><label>Endpoint (/exec หรือ Supabase function)</label><input id="setEndpoint" type="url" value="${esc(state.endpoint||"")}"></div>
+        <div class="field"><label>Supabase apikey (publishable key)</label><input id="setApikey" type="text" value="${esc(state.apikey||"")}" placeholder="sb_publishable_... (เว้นว่างถ้าใช้ Apps Script)"></div>
+        <div class="notice blue">ค่าเชื่อมต่อนี้บันทึกในเครื่องนี้เท่านั้น · apikey จำเป็นเฉพาะ endpoint แบบ Supabase (public key ไม่ลับ)</div>
         <div class="toolbar"><button class="btn" id="saveEndpoint">บันทึก Endpoint</button></div>
       </div>
     </details>`;
   $("#setEndpoint").value = state.endpoint || LS.getItem("bvn_endpoint") || DEFAULT_ENDPOINT;
   $("#saveEndpoint").onclick=(e)=>{ const v=$("#setEndpoint").value.trim(); if(!v){ toast("กรอก endpoint","bad"); return; }
-    state.endpoint=v; LS.setItem("bvn_endpoint", v); toast("บันทึก endpoint แล้ว","good"); };
+    const k=(($("#setApikey")&&$("#setApikey").value)||"").trim();
+    state.endpoint=v; state.apikey=k; LS.setItem("bvn_endpoint", v); LS.setItem("bvn_apikey", k); clearApiReadCache(); toast("บันทึกการเชื่อมต่อแล้ว","good"); };
   $("#addAdmin").onclick=()=>adminUserDialog(null);
   $("#editWorkRules").onclick=async()=>{
     try{ const d=await api("admin_get_settings"); workScheduleDialog(d.settings||{}); }
@@ -3252,6 +3267,8 @@ try{
   }
 }catch(_){}
 $("#inEndpoint").value = LS.getItem("bvn_endpoint") || DEFAULT_ENDPOINT;
+$("#inApikey") && ($("#inApikey").value = LS.getItem("bvn_apikey") || "");
+state.apikey = LS.getItem("bvn_apikey") || "";
 $("#loginForm").addEventListener("submit", doLogin);
 
 // BVN uses one light operational surface. Remove a saved dark preference from
@@ -3263,6 +3280,7 @@ syncQuickAction();
 (function resume(){
   const token=SS.getItem("bvn_token"), endpoint=LS.getItem("bvn_endpoint")||DEFAULT_ENDPOINT, username=SS.getItem("bvn_username")||"", reviewer=LS.getItem("bvn_reviewer")||"", role=SS.getItem("bvn_role")||"owner";
   if(!token) return;
+  state.apikey=LS.getItem("bvn_apikey")||"";
   state.endpoint=endpoint; state.token=token; state.username=username; state.reviewer=reviewer; state.role=role;
   api("dashboard").then(enterApp).catch(()=>{ SS.removeItem("bvn_token"); });
 })();
