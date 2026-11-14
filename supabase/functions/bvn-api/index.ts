@@ -160,6 +160,27 @@ function advanceFit(list: { amount: number }[] | undefined, avail: number): numb
   for (const it of list || []) { if (d + it.amount > avail) break; d += it.amount; }
   return round(d);
 }
+// advances (status 'paid') with their ids, oldest-first, per employee — for settlement
+async function outstandingAdvancesFull(): Promise<Record<string, { advance_id: string; amount: number }[]>> {
+  const { data } = await db.from("advances").select("employee_id,advance_id,amount,created_at").eq("status", "paid").order("created_at", { ascending: true });
+  const m: Record<string, { advance_id: string; amount: number }[]> = {};
+  (data || []).forEach((a: any) => (m[a.employee_id] = m[a.employee_id] || []).push({ advance_id: a.advance_id, amount: num(a.amount) }));
+  return m;
+}
+
+// ---------- login brute-force throttling ----------
+const LOGIN_MAX_FAILS = 5, LOGIN_LOCK_MIN = 15;
+async function loginLocked(id: string): Promise<boolean> {
+  const { data } = await db.from("login_attempts").select("locked_until").eq("id", id).maybeSingle();
+  return !!(data && data.locked_until && new Date(data.locked_until).getTime() > Date.now());
+}
+async function loginFailed(id: string) {
+  const { data } = await db.from("login_attempts").select("fail_count").eq("id", id).maybeSingle();
+  const fails = (data?.fail_count || 0) + 1;
+  const locked = fails >= LOGIN_MAX_FAILS ? new Date(Date.now() + LOGIN_LOCK_MIN * 60000).toISOString() : null;
+  await db.from("login_attempts").upsert({ id, fail_count: locked ? 0 : fails, locked_until: locked }, { onConflict: "id" });
+}
+async function loginCleared(id: string) { try { await db.from("login_attempts").delete().eq("id", id); } catch { /* ignore */ } }
 
 // ---------- payroll preview (ported from adminPreviewPayroll_) ----------
 async function previewPayroll(start: string, end: string) {
@@ -235,8 +256,11 @@ const H: Record<string, (p: any) => Promise<Response>> = {
   async admin_console_login(p) {
     const username = String(p.username || "").trim(), password = String(p.password || "");
     if (!username || !password) return reply(false, "กรอกชื่อผู้ใช้และรหัสผ่าน");
+    const lid = "admin:" + username.toLowerCase();
+    if (await loginLocked(lid)) return reply(false, "เข้าสู่ระบบผิดหลายครั้งเกินไป กรุณารอ 15 นาทีแล้วลองใหม่");
     const { data: u } = await db.from("admin_users").select("*").ilike("username", username).eq("active", true).maybeSingle();
-    if (!u || !(await verifyPw(password, String(u.password || "")))) return reply(false, "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
+    if (!u || !(await verifyPw(password, String(u.password || "")))) { await loginFailed(lid); return reply(false, "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"); }
+    await loginCleared(lid);
     const tk = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, "");
     const expiresAt = new Date(Date.now() + 12 * 3600 * 1000).toISOString();
     await db.from("admin_sessions").insert({ token_hash: tk, username: u.username, display_name: u.display_name || u.username, expires_at: expiresAt, last_used_at: nowISO(), status: "active", role: u.role || "owner" });
@@ -487,24 +511,27 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     const a = await verify(p.adminToken, FIN);
     const data = await previewPayroll(String(p.startDate), String(p.endDate));
     const payrollId = "PAY-" + data.startDate.replace(/-/g, "") + "-" + data.endDate.replace(/-/g, "");
-    const { data: ex } = await db.from("payroll_periods").select("payroll_id").eq("payroll_id", payrollId).maybeSingle();
-    if (ex) return reply(false, "งวดนี้ถูกล็อกไปแล้ว");
-    await db.from("payroll_periods").insert({ payroll_id: payrollId, start_date: data.startDate, end_date: data.endDate, status: "locked", locked_at: nowISO(), locked_by: a.display_name });
-    if (data.lines.length) await db.from("payroll_lines").insert(data.lines.map((l: any) => ({ payroll_id: payrollId, employee_id: l.employeeId, regular_minutes: l.regularMinutes, ot_minutes: l.otMinutes, base_gross: l.baseGross, ot_gross: l.otGross, gross_pay: l.grossPay, advance_deduction: l.advanceDeduction, net_pay: l.netPay, sso: l.sso, other_deduction: l.otherDeduction })));
-    // settle the advances this run covered (oldest-first, within net-after-statutory)
-    const outstanding = await outstandingAdvances();
-    let settled = 0;
+    // Decide which paid advances this run settles (oldest-first, within net-after-statutory).
+    const outstanding = await outstandingAdvancesFull();
+    const settleIds: string[] = [];
     for (const l of data.lines as any[]) {
       const avail = Math.max(0, l.grossPay - l.sso - l.otherDeduction);
-      let d = 0; const amts: number[] = [];
-      for (const it of outstanding[l.employeeId] || []) { if (d + it.amount > avail) break; d += it.amount; amts.push(it.amount); }
-      if (amts.length) {
-        const { data: rows } = await db.from("advances").select("advance_id,amount,created_at").eq("employee_id", l.employeeId).eq("status", "paid").order("created_at", { ascending: true }).limit(amts.length);
-        for (const r of rows || []) { await db.from("advances").update({ status: "settled", settled_payroll: payrollId }).eq("advance_id", r.advance_id); settled++; }
-      }
+      let d = 0;
+      for (const it of outstanding[l.employeeId] || []) { if (d + it.amount > avail) break; d += it.amount; settleIds.push(it.advance_id); }
     }
-    audit(a.display_name, "payroll_locked", payrollId, "net " + data.totalNet + " · settled " + settled);
-    return reply(true, "ล็อกงวดแล้ว", { payrollId, totalGross: data.totalGross, totalNet: data.totalNet, advancesSettled: settled });
+    // Commit period + lines + settlement ATOMICALLY (one Postgres transaction);
+    // the PERIOD_EXISTS guard inside rolls back a duplicate/concurrent lock.
+    const { error } = await db.rpc("lock_payroll_commit", {
+      p_payroll_id: payrollId, p_start: data.startDate, p_end: data.endDate, p_locked_by: a.display_name,
+      p_lines: data.lines.map((l: any) => ({ employee_id: l.employeeId, regular_minutes: l.regularMinutes, ot_minutes: l.otMinutes, base_gross: l.baseGross, ot_gross: l.otGross, gross_pay: l.grossPay, advance_deduction: l.advanceDeduction, net_pay: l.netPay, sso: l.sso, other_deduction: l.otherDeduction })),
+      p_settle_ids: settleIds,
+    });
+    if (error) {
+      if (/PERIOD_EXISTS/.test(error.message || "")) return reply(false, "งวดนี้ถูกล็อกไปแล้ว");
+      return reply(false, error.message || "ล็อกงวดไม่สำเร็จ");
+    }
+    audit(a.display_name, "payroll_locked", payrollId, "net " + data.totalNet + " · settled " + settleIds.length);
+    return reply(true, "ล็อกงวดแล้ว", { payrollId, totalGross: data.totalGross, totalNet: data.totalNet, advancesSettled: settleIds.length });
   },
   async admin_list_payrolls(p) {
     await verify(p.adminToken, FIN);
@@ -644,8 +671,11 @@ const H: Record<string, (p: any) => Promise<Response>> = {
   },
   async employee_login(p) {
     const employeeId = String(p.employeeId || "").trim().toUpperCase(), password = String(p.password || "");
+    const lid = "emp:" + employeeId;
+    if (await loginLocked(lid)) return reply(false, "เข้าสู่ระบบผิดหลายครั้งเกินไป กรุณารอ 15 นาทีแล้วลองใหม่");
     const { data: e } = await db.from("employees").select("*").eq("employee_id", employeeId).maybeSingle();
-    if (!e || e.status !== "active" || !e.password || !(await verifyPw(password, String(e.password)))) return reply(false, "ชื่อพนักงานหรือรหัสผ่านไม่ถูกต้อง");
+    if (!e || e.status !== "active" || !e.password || !(await verifyPw(password, String(e.password)))) { await loginFailed(lid); return reply(false, "ชื่อพนักงานหรือรหัสผ่านไม่ถูกต้อง"); }
+    await loginCleared(lid);
     await db.from("mobile_access").update({ status: "revoked" }).eq("employee_id", employeeId);
     const tk = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, "");
     await db.from("mobile_access").insert({ token_hash: tk, employee_id: employeeId, status: "active", issued_at: nowISO(), last_used_at: nowISO(), device_label: String(p.deviceLabel || "Mobile login") });
