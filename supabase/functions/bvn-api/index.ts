@@ -13,8 +13,10 @@
 //  admin users, audit log, password requests. Passwords are hashed (PBKDF2);
 //  plaintext is still accepted for the seed admin until it is changed.
 //
-//  NOT ported yet (mobile APP still uses Apps Script): employee_* actions
-//  (employee_login/profile/month/attendance-with-GPS/leave/time/advance).
+//  Mobile APP actions are also ported: employee_directory/login/profile/sites,
+//  attendance (GPS validation + auto-OT on checkout), employee_month, timeline,
+//  leave_request/leave_calendar, time_request/employee_time_requests,
+//  employee_submit_advance/employee_advances, change/request-reset password.
 //
 //  Deploy (owner): supabase functions deploy bvn-api --no-verify-jwt
 //  SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are injected by the platform.
@@ -89,6 +91,56 @@ const OPS = ["owner", "manager", "operations"];
 const FIN = ["owner", "manager", "finance"];
 async function audit(actor: string, action: string, target: string, detail = "") {
   try { await db.from("audit_log").insert({ ts: nowISO(), actor, action, target, detail }); } catch { /* ignore */ }
+}
+
+// ---------- mobile (employee app) helpers ----------
+const MAX_ACCURACY_M = 100;
+function metres(a: number, b: number, c: number, d: number): number {
+  const R = 6371e3, x = ((c - a) * Math.PI) / 180, y = ((d - b) * Math.PI) / 180;
+  const q = Math.sin(x / 2) ** 2 + Math.cos((a * Math.PI) / 180) * Math.cos((c * Math.PI) / 180) * Math.sin(y / 2) ** 2;
+  return 2 * R * Math.atan2(Math.sqrt(q), Math.sqrt(1 - q));
+}
+async function activeSites() {
+  const { data } = await db.from("work_sites").select("*").eq("active", true);
+  return (data || []).map((r: any) => ({ id: r.site_id, name: r.name || "", lat: num(r.latitude), lng: num(r.longitude), radius: num(r.radius_m) }));
+}
+async function authMobile(token: string) {
+  if (!token) return null;
+  const { data } = await db.from("mobile_access").select("employee_id").eq("token_hash", token).eq("status", "active").maybeSingle();
+  if (!data) return null;
+  const { data: e } = await db.from("employees").select("*").eq("employee_id", data.employee_id).maybeSingle();
+  if (!e || e.status !== "active") return null;
+  db.from("mobile_access").update({ last_used_at: nowISO() }).eq("token_hash", token).then(() => {});
+  return e;
+}
+async function holidayMap(year: number): Promise<Record<string, string>> {
+  const { data } = await db.from("holidays").select("date,name").like("date", year + "-%");
+  const m: Record<string, string> = {}; (data || []).forEach((h: any) => (m[h.date] = h.name)); return m;
+}
+async function todayAttState(employeeId: string) {
+  const day = todayISO();
+  const { data } = await db.from("attendance_log").select("event_type").eq("employee_id", employeeId).eq("validity", "accepted")
+    .gte("event_time", day + "T00:00:00+07:00").lte("event_time", day + "T23:59:59+07:00");
+  return { date: day, checkedIn: (data || []).some((r: any) => r.event_type === "check_in"), checkedOut: (data || []).some((r: any) => r.event_type === "check_out") };
+}
+async function autoOvertime(employeeId: string, checkoutMs: number) {
+  const { data: rule } = await db.from("payroll_rules").select("*").eq("employee_id", employeeId).maybeSingle();
+  if (!rule || !rule.ot_enabled) return null;
+  const s = await settingsMap();
+  const lunch = num(s.lunch_break_min) || 60, thr = (num(s.ot_threshold_hours) || 8) * 60, holOt = s.holiday_ot_enabled === "true";
+  const day = dayOf(new Date(checkoutMs).toISOString());
+  const isHoliday = !!(await holidayMap(Number(day.slice(0, 4))))[day];
+  const { data: ins } = await db.from("attendance_log").select("event_time").eq("employee_id", employeeId).eq("validity", "accepted").eq("event_type", "check_in")
+    .gte("event_time", day + "T00:00:00+07:00").lte("event_time", day + "T23:59:59+07:00");
+  if (!ins || !ins.length) return null;
+  const inMs = Math.min(...ins.map((r: any) => new Date(r.event_time).getTime()));
+  const net = Math.max(0, Math.round((checkoutMs - inMs) / 60000) - lunch);
+  const overage = isHoliday && holOt ? net : net - thr;
+  if (overage < 15) return null;
+  const { data: already } = await db.from("time_requests").select("request_id").eq("employee_id", employeeId).eq("request_type", "overtime").eq("work_date", day).limit(1);
+  if (already && already.length) return { overtimeMinutes: overage, status: "already_requested" };
+  await db.from("time_requests").insert({ request_id: crypto.randomUUID(), employee_id: employeeId, request_type: "overtime", work_date: day, requested_minutes: overage, reason: "อัตโนมัติ: ทำเกินเวลามาตรฐาน " + overage + " นาที", status: "pending", submitted_at: nowISO() });
+  return { overtimeMinutes: overage, status: "pending" };
 }
 
 function otHourly(rule: any): number {
@@ -583,6 +635,157 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     await verify(p.adminToken, OPS);
     const { data } = await db.from("password_requests").select("*").eq("status", "pending").order("requested_at", { ascending: false });
     return reply(true, "ok", { requests: (data || []).map((r: any) => ({ requestId: r.request_id, employeeId: r.employee_id, requestedAt: r.requested_at, status: r.status })) });
+  },
+
+  // ===================== Mobile (employee app) =====================
+  async employee_directory() {
+    const { data } = await db.from("employees").select("employee_id,name,role,status").eq("status", "active");
+    return reply(true, "ok", { employees: (data || []).map((e: any) => ({ employeeId: e.employee_id, name: e.name, role: e.role || "" })) });
+  },
+  async employee_login(p) {
+    const employeeId = String(p.employeeId || "").trim().toUpperCase(), password = String(p.password || "");
+    const { data: e } = await db.from("employees").select("*").eq("employee_id", employeeId).maybeSingle();
+    if (!e || e.status !== "active" || !e.password || !(await verifyPw(password, String(e.password)))) return reply(false, "ชื่อพนักงานหรือรหัสผ่านไม่ถูกต้อง");
+    await db.from("mobile_access").update({ status: "revoked" }).eq("employee_id", employeeId);
+    const tk = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, "");
+    await db.from("mobile_access").insert({ token_hash: tk, employee_id: employeeId, status: "active", issued_at: nowISO(), last_used_at: nowISO(), device_label: String(p.deviceLabel || "Mobile login") });
+    return reply(true, "เข้าสู่ระบบสำเร็จ", { employeeId, mobileToken: tk, name: e.name });
+  },
+  async employee_profile(p) {
+    const e = await authMobile(p.mobileToken); if (!e) return reply(false, "Mobile authentication failed");
+    const s = await settingsMap();
+    return reply(true, "ok", { employeeId: e.employee_id, name: e.name, role: e.role, siteId: e.work_site_id, locationRequired: e.location_required !== false,
+      shiftStart: s.shift_start || "09:00", shiftEnd: s.shift_end || "18:00", shift_start: s.shift_start || "09:00", shift_end: s.shift_end || "18:00",
+      workdays: s.workdays || "1,2,3,4,5", remindBeforeMin: num(s.remind_before_min) || 15, remindCheckoutAfterMin: num(s.remind_checkout_after_min) || 10 });
+  },
+  async sites(p) {
+    if (!(await authMobile(p.mobileToken))) return reply(false, "Mobile authentication failed");
+    return reply(true, "ok", { sites: await activeSites() });
+  },
+  async attendance(p) {
+    const e = await authMobile(p.mobileToken); if (!e) return reply(false, "Mobile authentication failed");
+    const eventType = String(p.eventType || "");
+    if (!["check_in", "check_out"].includes(eventType)) return reply(false, "Invalid attendance event");
+    const lat = Number(p.latitude), lng = Number(p.longitude), acc = Number(p.accuracy);
+    let matched: any = null, distance: number | null = null, accepted = true;
+    if (eventType === "check_in" && e.location_required !== false) {
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(acc) || acc < 0) return reply(false, "ต้องระบุตำแหน่ง GPS สำหรับการเช็กอิน");
+      if (p.mocked === true) return reply(false, "ตรวจพบการปลอมตำแหน่ง (Mock location) — ปิดแอปจำลองตำแหน่งก่อนเช็กอิน");
+      const sites = await activeSites();
+      if (!sites.length) return reply(false, "ยังไม่ได้ตั้งจุดเช็กอิน กรุณาติดต่อแอดมิน");
+      sites.forEach((s) => { const d = metres(lat, lng, s.lat, s.lng); if (distance === null || d < distance) { distance = d; matched = s; } });
+      accepted = acc <= MAX_ACCURACY_M && matched != null && distance! <= matched.radius;
+    }
+    const st = await todayAttState(e.employee_id);
+    if (eventType === "check_in" && st.checkedIn) return reply(false, "วันนี้คุณบันทึกเข้างานแล้ว", st);
+    if (eventType === "check_out" && !st.checkedIn) return reply(false, "ต้องบันทึกเข้างานก่อนจึงจะบันทึกออกงานได้", st);
+    if (eventType === "check_out" && st.checkedOut) return reply(false, "วันนี้คุณบันทึกออกงานแล้ว", st);
+    const now = nowISO();
+    await db.from("attendance_log").insert({ employee_id: e.employee_id, site_id: matched ? matched.id : (e.work_site_id || ""), event_type: eventType, event_time: now,
+      latitude: Number.isFinite(lat) ? lat : null, longitude: Number.isFinite(lng) ? lng : null, accuracy: Number.isFinite(acc) ? acc : null,
+      distance_m: distance === null ? null : Math.round(distance * 100) / 100, validity: accepted ? "accepted" : "rejected",
+      device_timezone: String(p.deviceTimezone || ""), source: e.location_required !== false ? "mobile_api_location" : "mobile_api_no_location", review_status: accepted ? "pending" : "rejected" });
+    let overtime = null;
+    if (eventType === "check_out" && accepted) overtime = await autoOvertime(e.employee_id, Date.now());
+    return reply(accepted, accepted ? "บันทึกเวลาแล้ว" : "อยู่นอกพื้นที่ที่อนุญาต หรือสัญญาณ GPS ไม่แม่นพอ",
+      { decision: accepted ? "accepted" : "rejected", locationRequired: e.location_required !== false, distanceMetres: distance === null ? null : Math.round(distance), allowedRadiusMetres: matched ? matched.radius : null, matchedSite: matched ? matched.name || matched.id : "", overtime });
+  },
+  async employee_month(p) {
+    const e = await authMobile(p.mobileToken); if (!e) return reply(false, "Mobile authentication failed");
+    const now = new Date(Date.now() + ICT * 60000);
+    let year = parseInt(p.year, 10), month = parseInt(p.month, 10);
+    if (!year || !month || month < 1 || month > 12) { year = now.getUTCFullYear(); month = now.getUTCMonth() + 1; }
+    const s = await settingsMap();
+    const shiftMin = (() => { const q = String(s.shift_start || "09:00").split(":"); return (Number(q[0]) || 9) * 60 + (Number(q[1]) || 0); })();
+    const grace = num(s.shift_grace_min) || 5, lunch = num(s.lunch_break_min) || 60, otThr = (num(s.ot_threshold_hours) || 8) * 60, holOt = s.holiday_ot_enabled === "true";
+    const workdays = String(s.workdays || "1,2,3,4,5").split(",").map((x) => x.trim());
+    const mm = String(month).padStart(2, "0");
+    const [holidays, leaveRows, attRows] = await Promise.all([
+      holidayMap(year),
+      db.from("leave_requests").select("leave_type,start_date,end_date").eq("employee_id", e.employee_id).eq("status", "approved"),
+      db.from("attendance_log").select("event_type,event_time").eq("employee_id", e.employee_id).eq("validity", "accepted").gte("event_time", `${year}-${mm}-01T00:00:00+07:00`).lte("event_time", `${year}-${mm}-31T23:59:59+07:00`),
+    ]);
+    const leaveByDate: Record<string, string> = {};
+    (leaveRows.data || []).forEach((r: any) => { for (let d = new Date(r.start_date); d <= new Date(r.end_date); d.setDate(d.getDate() + 1)) { if (d.getFullYear() === year && d.getMonth() + 1 === month) leaveByDate[d.toISOString().slice(0, 10)] = r.leave_type || "ลา"; } });
+    const byDay: Record<string, any> = {};
+    (attRows.data || []).forEach((r: any) => { const day = dayOf(r.event_time), t = new Date(r.event_time).getTime(), it = byDay[day] || { inTs: null, outTs: null }; if (r.event_type === "check_in") it.inTs = it.inTs ? Math.min(it.inTs, t) : t; if (r.event_type === "check_out") it.outTs = it.outTs ? Math.max(it.outTs, t) : t; byDay[day] = it; });
+    const todayStr = todayISO(), daysInMonth = new Date(year, month, 0).getDate(), days = [];
+    for (let dn = 1; dn <= daysInMonth; dn++) {
+      const dateStr = `${year}-${mm}-${String(dn).padStart(2, "0")}`;
+      const dow = new Date(dateStr + "T00:00:00+07:00").getDay(), rec = byDay[dateStr], isHoliday = !!holidays[dateStr], leaveType = leaveByDate[dateStr] || "";
+      let status = "", inStr = "", outStr = "", worked = 0, ot = 0, late = false;
+      if (rec && rec.inTs) {
+        inStr = hhmm(rec.inTs);
+        const inMin = new Date(rec.inTs + ICT * 60000).getUTCHours() * 60 + new Date(rec.inTs + ICT * 60000).getUTCMinutes();
+        late = !isHoliday && !leaveType && inMin > shiftMin + grace;
+        if (rec.outTs && rec.outTs > rec.inTs) { outStr = hhmm(rec.outTs); worked = Math.round((rec.outTs - rec.inTs) / 60000); const net = Math.max(0, worked - lunch); ot = isHoliday && holOt ? net : Math.max(0, net - otThr); status = isHoliday ? "holiday_work" : late ? "late" : "normal"; }
+        else status = "incomplete";
+      } else if (leaveType) status = "leave";
+      else if (isHoliday) status = "holiday";
+      else if (dateStr > todayStr) status = "future";
+      else if (workdays.indexOf(String(dow)) >= 0) status = "absent";
+      else status = "off";
+      days.push({ date: dateStr, day: dn, dow, status, checkIn: inStr, checkOut: outStr, workedMinutes: worked, otMinutes: ot, late, holidayName: holidays[dateStr] || "", leaveType });
+    }
+    return reply(true, "ok", { year, month, shiftStart: s.shift_start, shiftEnd: s.shift_end, shift_start: s.shift_start, shift_end: s.shift_end, days });
+  },
+  async employee_timeline(p) {
+    const e = await authMobile(p.mobileToken); if (!e) return reply(false, "Mobile authentication failed");
+    const { data } = await db.from("attendance_log").select("event_type,event_time,validity,review_status").eq("employee_id", e.employee_id).order("event_time", { ascending: false }).limit(90);
+    return reply(true, "ok", { employeeId: e.employee_id, attendance: (data || []).map((r: any) => ({ eventType: r.event_type, occurredAt: r.event_time, status: r.validity, approval: r.review_status || "" })) });
+  },
+  async leave_request(p) {
+    const e = await authMobile(p.mobileToken); if (!e) return reply(false, "Mobile authentication failed");
+    const leaveType = String(p.leaveType || "").trim(), reason = String(p.reason || "").trim(), start = String(p.startDate || ""), end = String(p.endDate || "");
+    if (!leaveType || !reason || !/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || end < start) return reply(false, "Invalid leave request");
+    await db.from("leave_requests").insert({ request_id: crypto.randomUUID(), employee_id: e.employee_id, leave_type: leaveType, start_date: start, end_date: end, reason, status: "pending", submitted_at: nowISO() });
+    return reply(true, "ส่งคำขอลาแล้ว", { status: "pending" });
+  },
+  async leave_calendar(p) {
+    const e = await authMobile(p.mobileToken); if (!e) return reply(false, "Mobile authentication failed");
+    const { data } = await db.from("leave_requests").select("*").eq("employee_id", e.employee_id);
+    return reply(true, "ok", { employeeId: e.employee_id, requests: (data || []).map((r: any) => ({ requestId: r.request_id, leaveType: r.leave_type, startDate: r.start_date, endDate: r.end_date, status: r.status })) });
+  },
+  async time_request(p) {
+    const e = await authMobile(p.mobileToken); if (!e) return reply(false, "Mobile authentication failed");
+    const requestType = lc(p.requestType), workDate = String(p.workDate || ""), minutes = Math.round(num(p.requestedMinutes)), reason = String(p.reason || "").trim();
+    if (!["overtime", "attendance_correction"].includes(requestType) || !/^\d{4}-\d{2}-\d{2}$/.test(workDate) || !reason || minutes <= 0 || minutes > 1440) return reply(false, "Invalid time request");
+    await db.from("time_requests").insert({ request_id: crypto.randomUUID(), employee_id: e.employee_id, request_type: requestType, work_date: workDate, requested_minutes: minutes, reason, status: "pending", submitted_at: nowISO() });
+    return reply(true, "ส่งคำขอแล้ว", { status: "pending", requestType });
+  },
+  async employee_time_requests(p) {
+    const e = await authMobile(p.mobileToken); if (!e) return reply(false, "Mobile authentication failed");
+    const { data } = await db.from("time_requests").select("*").eq("employee_id", e.employee_id).order("submitted_at", { ascending: false });
+    return reply(true, "ok", { employeeId: e.employee_id, requests: (data || []).map((r: any) => ({ requestId: r.request_id, requestType: r.request_type, workDate: r.work_date, requestedMinutes: r.requested_minutes, reason: r.reason, status: r.status, submittedAt: r.submitted_at, reviewerNote: r.reviewer_note })) });
+  },
+  async employee_submit_advance(p) {
+    const e = await authMobile(p.mobileToken); if (!e) return reply(false, "Mobile authentication failed");
+    const amount = num(p.amount), reason = String(p.reason || "").trim();
+    if (amount <= 0) return reply(false, "จำนวนเงินไม่ถูกต้อง");
+    if (amount > 100000) return reply(false, "จำนวนเงินเกินวงเงินที่อนุญาต");
+    const id = "ADV-" + new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
+    await db.from("advances").insert({ advance_id: id, employee_id: e.employee_id, amount, reason, request_date: todayISO(), status: "pending", created_at: nowISO() });
+    return reply(true, "ส่งคำขอเบิกเงินล่วงหน้าแล้ว", { advanceId: id });
+  },
+  async employee_advances(p) {
+    const e = await authMobile(p.mobileToken); if (!e) return reply(false, "Mobile authentication failed");
+    const { data } = await db.from("advances").select("*").eq("employee_id", e.employee_id).order("created_at", { ascending: false });
+    return reply(true, "ok", { advances: (data || []).map((r: any) => ({ advanceId: r.advance_id, employeeId: r.employee_id, amount: num(r.amount), reason: r.reason || "", requestDate: r.request_date || "", status: r.status, reviewer: r.reviewer || "", decidedAt: r.decided_at || "", paidAt: r.paid_at || "" })) });
+  },
+  async employee_change_password(p) {
+    const e = await authMobile(p.mobileToken); if (!e) return reply(false, "Mobile authentication failed");
+    const oldPw = String(p.oldPassword || ""), newPw = String(p.newPassword || "").trim();
+    if (newPw.length < 4) return reply(false, "รหัสผ่านใหม่ต้องยาวอย่างน้อย 4 ตัว");
+    if (!e.password || !(await verifyPw(oldPw, String(e.password)))) return reply(false, "รหัสผ่านเดิมไม่ถูกต้อง");
+    await db.from("employees").update({ password: await hashPw(newPw) }).eq("employee_id", e.employee_id);
+    return reply(true, "เปลี่ยนรหัสผ่านแล้ว");
+  },
+  async employee_request_password_reset(p) {
+    const employeeId = String(p.employeeId || "").trim().toUpperCase();
+    if (!employeeId) return reply(false, "ต้องระบุรหัสพนักงาน");
+    const { data: e } = await db.from("employees").select("employee_id").eq("employee_id", employeeId).maybeSingle();
+    if (e) await db.from("password_requests").insert({ request_id: crypto.randomUUID(), employee_id: employeeId, requested_at: nowISO(), status: "pending" });
+    return reply(true, "ส่งคำขอรีเซ็ตรหัสผ่านให้แอดมินแล้ว"); // same reply whether or not the id exists
   },
 };
 
