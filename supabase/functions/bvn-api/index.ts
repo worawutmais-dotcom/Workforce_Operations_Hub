@@ -414,10 +414,15 @@ const H: Record<string, (p: any) => Promise<Response>> = {
       2027: [["2027-02-21", "วันมาฆบูชา"], ["2027-02-22", "ชดเชยวันมาฆบูชา"], ["2027-05-20", "วันวิสาขบูชา"], ["2027-07-18", "วันอาสาฬหบูชา"], ["2027-07-19", "วันเข้าพรรษา"]],
     };
     const all = [...fixed, ...(lunar[y] || [])];
-    await db.from("holidays").upsert(all.map(([date, name]) => ({ date, name })), { onConflict: "date" });
+    // Optional default OT multiplier for every imported day (Bank-of-Thailand
+    // style: public holidays open OT at a premium rate). Only sent when > 0, so
+    // a plain import keeps any per-day multiplier an admin already set.
+    const dm = Math.max(0, num(p.defaultMultiplier));
+    const rows = all.map(([date, name]) => dm > 0 ? ({ date, name, multiplier: dm }) : ({ date, name }));
+    await db.from("holidays").upsert(rows, { onConflict: "date" });
     const hasLunar = !!lunar[y];
-    audit(a.display_name, "holidays_imported", String(y), `${all.length} วัน`);
-    return reply(true, `เติมวันหยุดปี ${y} แล้ว (${all.length} วัน)` + (hasLunar ? "" : " — ปีนี้ยังไม่มีวันพระในระบบ เพิ่มเองได้ที่เมนูวันหยุด"), { year: y, added: all.length });
+    audit(a.display_name, "holidays_imported", String(y), `${all.length} วัน` + (dm > 0 ? ` ×${dm}` : ""));
+    return reply(true, `เติมวันหยุดปี ${y} แล้ว (${all.length} วัน)` + (dm > 0 ? ` · OT ×${dm}` : "") + (hasLunar ? "" : " — ปีนี้ยังไม่มีวันพระในระบบ เพิ่มเองได้ที่เมนูวันหยุด"), { year: y, added: all.length });
   },
 
   async admin_record_attendance(p) {

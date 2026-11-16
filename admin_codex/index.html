@@ -1796,6 +1796,8 @@ async function renderApprovals(){
     $("#apDecided").onchange=drawList;
     drawList();
     let calBase=new Date();
+    // Holidays/OT-days so the approvals calendar can also set a day's OT rate.
+    try{ _otHolidays=(await api("admin_list_holidays")).holidays||[]; }catch(_){ _otHolidays=[]; }
     const drawCal=()=>{
       const y=calBase.getFullYear(), m=calBase.getMonth();
       $("#calLabel").textContent=["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"][m]+" "+(y+543);
@@ -1806,12 +1808,20 @@ async function renderApprovals(){
         if(isNaN(d)||isNaN(end)) return;
         for(;d<=end;d.setDate(d.getDate()+1)){ if(d.getFullYear()===y&&d.getMonth()===m){ const k=d.getDate(); (byDay[k]=byDay[k]||[]).push(empName(r.employeeId)+" ("+r.leaveType+")"); } }
       });
+      const holBy={}; _otHolidays.forEach(h=>holBy[h.date]=h);
       const first=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate(), todayISOv=todayISO();
       let cells=""; for(let i=0;i<first;i++) cells+=`<div class="cal-cell empty-cell"></div>`;
       for(let dn=1;dn<=days;dn++){ const iso=`${y}-${String(m+1).padStart(2,"0")}-${String(dn).padStart(2,"0")}`; const list=byDay[dn]||[];
-        cells+=`<div class="cal-cell${iso===todayISOv?" today":""}${list.length?" has":""}" ${list.length?`title="${esc(list.join(", "))}"`:""}>
-          <span class="cal-d">${dn}</span>${list.length?`<span class="cal-n">${list.length}</span>`:""}</div>`; }
+        const h=holBy[iso], mul=h?Number(h.multiplier||0):0, col=otMulColor(mul);
+        const tip=[list.length?list.join(", "):"", h?("วันพิเศษ: "+(h.name||"")+(mul>1?" ×"+mul:"")):""].filter(Boolean).join(" · ")||"คลิกเพื่อตั้งค่า OT วันนี้";
+        cells+=`<div class="cal-cell otcell${iso===todayISOv?" today":""}${list.length?" has":""}" data-otdate="${iso}" tabindex="0" role="button" style="position:relative;cursor:pointer${col?`;background:${col[0]}`:""}" title="${esc(tip)}">
+          <span class="cal-d"${col?` style="color:${col[1]}"`:""}>${dn}</span>${list.length?`<span class="cal-n">${list.length}</span>`:""}${mul>1?`<span class="cal-ot" style="position:absolute;right:3px;bottom:2px;font-size:10px;font-weight:700;color:${col[1]}">×${mul}</span>`:""}</div>`; }
       $("#leaveCalWrap").innerHTML=`<div class="cal-grid">${["อา","จ","อ","พ","พฤ","ศ","ส"].map(d=>`<div class="cal-head">${d}</div>`).join("")}${cells}</div>`;
+      $("#leaveCalWrap").querySelectorAll("[data-otdate]").forEach(c=>{
+        const iso=c.dataset.otdate;
+        c.onclick=()=>otDayDialog(iso, holBy[iso]);
+        c.oncontextmenu=(e)=>{ e.preventDefault(); otDayQuickMenu(e, iso, holBy[iso]); };
+      });
     };
     $("#calPrev").onclick=()=>{calBase.setMonth(calBase.getMonth()-1);drawCal();};
     $("#calNext").onclick=()=>{calBase.setMonth(calBase.getMonth()+1);drawCal();};
@@ -2170,7 +2180,7 @@ async function renderPayrules(){
         <div class="body"><div id="otRulesBody"><div class="empty">กำลังโหลด…</div></div></div>
       </div>
       <div class="panel" id="otCalPanel"><div class="head"><h2>ปฏิทินตัวคูณ OT</h2><span class="sub" style="margin-left:8px">คลิกวัน = ตั้งตัวคูณ · คลิกขวา = เมนูด่วน</span>
-        <div class="spacer"></div><button class="btn sub sm" id="otCalPrev" aria-label="เดือนก่อน">‹</button><b id="otCalLabel" style="min-width:120px;text-align:center">—</b><button class="btn sub sm" id="otCalNext" aria-label="เดือนถัดไป">›</button></div>
+        <div class="spacer"></div><button class="btn sub sm" id="otBotImport">ดึงวันหยุดแบงก์ชาติ</button><button class="btn sub sm" id="otCalPrev" aria-label="เดือนก่อน" style="margin-left:8px">‹</button><b id="otCalLabel" style="min-width:120px;text-align:center">—</b><button class="btn sub sm" id="otCalNext" aria-label="เดือนถัดไป">›</button></div>
         <div class="body">
           <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:12px;color:var(--muted)">
             <span><span class="lgd" style="background:#eef0f3;border:.5px solid var(--line)"></span> ปกติ ×1</span>
@@ -2203,6 +2213,7 @@ async function renderPayrules(){
     _otCalMonth=new Date(); _otCalMonth.setDate(1);
     $("#otCalPrev").onclick=()=>{ _otCalMonth.setMonth(_otCalMonth.getMonth()-1); otCalLoad(); };
     $("#otCalNext").onclick=()=>{ _otCalMonth.setMonth(_otCalMonth.getMonth()+1); otCalLoad(); };
+    $("#otBotImport").onclick=(e)=>otImportBotHolidays(e.target);
     otCalLoad();
   }catch(err){ errorBox(node, err, renderPayrules); }
 }
@@ -2252,6 +2263,25 @@ async function otCalLoad(){
   catch(_){ _otHolidays=[]; }
   otCalRender();
 }
+// Import the official Thai (Bank-of-Thailand) public holidays for the shown
+// year and open OT on them at the configured holiday multiplier.
+async function otImportBotHolidays(btn){
+  const year=(_otCalMonth||new Date()).getFullYear();
+  let mult=2;
+  try{ const s=(await api("admin_get_settings")).settings||{}; mult=Number(s.holiday_multiplier)||2; }catch(_){}
+  const yrTH=year+543;
+  const ok=await confirmDialog("ดึงวันหยุดแบงก์ชาติ",
+    `เติมวันหยุดทำการสถาบันการเงิน (ธปท.) ของปี <b>${yrTH}</b> ลงปฏิทิน และตั้งให้เปิด OT ที่ <b>×${mult}</b>?<br><span class="sub">วันที่ตั้งตัวคูณเองไว้แล้วจะถูกทับด้วย ×${mult}</span>`,
+    {okText:"เติมเลย"});
+  if(!ok) return;
+  await withBtn(btn, async()=>{
+    try{
+      const r=await api("admin_import_holidays",{year, defaultMultiplier:mult});
+      clearApiReadCache(); await otCalLoad();
+      toast(r.message||`เติมวันหยุดปี ${yrTH} แล้ว`,"good");
+    }catch(err){ toast(err.message,"bad"); }
+  });
+}
 function otCalRender(){
   const grid=$("#otCalGrid"); if(!grid||!_otCalMonth) return;
   const y=_otCalMonth.getFullYear(), mo=_otCalMonth.getMonth();
@@ -2287,7 +2317,9 @@ async function otSetDay(iso, mult, name){
     }else{
       await api("admin_save_holiday",{date:iso, name:name||"วันพิเศษ", multiplier:mult});
     }
-    clearApiReadCache(); await otCalLoad();
+    clearApiReadCache();
+    if(document.getElementById("otCalGrid")) await otCalLoad();
+    if(state.page==="approvals") renderApprovals();
     toast(mult>0?`ตั้ง ${iso} เป็น ×${mult} แล้ว`:`ล้าง ${iso} เป็นวันปกติแล้ว`,"good");
   }catch(err){ toast(err.message,"bad"); }
 }
