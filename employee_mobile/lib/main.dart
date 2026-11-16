@@ -1015,6 +1015,7 @@ class _Today extends StatelessWidget {
             const Spacer(),
           const SizedBox(height: 8),
           SizedBox(
+            width: double.infinity,
             height: 50,
             child: hasFinished
                 ? OutlinedButton.icon(
@@ -1823,6 +1824,7 @@ class _MonthCalendarState extends State<_MonthCalendar> {
                 _legend(const Color(0xFFD5E3FF), 'ลา'),
                 _legend(const Color(0xFFE7DFF6), 'วันหยุด'),
                 _legend(const Color(0xFFEDEFF2), 'เสาร์-อาทิตย์'),
+                _legend(const Color(0xFFFAD79A), '×N = ค่าแรงพิเศษ'),
               ],
             ),
             const SizedBox(height: 8),
@@ -1912,6 +1914,8 @@ class _MonthCalendarState extends State<_MonthCalendar> {
     final hasStatus = st.label.isNotEmpty;
     final wd = DateTime.parse(date).weekday % 7; // 0=Sun..6=Sat
     final weekend = wd == 0 || wd == 6;
+    final mult = (d['multiplier'] as num?)?.toDouble() ?? 1;
+    final premium = mult > 1;
     final bg = hasStatus
         ? st.bg
         : (weekend ? const Color(0xFFEDEFF2) : Colors.transparent);
@@ -1934,45 +1938,82 @@ class _MonthCalendarState extends State<_MonthCalendar> {
               ? Border.all(color: _greenDeep, width: 1.2)
               : null,
         ),
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
           children: [
-            Text(
-              '${d['day']}',
-              style: TextStyle(
-                fontSize: 13,
-                color: numColor,
-                fontWeight: (selected || hasStatus)
-                    ? FontWeight.w600
-                    : FontWeight.normal,
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '${d['day']}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: numColor,
+                      fontWeight: (selected || hasStatus)
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  SizedBox(
+                    height: 5,
+                    child: (hasIn || hasOut)
+                        ? Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (hasIn) _dot(_greenDeep),
+                              if (hasIn && hasOut) const SizedBox(width: 3),
+                              if (hasOut) _dot(const Color(0xFFC23636)),
+                            ],
+                          )
+                        : hasStatus
+                        ? Container(
+                            width: 13,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: st.accent,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 3),
-            SizedBox(
-              height: 5,
-              child: (hasIn || hasOut)
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (hasIn) _dot(_greenDeep),
-                        if (hasIn && hasOut) const SizedBox(width: 3),
-                        if (hasOut) _dot(const Color(0xFFC23636)),
-                      ],
-                    )
-                  : hasStatus
-                  ? Container(
-                      width: 13,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: st.accent,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
+            if (premium)
+              Positioned(
+                top: 1,
+                right: 2,
+                child: _multBadge(mult),
+              ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // Small corner badge showing a day's OT pay multiplier (holiday / weekend).
+  Widget _multBadge(double m) {
+    final (bg, fg) = m >= 3
+        ? (const Color(0xFFF4C0C0), const Color(0xFF8E1F1F))
+        : m >= 2
+        ? (const Color(0xFFFAD79A), const Color(0xFF7A4A08))
+        : (const Color(0xFFC6E3A4), const Color(0xFF2C5010));
+    final txt = m == m.roundToDouble() ? m.toStringAsFixed(0) : m.toStringAsFixed(1);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(
+        '×$txt',
+        style: TextStyle(
+          fontSize: 9,
+          height: 1,
+          fontWeight: FontWeight.w700,
+          color: fg,
         ),
       ),
     );
@@ -2105,6 +2146,19 @@ class _MonthCalendarState extends State<_MonthCalendar> {
           Icons.more_time,
           'OT',
           '${(ot / 60).toStringAsFixed(1)} ชม.',
+          _orange,
+        ),
+      );
+    }
+    final mult = (d['multiplier'] as num?)?.toDouble() ?? 1;
+    if (mult > 1) {
+      final mtxt =
+          mult == mult.roundToDouble() ? mult.toStringAsFixed(0) : mult.toStringAsFixed(1);
+      rows.add(
+        _detailLine(
+          Icons.payments,
+          'ค่าแรงวันนี้',
+          '×$mtxt (${holiday.isNotEmpty ? 'วันหยุด' : (dt.weekday % 7 == 0 ? 'วันอาทิตย์' : dt.weekday % 7 == 6 ? 'วันเสาร์' : 'วันพิเศษ')})',
           _orange,
         ),
       );

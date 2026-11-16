@@ -783,8 +783,9 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     const grace = num(s.shift_grace_min) || 5, lunch = num(s.lunch_break_min) || 60, otThr = (num(s.ot_threshold_hours) || 8) * 60, holOt = s.holiday_ot_enabled === "true";
     const workdays = String(s.workdays || "1,2,3,4,5").split(",").map((x) => x.trim());
     const mm = String(month).padStart(2, "0");
-    const [holidays, leaveRows, attRows] = await Promise.all([
+    const [holidays, holMult, leaveRows, attRows] = await Promise.all([
       holidayMap(year),
+      holidayMultMap(`${year}-${mm}-01`, `${year}-${mm}-31`),
       db.from("leave_requests").select("leave_type,start_date,end_date").eq("employee_id", e.employee_id).eq("status", "approved"),
       db.from("attendance_log").select("event_type,event_time").eq("employee_id", e.employee_id).eq("validity", "accepted").gte("event_time", `${year}-${mm}-01T00:00:00+07:00`).lte("event_time", `${year}-${mm}-31T23:59:59+07:00`),
     ]);
@@ -808,7 +809,17 @@ const H: Record<string, (p: any) => Promise<Response>> = {
       else if (dateStr > todayStr) status = "future";
       else if (workdays.indexOf(String(dow)) >= 0) status = "absent";
       else status = "off";
-      days.push({ date: dateStr, day: dn, dow, status, checkIn: inStr, checkOut: outStr, workedMinutes: worked, otMinutes: ot, late, holidayName: holidays[dateStr] || "", leaveType });
+      // Premium pay multiplier shown to the employee for this calendar day.
+      // Only flags holiday / weekend / calendar-override days; a normal weekday = 1 (no badge).
+      let dayMult = 1;
+      if (s.ot_auto_apply !== "false") {
+        const ex = holMult[dateStr];
+        if (ex && ex > 0) dayMult = ex;
+        else if (isHoliday) dayMult = num(s.holiday_multiplier) || 2;
+        else if (dow === 0) dayMult = num(s.ot_sunday_multiplier) || 2;
+        else if (dow === 6 && s.ot_saturday_enabled === "true") dayMult = num(s.ot_saturday_multiplier) || 1.5;
+      }
+      days.push({ date: dateStr, day: dn, dow, status, checkIn: inStr, checkOut: outStr, workedMinutes: worked, otMinutes: ot, late, holidayName: holidays[dateStr] || "", leaveType, multiplier: dayMult });
     }
     return reply(true, "ok", { year, month, shiftStart: s.shift_start, shiftEnd: s.shift_end, shift_start: s.shift_start, shift_end: s.shift_end, days });
   },
