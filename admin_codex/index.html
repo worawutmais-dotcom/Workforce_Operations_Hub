@@ -1386,7 +1386,7 @@ async function renderDashboard(data, preloaded={}){
           <button class="btn ghost" data-act="ot">บันทึก OT</button>
           ${canFinance?`<button class="btn ghost" data-act="inv">ออกใบแจ้งหนี้</button><button class="btn ghost" data-nav="payroll">พรีวิวเงินเดือน</button>`:""}
         </div>`;
-      renderPeoplePulse(team, dashShiftMin);
+      renderPeoplePulse(team, dashShiftMin, dashSettings.workdays);
     } else {
       // Finance-only account: focused financial summary (unchanged layout).
       node.innerHTML=`
@@ -1437,27 +1437,44 @@ function dashboardFallback(node, err){
 }
 // Per-person attendance pulse for the dashboard: a mini donut (on-time vs late)
 // + counts for the current month. Clicking opens that person's calendar.
-async function renderPeoplePulse(team, shiftMin){
+async function renderPeoplePulse(team, shiftMin, workdays){
   const box=document.getElementById("peoplePulse"); if(!box) return;
   try{
     const now=new Date(), start=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-01`, end=todayISO();
-    const d=await api("admin_attendance_days",{startDate:start,endDate:end});
-    const by={}; (d.days||[]).forEach(r=>{ if(!r.checkIn) return; const x=by[r.employeeId]||{present:0,late:0}; x.present++; if(pmHM(r.checkIn)>shiftMin) x.late++; by[r.employeeId]=x; });
+    const [attD, holD]=await Promise.all([
+      api("admin_attendance_days",{startDate:start,endDate:end}),
+      api("admin_list_holidays").catch(()=>({holidays:[]})),
+    ]);
+    const by={}; (attD.days||[]).forEach(r=>{ if(!r.checkIn) return; const x=by[r.employeeId]||{present:0,late:0}; x.present++; if(pmHM(r.checkIn)>shiftMin) x.late++; by[r.employeeId]=x; });
+    // Expected workdays elapsed this month (per the schedule, excluding holidays) → used for "ขาด".
+    const wd=String(workdays||"1,2,3,4,5").split(",").map(x=>x.trim()).filter(x=>x!=="");
+    const holSet=new Set((holD.holidays||[]).map(h=>h.date));
+    let expected=0;
+    for(let dt=new Date(now.getFullYear(),now.getMonth(),1); dt<=now; dt.setDate(dt.getDate()+1)){
+      const iso=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+      if(wd.includes(String(dt.getDay())) && !holSet.has(iso)) expected++;
+    }
     const people=(team||[]).filter(e=>String(e.status||"").toLowerCase()==="active");
     if(!people.length){ box.innerHTML=`<div class="empty">ยังไม่มีพนักงานที่ใช้งานอยู่</div>`; return; }
-    box.style.display="grid"; box.style.gridTemplateColumns="repeat(auto-fill,minmax(158px,1fr))"; box.style.gap="10px";
-    box.innerHTML=people.map(e=>{
-      const s=by[e.id]||{present:0,late:0}, onTime=Math.max(0,s.present-s.late), tot=s.present||1;
-      const pOn=Math.round(onTime/tot*100);
+    box.style.display="grid"; box.style.gridTemplateColumns="repeat(auto-fill,minmax(168px,1fr))"; box.style.gap="10px";
+    box.innerHTML=`<div style="grid-column:1/-1;display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-bottom:2px">
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#10b981;vertical-align:-1px"></span> มาตรงเวลา</span>
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#f59e0b;vertical-align:-1px"></span> สาย</span>
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#f43f5e;vertical-align:-1px"></span> ขาด</span>
+      </div>`+people.map(e=>{
+      const s=by[e.id]||{present:0,late:0}, onTime=Math.max(0,s.present-s.late), late=s.late, absent=Math.max(0,expected-s.present);
+      const tot=(onTime+late+absent)||1;
+      const pOn=Math.round(onTime/tot*100), pLate=Math.round(late/tot*100), pAbs=Math.max(0,100-pOn-pLate);
       return `<button class="card" data-calendar="${esc(e.id)}" style="display:flex;align-items:center;gap:11px;padding:11px;cursor:pointer;text-align:left;border:1px solid var(--line)">
         <svg viewBox="0 0 42 42" width="50" height="50" style="flex:none">
           <circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--line-soft)" stroke-width="5"></circle>
           <circle cx="21" cy="21" r="15.915" fill="none" stroke="#10b981" stroke-width="5" pathLength="100" stroke-dasharray="${pOn} ${100-pOn}" stroke-dashoffset="25"></circle>
-          <circle cx="21" cy="21" r="15.915" fill="none" stroke="#f59e0b" stroke-width="5" pathLength="100" stroke-dasharray="${100-pOn} ${pOn}" stroke-dashoffset="${25-pOn}"></circle>
+          <circle cx="21" cy="21" r="15.915" fill="none" stroke="#f59e0b" stroke-width="5" pathLength="100" stroke-dasharray="${pLate} ${100-pLate}" stroke-dashoffset="${25-pOn}"></circle>
+          <circle cx="21" cy="21" r="15.915" fill="none" stroke="#f43f5e" stroke-width="5" pathLength="100" stroke-dasharray="${pAbs} ${100-pAbs}" stroke-dashoffset="${25-pOn-pLate}"></circle>
           <text x="21" y="24" text-anchor="middle" style="font-size:10px;font-weight:700;fill:var(--ink)">${fmtInt(s.present)}</text>
         </svg>
         <span style="flex:1;min-width:0"><span style="font-size:13px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.name)}</span>
-          <span class="sub" style="font-size:11px;display:block;margin-top:3px"><span style="color:#047857">มา ${fmtInt(s.present)}</span> · <span style="color:#b45309">สาย ${fmtInt(s.late)}</span></span></span>
+          <span class="sub" style="font-size:11px;display:block;margin-top:3px"><span style="color:#047857">มา ${fmtInt(onTime)}</span> · <span style="color:#b45309">สาย ${fmtInt(late)}</span> · <span style="color:#be123c">ขาด ${fmtInt(absent)}</span></span></span>
       </button>`;
     }).join("");
     box.querySelectorAll("[data-calendar]").forEach(b=>b.onclick=()=>openAttendanceCalendar(b.dataset.calendar));
