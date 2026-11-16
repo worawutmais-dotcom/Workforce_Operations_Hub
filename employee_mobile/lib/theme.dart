@@ -12,32 +12,32 @@ import 'package:flutter/material.dart';
 
 // ── Brand palette ──────────────────────────────────────────────────────────
 /// Primary brand green (matches the console `#259b24`).
-const kBrand = Color(0xFF259B24);
+const kBrand = Color(0xFF1E3A5F);
 
 /// Deep brand green for gradients, headers and emphasis (console `#1f7c33`).
-const kBrandDeep = Color(0xFF1F7C33);
+const kBrandDeep = Color(0xFF152C47);
 
 /// Darkest green for the foot of hero gradients.
-const kBrandDarker = Color(0xFF123F1C);
+const kBrandDarker = Color(0xFF0B1B2D);
 
 /// Soft green wash for active pills, chips and tinted icon tiles.
-const kBrandSoft = Color(0xFFE6F8EA);
+const kBrandSoft = Color(0xFFE9EEF5);
 
 /// Slightly deeper green ink for text on soft-green surfaces.
-const kBrandInk = Color(0xFF176D16);
+const kBrandInk = Color(0xFF1E3A5F);
 
 // ── Neutrals ───────────────────────────────────────────────────────────────
 /// Primary text — a deep green-slate that reads calm against white.
-const kInk = Color(0xFF17241B);
+const kInk = Color(0xFF0F172A);
 
 /// Secondary / muted text.
-const kMuted = Color(0xFF5E7064);
+const kMuted = Color(0xFF64748B);
 
 /// App canvas — a barely-there green tint so white cards lift off it.
-const kCanvas = Color(0xFFF2F6F2);
+const kCanvas = Color(0xFFF8FAFC);
 
 /// Hairline borders on cards and inputs.
-const kHair = Color(0xFFDCE6DD);
+const kHair = Color(0xFFEEF1F6);
 
 // ── Semantic ───────────────────────────────────────────────────────────────
 /// Attention / late / pending.
@@ -62,25 +62,25 @@ const double kRadiusSm = 12;
 const kHeroGradient = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
-  colors: [kBrandDeep, Color(0xFF2E9A3A)],
+  colors: [kBrandDeep, Color(0xFF27496D)],
 );
 
 /// A deeper variant used behind content that needs more contrast.
 const kHeroGradientDeep = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
-  colors: [Color(0xFF1C6E2C), kBrandDarker],
+  colors: [Color(0xFF1E3A5F), kBrandDarker],
 );
 
 /// Resting soft shadow for raised cards — low, wide and quiet.
 List<BoxShadow> get kSoftShadow => const [
-  BoxShadow(color: Color(0x0F1B3A24), blurRadius: 16, offset: Offset(0, 6)),
+  BoxShadow(color: Color(0x0F15233A), blurRadius: 16, offset: Offset(0, 6)),
   BoxShadow(color: Color(0x0A000000), blurRadius: 2, offset: Offset(0, 1)),
 ];
 
 /// A slightly stronger shadow for the hero / floating action surfaces.
 List<BoxShadow> get kHeroShadow => const [
-  BoxShadow(color: Color(0x332E8B36), blurRadius: 22, offset: Offset(0, 10)),
+  BoxShadow(color: Color(0x331E3A5F), blurRadius: 22, offset: Offset(0, 10)),
 ];
 
 ThemeData bvnTheme(Brightness brightness) {
@@ -127,7 +127,7 @@ ThemeData bvnTheme(Brightness brightness) {
     dividerTheme: const DividerThemeData(color: kHair, thickness: 1, space: 1),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: const Color(0xFFF7FAF7),
+      fillColor: const Color(0xFFF8FAFC),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
       labelStyle: const TextStyle(color: kMuted, fontSize: 14),
       floatingLabelStyle: const TextStyle(
@@ -151,7 +151,7 @@ ThemeData bvnTheme(Brightness brightness) {
       style: FilledButton.styleFrom(
         backgroundColor: kBrand,
         foregroundColor: Colors.white,
-        disabledBackgroundColor: const Color(0xFFBFD6C2),
+        disabledBackgroundColor: const Color(0xFFCBD5E1),
         disabledForegroundColor: Colors.white,
         minimumSize: const Size(0, 50),
         textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
@@ -163,7 +163,7 @@ ThemeData bvnTheme(Brightness brightness) {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: kBrandDeep,
-        side: const BorderSide(color: Color(0xFFBCD9BE)),
+        side: const BorderSide(color: Color(0xFFCBD5E1)),
         minimumSize: const Size(0, 48),
         textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
         shape: RoundedRectangleBorder(
@@ -178,7 +178,7 @@ ThemeData bvnTheme(Brightness brightness) {
       ),
     ),
     chipTheme: const ChipThemeData(
-      backgroundColor: Color(0xFFEFF3EF),
+      backgroundColor: Color(0xFFF1F5F9),
       selectedColor: kBrand,
       side: BorderSide(color: kHair),
       labelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),

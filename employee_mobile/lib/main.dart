@@ -45,18 +45,17 @@ class PppBrandMark extends StatelessWidget {
     width: size,
     height: size,
     decoration: BoxDecoration(
-      color: Colors.white,
-      shape: BoxShape.circle,
-      border: Border.all(color: const Color(0xFF173957), width: size * .055),
+      color: kBrand,
+      borderRadius: BorderRadius.circular(size * .28),
     ),
     alignment: Alignment.center,
     child: Text(
-      'PPP',
+      'BVN',
       style: TextStyle(
-        color: const Color(0xFF173957),
-        fontWeight: FontWeight.w900,
-        fontSize: size * .27,
-        letterSpacing: -size * .055,
+        color: Colors.white,
+        fontWeight: FontWeight.w700,
+        fontSize: size * .30,
+        letterSpacing: -size * .02,
       ),
     ),
   );
@@ -1602,10 +1601,10 @@ _StatusStyle _statusStyle(String s) {
   switch (s) {
     case 'normal':
       return const _StatusStyle(
-        Color(0xFFD3EFDC),
-        Color(0xFF0A6B45),
+        Color(0xFFD1FAE5),
+        Color(0xFF047857),
         'ปกติ',
-        Color(0xFF1F9D57),
+        Color(0xFF10B981),
       );
     case 'late':
       return const _StatusStyle(
@@ -1818,7 +1817,7 @@ class _MonthCalendarState extends State<_MonthCalendar> {
               spacing: 10,
               runSpacing: 5,
               children: [
-                _legend(const Color(0xFFD3EFDC), 'ปกติ'),
+                _legend(const Color(0xFFD1FAE5), 'ปกติ'),
                 _legend(const Color(0xFFFBE7BE), 'สาย'),
                 _legend(const Color(0xFFFBD5D5), 'ขาด/ไม่ครบ'),
                 _legend(const Color(0xFFD5E3FF), 'ลา'),
