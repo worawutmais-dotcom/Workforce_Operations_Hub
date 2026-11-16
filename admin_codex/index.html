@@ -1587,7 +1587,9 @@ async function renderPeople(){
             <span style="width:30px;height:30px;border-radius:50%;flex:none;background:${sel?"var(--blue)":"var(--line-soft)"};color:${sel?"#fff":"var(--muted)"};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">${esc(ini)}</span>
             <span style="flex:1;min-width:0"><span style="font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.name)}</span><span class="sub" style="font-size:10px">${esc(e.id)}${e.status!=="active"?" · ปิดใช้งาน":""}</span></span>
           </button>
+          ${e.locationRequired?`<span title="ต้องเช็กอินในพื้นที่ (GPS)" style="flex:none;display:inline-flex;color:var(--blue)" aria-label="บังคับ GPS"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 21s-7-5.2-7-11a7 7 0 0 1 14 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span>`:""}
           ${pc?`<span class="badge red" style="flex:none">${pc}</span>`:""}
+          <button class="p-cal" data-emp="${esc(e.id)}" title="ปฏิทินรายคน" aria-label="ปฏิทิน ${esc(e.name)}" style="flex:none;display:inline-flex;border:0;background:none;cursor:pointer;color:var(--muted);padding:3px 5px;border-radius:7px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg></button>
           <button class="p-menu" data-emp="${esc(e.id)}" aria-label="จัดการ ${esc(e.name)}" title="จัดการ" style="flex:none;border:0;background:none;cursor:pointer;color:var(--muted);font-size:17px;line-height:1;padding:3px 7px;border-radius:7px">⋯</button>
         </div>`;
       }).join(""):`<div class="empty">ไม่พบพนักงาน</div>`;
@@ -1598,6 +1600,7 @@ async function renderPeople(){
         ...(emp.status==="active"?[{label:"⛔ ปิดใช้งาน", danger:true, fn:()=>deactivate(emp)}]:[]),
       ]; };
       $("#pList").querySelectorAll(".p-open").forEach(b=>b.onclick=()=>{ _peopleSel=b.dataset.emp; drawList($("#pSearch").value); openAttendanceCalendar(b.dataset.emp); });
+      $("#pList").querySelectorAll(".p-cal").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); openAttendanceCalendar(b.dataset.emp); });
       $("#pList").querySelectorAll(".p-menu").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); openRowMenu(e.clientX, e.clientY, menuFor(b.dataset.emp)); });
       $("#pList").querySelectorAll(".p-emp").forEach(row=>attachRowMenu(row, menuFor(row.dataset.emp)));
     };
@@ -2392,10 +2395,27 @@ let _otCalMonth=null, _otHolidays=[];
 const OTCAL_TH_MON=["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 const OT_COLORS={1.5:["#C0DD97","#27500A"],2:["#FAC775","#633806"],3:["#F09595","#791F1F"]};
 function otMulColor(m){ if(!m||m<=1) return null; if(m>=3) return OT_COLORS[3]; if(m>=2) return OT_COLORS[2]; return OT_COLORS[1.5]; }
+let _otRules={};
 async function otCalLoad(){
   try{ const d=await api("admin_list_holidays"); _otHolidays=d.holidays||[]; }
   catch(_){ _otHolidays=[]; }
+  try{ _otRules=(await api("admin_get_settings")).settings||{}; }catch(_){ _otRules={}; }
   otCalRender();
+}
+// Effective OT multiplier shown on the calendar for a given date, applying the
+// same priority as payroll: calendar override → holiday → Sunday/Saturday → normal.
+// Returns {mult, derived, isHoliday} — derived=true means it comes from a rule
+// (weekend/holiday default), not an explicit per-day value.
+function otEffectiveMult(iso, h){
+  const s=_otRules||{}, auto=s.ot_auto_apply!=="false";
+  let m=h?Number(h.multiplier||0):0;
+  if(m>0) return {mult:m, derived:false, isHoliday:!!h};
+  if(!auto) return {mult:0, derived:false, isHoliday:!!h};
+  const dow=new Date(iso+"T00:00:00Z").getUTCDay();
+  if(h) return {mult:Number(s.holiday_multiplier)||2, derived:true, isHoliday:true};
+  if(dow===0) return {mult:Number(s.ot_sunday_multiplier)||2, derived:true, isHoliday:false};
+  if(dow===6 && s.ot_saturday_enabled==="true") return {mult:Number(s.ot_saturday_multiplier)||1.5, derived:true, isHoliday:false};
+  return {mult:0, derived:false, isHoliday:false, weekend:(dow===0||dow===6)};
 }
 // Import the official Thai (Bank-of-Thailand) public holidays for the shown
 // year and open OT on them at the configured holiday multiplier.
@@ -2426,13 +2446,18 @@ function otCalRender(){
   for(let i=0;i<first;i++) html+="<div></div>";
   for(let d=1;d<=days;d++){
     const iso=`${y}-${String(mo+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-    const h=byDate[iso], m=h?Number(h.multiplier||0):0, col=otMulColor(m);
-    const bg=col?col[0]:"var(--card)", fg=col?col[1]:"var(--muted)";
+    const dow=(first+d-1)%7;
+    const h=byDate[iso], eff=otEffectiveMult(iso,h), m=eff.mult, col=otMulColor(m);
+    // weekends with no premium still read as a soft "day off" tint.
+    const weekendTint=(!col && (dow===0||dow===6));
+    const bg=col?col[0]:(weekendTint?"var(--line-soft)":"var(--card)");
+    const fg=col?col[1]:"var(--muted)";
+    const dayLabel=(h&&h.name)?h.name:(eff.derived?(eff.isHoliday?"วันหยุด":dow===0?"อาทิตย์":"เสาร์"):"");
     html+=`<div class="otcal-day" data-date="${iso}" tabindex="0" role="button"
       style="position:relative;min-height:46px;border-radius:8px;padding:5px 6px;cursor:pointer;background:${bg};border:.5px solid ${col?"transparent":"var(--line)"}">
-      <div style="font-size:12px;color:${col?fg:"var(--ink)"}">${d}</div>
-      ${m>1?`<div style="position:absolute;right:5px;bottom:4px;font-size:13px;font-weight:600;color:${fg}">×${m}</div>`:""}
-      ${h&&h.name?`<div style="font-size:9px;line-height:1.1;margin-top:1px;color:${col?fg:"var(--muted)"};overflow:hidden;max-height:20px">${esc(h.name)}</div>`:""}
+      <div style="font-size:12px;color:${col?fg:(dow===0?"#c0392b":dow===6?"#2f6be0":"var(--ink)")}">${d}</div>
+      ${m>1?`<div style="position:absolute;right:5px;bottom:4px;font-size:13px;font-weight:600;color:${fg};opacity:${eff.derived?.72:1}">×${m}</div>`:""}
+      ${dayLabel?`<div style="font-size:9px;line-height:1.1;margin-top:1px;color:${col?fg:"var(--muted)"};overflow:hidden;max-height:20px">${esc(dayLabel)}</div>`:""}
     </div>`;
   }
   grid.innerHTML=html;
