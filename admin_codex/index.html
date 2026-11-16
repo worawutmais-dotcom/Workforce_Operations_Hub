@@ -1502,6 +1502,7 @@ async function renderEmployees(){
         <div class="head">
           <div class="toolbar"><input type="search" id="empSearch" placeholder="ค้นหา ชื่อ / รหัส / แผนก" style="width:260px"></div>
           <div class="spacer"></div>
+          <button class="btn sub" id="expEmpBtn">ส่งออก CSV</button>
           <button class="btn" id="addEmpBtn">+ เพิ่มพนักงาน</button>
         </div>
         <div class="body flush"><table id="empTable">
@@ -1557,6 +1558,7 @@ async function renderEmployees(){
     draw();
     $("#empSearch").oninput=e=>{ page=1; draw(e.target.value); };
     $("#addEmpBtn").onclick=()=>employeeDialog(null);
+    $("#expEmpBtn").onclick=()=>exportEmployeesCSV();
     loadPwRequests();
   }catch(err){ errorBox(node, err, renderEmployees); }
 }
@@ -2052,17 +2054,81 @@ async function viewSnapshot(payrollId){
   }catch(err){ toast(err.message,"bad"); }
 }
 
+// Generic CSV download used by every export (payroll, employees, attendance, backup).
+// Writes a UTF-8 BOM so Thai text opens correctly in Excel.
+function downloadCSV(filename, rows, msg){
+  const csv="﻿"+rows.map(r=>r.map(c=>`"${String(c==null?"":c).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+  const a=document.createElement("a"); a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url); toast(msg||"ส่งออก CSV แล้ว","good");
+}
 function exportCSV(data, kind){
   const rows=[["payroll_id","employee_id","employee_name","regular_minutes","ot_minutes","base_gross","ot_gross","gross_pay","advance_deduction","sso","other_deduction","net_pay"]];
   (data.lines||[]).forEach(l=>rows.push([
     data.payrollId||("PREVIEW "+data.startDate+".."+data.endDate), l.employeeId, empName(l.employeeId),
     l.regularMinutes||0, l.otMinutes||0, l.baseGross||0, l.otGross||0, l.grossPay||0,
     l.advanceDeduction||0, l.sso||0, l.otherDeduction||0, (l.netPay!=null?l.netPay:l.grossPay)||0]));
-  const csv="﻿"+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n");
-  const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
-  const a=document.createElement("a"); a.href=url;
-  a.download=(data.payrollId||("payroll_"+kind+"_"+(data.startDate||todayISO())))+".csv"; a.click();
-  URL.revokeObjectURL(url); toast("ส่งออก CSV แล้ว","good");
+  downloadCSV((data.payrollId||("payroll_"+kind+"_"+(data.startDate||todayISO())))+".csv", rows);
+}
+// Export the full employee directory (no password values — hashes stay server-only).
+function exportEmployeesCSV(){
+  const list=(state.employees||[]).slice().sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+  if(!list.length){ toast("ยังไม่มีพนักงานให้ส่งออก","bad"); return; }
+  const rows=[["employee_id","name","role","department","location_required","status"]];
+  list.forEach(e=>rows.push([e.id, e.name, e.role||"", e.department||"", e.locationRequired?"yes":"no", e.status||""]));
+  downloadCSV("employees_"+todayISO()+".csv", rows, "ส่งออกรายชื่อพนักงานแล้ว");
+}
+// Export attendance days for a date range (uses the same admin_attendance_days
+// feed as the calendar, so the export always matches what the console shows).
+async function exportAttendanceCSV(startDate, endDate){
+  const data=await api("admin_attendance_days",{startDate,endDate});
+  const list=(data&&data.days)||[];
+  if(!list.length){ toast("ไม่มีข้อมูลเวลาในช่วงที่เลือก","bad"); return; }
+  const rows=[["date","employee_id","employee_name","check_in","check_out","worked_minutes","status"]];
+  list.forEach(r=>rows.push([
+    r.date||"", r.employeeId||"", r.name||empName(r.employeeId)||"",
+    r.checkIn||"", r.checkOut||"", r.workedMinutes||0, r.status||""]));
+  downloadCSV("attendance_"+startDate+"_"+endDate+".csv", rows, "ส่งออกเวลาเข้าออกแล้ว");
+}
+// Date-range picker for the attendance export; defaults to the current month.
+function attendanceExportDialog(){
+  const now=new Date();
+  const first=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);
+  const today=todayISO();
+  const body=el(`<div>
+    <p class="sub" style="margin:0 0 12px">เลือกช่วงวันที่เพื่อส่งออกเวลาเข้า-ออกเป็นไฟล์ CSV (เปิดใน Excel ได้)</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="field"><label>ตั้งแต่วันที่</label><input id="attExpStart" type="date" value="${first}"></div>
+      <div class="field"><label>ถึงวันที่</label><input id="attExpEnd" type="date" value="${today}"></div>
+    </div></div>`);
+  const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
+  const run=el(`<button class="btn">ส่งออก CSV</button>`);
+  run.onclick=()=>withBtn(run, async()=>{
+    const s=body.querySelector("#attExpStart").value, e=body.querySelector("#attExpEnd").value;
+    if(!s||!e){ toast("กรุณาเลือกช่วงวันที่","bad"); return; }
+    if(s>e){ toast("วันที่เริ่มต้องไม่เกินวันที่สิ้นสุด","bad"); return; }
+    await exportAttendanceCSV(s,e); closeModal();
+  });
+  openModal("ส่งออกเวลาเข้า-ออก", body, [cancel, run]);
+}
+// Full backup: settings + directory + pay rules + sites + holidays + payroll index
+// as one JSON file, so the owner always holds a portable copy of their data.
+async function exportFullBackup(){
+  const sections={
+    settings:"admin_get_settings", employees:"admin_list_employees", payRules:"admin_list_pay_rules",
+    sites:"admin_list_sites", holidays:"admin_list_holidays", payrolls:"admin_list_payrolls",
+  };
+  const bundle={ exportedAt:new Date().toISOString(), app:"BVN Package", kind:"admin_backup" };
+  const errors=[];
+  for(const [key,action] of Object.entries(sections)){
+    try{ bundle[key]=await api(action); }
+    catch(err){ bundle[key]=null; errors.push(key); }
+  }
+  const json=JSON.stringify(bundle,null,2);
+  const url=URL.createObjectURL(new Blob([json],{type:"application/json;charset=utf-8"}));
+  const a=document.createElement("a"); a.href=url; a.download="bvn_backup_"+todayISO()+".json"; a.click();
+  URL.revokeObjectURL(url);
+  toast(errors.length?("สำรองข้อมูลแล้ว (บางส่วนไม่สำเร็จ: "+errors.join(", ")+")"):"ดาวน์โหลดไฟล์สำรองแล้ว", errors.length?"bad":"good");
 }
 
 /* =================================================================
@@ -2247,7 +2313,8 @@ async function renderOwner(){
         <div class="panel"><div class="head"><b>บันทึกเวลาเข้า-ออก</b> <span class="sub">(บรรทัดเดียวต่อวัน)</span><div class="spacer"></div>
           <select id="ownEmp" style="padding:7px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--card);color:var(--ink)"></select>
           <button class="btn ok sm" id="ownIn" style="margin-left:8px">ลงเวลาเข้า</button>
-          <button class="btn danger sm" id="ownOut">ลงเวลาออก</button></div>
+          <button class="btn danger sm" id="ownOut">ลงเวลาออก</button>
+          <button class="btn sub sm" id="expAttBtn" style="margin-left:8px">ส่งออก CSV</button></div>
           <div class="body flush"><table>
             <thead><tr><th>วันที่</th><th>พนักงาน</th><th>เข้า</th><th>ออก</th><th class="num">รวม</th><th>สถานะ</th></tr></thead>
             <tbody id="ownAtt"><tr><td colspan="6"><div class="empty">กำลังโหลด…</div></td></tr></tbody>
@@ -2334,6 +2401,7 @@ async function renderOwner(){
     sel.onchange=()=>{ ownerState.emp=sel.value; loadAtt(); };
     $("#ownIn").onclick=()=>adminClock("check_in", null, null, $("#ownIn"));
     $("#ownOut").onclick=()=>adminClock("check_out", null, null, $("#ownOut"));
+    $("#expAttBtn").onclick=()=>attendanceExportDialog();
     loadAtt();
     loadPersonMonth();
   }catch(err){ errorBox(node, err, renderOwner); }
@@ -3191,6 +3259,12 @@ async function renderSettings(){
         <div class="toolbar"><button class="btn" id="saveAppVer">บันทึกเวอร์ชันแอป</button></div>
       </div>
     </div>
+    <div class="panel"><div class="head"><h2>สำรองข้อมูล</h2><span class="sub" style="margin-left:8px">ดึงข้อมูลออกเก็บเอง — ข้อมูลเป็นของคุณ ไม่ถูกจับเป็นตัวประกัน</span></div>
+      <div class="body">
+        <p class="sub" style="margin:0 0 12px">ดาวน์โหลดข้อมูลตั้งค่า + รายชื่อพนักงาน + ค่าจ้าง + จุดเช็กอิน + วันหยุด + รายการงวดเงินเดือน เป็นไฟล์ JSON เดียว (เก็บไว้สำรอง หรือย้ายระบบในอนาคต) สำหรับเวลาเข้า-ออกให้ใช้ปุ่มส่งออก CSV ในหน้าเวลาทำงาน</p>
+        <div class="toolbar"><button class="btn" id="backupBtn">ดาวน์โหลดไฟล์สำรอง (JSON)</button></div>
+      </div>
+    </div>
     <details class="panel advanced-settings"><summary><span><b>การเชื่อมต่อขั้นสูง</b><small>สำหรับผู้ดูแลระบบเมื่อเปลี่ยน endpoint/หลังบ้าน</small></span><span aria-hidden="true">⌄</span></summary>
       <div class="body">
         <div class="field"><label>Endpoint (/exec หรือ Supabase function)</label><input id="setEndpoint" type="url" value="${esc(state.endpoint||"")}"></div>
@@ -3210,6 +3284,7 @@ async function renderSettings(){
   };
   $("#addHoliday").onclick=()=>holidayDialog();
   $("#importHoliday").onclick=(e)=>importHolidays(e.target);
+  $("#backupBtn").onclick=(e)=>withBtn(e.target, exportFullBackup);
   $("#saveAppVer").onclick=async(e)=>{ await withBtn(e.target, async()=>{
     try{
       await api("admin_save_settings",{settings:{
