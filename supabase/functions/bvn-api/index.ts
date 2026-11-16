@@ -117,6 +117,31 @@ async function holidayMap(year: number): Promise<Record<string, string>> {
   const { data } = await db.from("holidays").select("date,name").like("date", year + "-%");
   const m: Record<string, string> = {}; (data || []).forEach((h: any) => (m[h.date] = h.name)); return m;
 }
+// date -> explicit per-day multiplier (0 = no explicit value) for a date range.
+async function holidayMultMap(start: string, end: string): Promise<Record<string, number>> {
+  const { data } = await db.from("holidays").select("date,multiplier").gte("date", start).lte("date", end);
+  const m: Record<string, number> = {}; (data || []).forEach((h: any) => (m[h.date] = num(h.multiplier))); return m;
+}
+// Weekday (0=Sun..6=Sat) of a plain 'YYYY-MM-DD' calendar date, timezone-safe.
+function weekdayOf(date: string): number { return new Date(date + "T00:00:00Z").getUTCDay(); }
+// Resolve the OT pay multiplier for one work date, by priority:
+//   1) explicit per-day value in the calendar (holidays.multiplier > 0)
+//   2) a holiday row without an explicit value -> settings.holiday_multiplier
+//   3) Sunday / Saturday weekday rules
+//   4) the employee's own ot_multiplier (fallback: settings.ot_multiplier, else 1.5)
+function resolveOtMultiplier(
+  workDate: string, holMult: Record<string, number>, isHolidayRow: boolean,
+  s: Record<string, string>, rule: any,
+): number {
+  if (s.ot_auto_apply === "false") return num(rule?.ot_multiplier) || num(s.ot_multiplier) || 1.5;
+  const explicit = holMult[workDate];
+  if (explicit && explicit > 0) return explicit;
+  if (isHolidayRow) return num(s.holiday_multiplier) || 2;
+  const dow = weekdayOf(workDate);
+  if (dow === 0) return num(s.ot_sunday_multiplier) || 2;
+  if (dow === 6 && s.ot_saturday_enabled === "true") return num(s.ot_saturday_multiplier) || 1.5;
+  return num(rule?.ot_multiplier) || num(s.ot_multiplier) || 1.5;
+}
 async function todayAttState(employeeId: string) {
   const day = todayISO();
   const { data } = await db.from("attendance_log").select("event_type").eq("employee_id", employeeId).eq("validity", "accepted")
@@ -193,14 +218,16 @@ async function pruneDeadSessions() {
 
 // ---------- payroll preview (ported from adminPreviewPayroll_) ----------
 async function previewPayroll(start: string, end: string) {
-  const [rulesRes, logsRes, otRes, settings] = await Promise.all([
+  const [rulesRes, logsRes, otRes, settings, holMult] = await Promise.all([
     db.from("payroll_rules").select("*"),
     db.from("attendance_log").select("employee_id,event_type,event_time").eq("validity", "accepted")
       .gte("event_time", start + "T00:00:00+07:00").lte("event_time", end + "T23:59:59+07:00"),
     db.from("time_requests").select("employee_id,requested_minutes,work_date").eq("request_type", "overtime")
       .eq("status", "approved").gte("work_date", start).lte("work_date", end),
     settingsMap(),
+    holidayMultMap(start, end),
   ]);
+  const holidayDays = new Set(Object.keys(holMult));
   const ruleBy: Record<string, any> = {};
   (rulesRes.data || []).forEach((r: any) => (ruleBy[r.employee_id] = r));
   const byDay: Record<string, any> = {};
@@ -228,7 +255,10 @@ async function previewPayroll(start: string, end: string) {
   (otRes.data || []).forEach((r: any) => {
     const rule = ruleBy[r.employee_id]; if (!rule) return;
     const line = result[r.employee_id] || { employeeId: r.employee_id, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0 };
-    const mult = rule.ot_enabled ? num(rule.ot_multiplier) || 1.5 : 0, m = num(r.requested_minutes);
+    const mult = rule.ot_enabled
+      ? resolveOtMultiplier(r.work_date, holMult, holidayDays.has(r.work_date), settings, rule)
+      : 0;
+    const m = num(r.requested_minutes);
     line.otMinutes += m; line.otGross += (m / 60) * otHourly(rule) * mult;
     result[r.employee_id] = line;
   });
@@ -361,12 +391,14 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     return reply(true, "Invoice settings loaded", { settings: out });
   },
 
-  async admin_list_holidays(p) { await verify(p.adminToken); const { data } = await db.from("holidays").select("date,name").order("date"); return reply(true, "Holidays loaded", { holidays: data || [] }); },
+  async admin_list_holidays(p) { await verify(p.adminToken); const { data } = await db.from("holidays").select("date,name,multiplier").order("date"); return reply(true, "Holidays loaded", { holidays: (data || []).map((h: any) => ({ date: h.date, name: h.name, multiplier: num(h.multiplier) })) }); },
   async admin_save_holiday(p) {
     const a = await verify(p.adminToken, ["owner"]); const date = String(p.date || "").trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return reply(false, "วันที่ต้องเป็น YYYY-MM-DD");
-    await db.from("holidays").upsert({ date, name: String(p.name || "วันหยุด") }, { onConflict: "date" });
-    audit(a.display_name, "holiday_saved", date, String(p.name || "")); return reply(true, "บันทึกวันหยุดแล้ว");
+    const row: any = { date, name: String(p.name || "วันหยุด") };
+    if (p.multiplier !== undefined && p.multiplier !== null && p.multiplier !== "") row.multiplier = Math.max(0, num(p.multiplier));
+    await db.from("holidays").upsert(row, { onConflict: "date" });
+    audit(a.display_name, "holiday_saved", date, String(p.name || "") + (row.multiplier ? " ×" + row.multiplier : "")); return reply(true, "บันทึกวันหยุดแล้ว");
   },
   async admin_delete_holiday(p) { const a = await verify(p.adminToken, ["owner"]); await db.from("holidays").delete().eq("date", String(p.date || "")); audit(a.display_name, "holiday_deleted", String(p.date || "")); return reply(true, "ลบวันหยุดแล้ว"); },
   async admin_import_holidays(p) {

@@ -1283,6 +1283,12 @@ async function renderDashboard(data, preloaded={}){
     }).join(""):`<div class="empty">ยังไม่มีรายชื่อพนักงานที่ใช้งานอยู่</div>`;
     const pendL=leaves.filter(r=>r.status==="pending"), pendT=times.filter(r=>r.status==="pending");
     setApprovalBadge(pendL.length+pendT.length);
+    // Pending approvals scoped to the current month (for the "วันนี้" notification).
+    const _ymNow=todayISO().slice(0,7), _inMonth=(d)=>String(d||"").slice(0,7)===_ymNow;
+    const mLeave=pendL.filter(r=>_inMonth(r.startDate)).length;
+    const mOt=pendT.filter(r=>r.requestType==="overtime"&&_inMonth(r.workDate)).length;
+    const mEdit=pendT.filter(r=>r.requestType!=="overtime"&&_inMonth(r.workDate)).length;
+    const mPend=mLeave+mOt+mEdit, _thMon=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."][new Date().getMonth()];
     const totalNet = owner.totalNet!=null?owner.totalNet:(owner.totalGross||0);
     const pendingList=[
       ...pendL.map(r=>({type:"ลา",name:empName(r.employeeId),detail:`${r.leaveType} · ${fmtDate(r.startDate)}`,nav:"approvals"})),
@@ -1348,7 +1354,7 @@ async function renderDashboard(data, preloaded={}){
               <div class="sub" style="margin-top:3px;font-size:10px">เกณฑ์สาย: เข้าหลัง ${esc(dashShiftStart)}${dashGrace?` (+${dashGrace} น.)`:""}</div>
             </div>
           </div>
-          <div class="card ${Number(data.pendingApprovals)>0?"k-warn":"k-ok"}"><div class="label">รออนุมัติ</div><div class="value" style="color:${Number(data.pendingApprovals)>0?"#8a560f":"var(--ink)"}">${fmtInt(data.pendingApprovals)}</div><div class="note">ลา ${fmtInt(pendL.length)} · OT/เวลา ${fmtInt(pendT.length)}</div></div>
+          <div class="card ${mPend>0?"k-warn":"k-ok"}" data-nav="approvals" style="cursor:pointer"><div class="label">รออนุมัติเดือน ${_thMon}</div><div class="value" style="color:${mPend>0?"#8a560f":"var(--ink)"}">${fmtInt(mPend)}</div><div class="note">ลา ${fmtInt(mLeave)} · OT ${fmtInt(mOt)} · แก้เวลา ${fmtInt(mEdit)}${pendL.length+pendT.length>mPend?` · ค้างรวม ${fmtInt(pendL.length+pendT.length)}`:""}</div></div>
           <div class="card ${Number(data.exceptions)>0?"k-bad":"k-ok"}"><div class="label">เวลาผิดปกติ</div><div class="value" style="color:${Number(data.exceptions)>0?"#b4453f":"var(--ink)"}">${fmtInt(data.exceptions)}</div><div class="note">ค้างเคลียร์</div></div>
           ${canFinance?`<div class="card ${Number(data.overdueInvoices)>0?"k-bad":"k-ok"}"${Number(data.overdueInvoices)>0?"":' style="opacity:.72"'}><div class="label">Invoice เกินกำหนด</div><div class="value" style="color:${Number(data.overdueInvoices)>0?"#b4453f":"var(--ink)"}">${Number(data.overdueInvoices)>0?fmtBaht(data.overdueInvoices):"ไม่มีค้าง"}</div><div class="note ${Number(data.overdueInvoices)>0?"bad":""}">${data.latestPayrollId?`งวดล่าสุด ${esc(data.latestPayrollId)}`:"ยังไม่มีงวดล็อก"}</div></div>`:`<div class="card"><div class="label">พนักงานทั้งหมด</div><div class="value">${fmtInt(team.length)}</div><div class="note">ใช้งานอยู่</div></div>`}
         </div>
@@ -2151,6 +2157,23 @@ async function renderPayrules(){
           <thead><tr><th>พนักงาน</th><th>รูปแบบ</th><th class="num">อัตราฐาน</th><th class="num">ชม./วัน</th><th>OT</th><th>วันพิเศษ</th><th>สถานะ</th><th data-nosort></th></tr></thead>
           <tbody id="ruleRows"></tbody>
         </table></div>
+      </div>
+      <div class="panel" id="otRulesPanel"><div class="head"><h2>กติกาค่าแรง OT และวันพิเศษ</h2><span class="sub" style="margin-left:8px">เมื่ออนุมัติ OT ระบบจะคูณค่าแรงให้อัตโนมัติตามกติกานี้</span></div>
+        <div class="body"><div id="otRulesBody"><div class="empty">กำลังโหลด…</div></div></div>
+      </div>
+      <div class="panel" id="otCalPanel"><div class="head"><h2>ปฏิทินตัวคูณ OT</h2><span class="sub" style="margin-left:8px">คลิกวัน = ตั้งตัวคูณ · คลิกขวา = เมนูด่วน</span>
+        <div class="spacer"></div><button class="btn sub sm" id="otCalPrev" aria-label="เดือนก่อน">‹</button><b id="otCalLabel" style="min-width:120px;text-align:center">—</b><button class="btn sub sm" id="otCalNext" aria-label="เดือนถัดไป">›</button></div>
+        <div class="body">
+          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:12px;color:var(--muted)">
+            <span><span class="lgd" style="background:#eef0f3;border:.5px solid var(--line)"></span> ปกติ ×1</span>
+            <span><span class="lgd" style="background:#C0DD97"></span> ×1.5</span>
+            <span><span class="lgd" style="background:#FAC775"></span> ×2</span>
+            <span><span class="lgd" style="background:#F09595"></span> ×3 / วันหยุด</span>
+          </div>
+          <div class="otcal-dow" style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;font-size:11px;color:var(--muted);margin-bottom:5px">
+            <div>อา</div><div>จ</div><div>อ</div><div>พ</div><div>พฤ</div><div>ศ</div><div>ส</div></div>
+          <div id="otCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px"></div>
+        </div>
       </div>`;
     const tb=$("#ruleRows");
     const basisLabel=b=>b==="monthly"?"เงินเดือน":b==="daily"?"รายวัน":b==="hourly"?"รายชั่วโมง":"—";
@@ -2168,7 +2191,139 @@ async function renderPayrules(){
     tb.querySelectorAll("tr[data-id]").forEach(tr=>{ const r=payRulesCache.find(x=>x.employeeId===tr.dataset.id);
       attachRowMenu(tr, [{label:(r.hasRule?"แก้ไขเรต":"ตั้งเรต"), fn:()=>payRuleDialog(r)}]); });
     attachSort($("#ruleTable"));
+    renderOtRules();
+    _otCalMonth=new Date(); _otCalMonth.setDate(1);
+    $("#otCalPrev").onclick=()=>{ _otCalMonth.setMonth(_otCalMonth.getMonth()-1); otCalLoad(); };
+    $("#otCalNext").onclick=()=>{ _otCalMonth.setMonth(_otCalMonth.getMonth()+1); otCalLoad(); };
+    otCalLoad();
   }catch(err){ errorBox(node, err, renderPayrules); }
+}
+
+/* ===== OT rules (configurable multipliers) ===== */
+async function renderOtRules(){
+  const box=$("#otRulesBody"); if(!box) return;
+  let s={};
+  try{ const d=await api("admin_get_settings"); s=d.settings||{}; }
+  catch(err){ box.innerHTML=`<div class="empty">โหลดกติกาไม่สำเร็จ: ${esc(err.message)}</div>`; return; }
+  const v=(k,def)=>s[k]!=null&&s[k]!==""?s[k]:def;
+  const autoOn=v("ot_auto_apply","true")!=="false", satOn=v("ot_saturday_enabled","false")==="true";
+  box.innerHTML=`
+    <label class="check" style="display:flex;gap:10px;align-items:center;padding:10px 12px;background:var(--blue-soft);border-radius:8px;margin-bottom:14px">
+      <input type="checkbox" id="otAuto" ${autoOn?"checked":""}> คิดค่าแรงให้อัตโนมัติเมื่ออนุมัติ (ปิด = ใช้ตัวคูณ OT รายคนแบบเดิม)</label>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:10px 14px;align-items:center;max-width:460px">
+      <div><span class="lgd" style="background:#C0DD97"></span> OT วันทำงานปกติ</div>
+      <div>× <input id="otMul" type="number" min="1" step="0.1" value="${esc(v("ot_multiplier","1.5"))}" style="width:80px"></div>
+      <div><span class="lgd" style="background:#FAC775"></span> วันอาทิตย์</div>
+      <div>× <input id="otSun" type="number" min="1" step="0.1" value="${esc(v("ot_sunday_multiplier","2"))}" style="width:80px"></div>
+      <div><label class="check" style="gap:6px"><input type="checkbox" id="otSatOn" ${satOn?"checked":""}> วันเสาร์</label></div>
+      <div>× <input id="otSat" type="number" min="1" step="0.1" value="${esc(v("ot_saturday_multiplier","1.5"))}" style="width:80px"></div>
+      <div><span class="lgd" style="background:#F09595"></span> วันหยุดนักขัตฤกษ์</div>
+      <div>× <input id="otHol" type="number" min="1" step="0.1" value="${esc(v("holiday_multiplier","2"))}" style="width:80px"></div>
+    </div>
+    <div class="notice blue" style="margin-top:14px">ลำดับ: ตัวคูณในปฏิทิน (รายวัน) → วันหยุดนักขัตฤกษ์ → เสาร์/อาทิตย์ → OT ปกติ</div>
+    <div class="toolbar" style="margin-top:12px"><button class="btn" id="otSave">บันทึกกติกา</button></div>`;
+  $("#otSave").onclick=(e)=>withBtn(e.target, async()=>{
+    try{
+      await api("admin_save_settings",{settings:{
+        ot_auto_apply:$("#otAuto").checked?"true":"false",
+        ot_multiplier:$("#otMul").value||"1.5", ot_sunday_multiplier:$("#otSun").value||"2",
+        ot_saturday_enabled:$("#otSatOn").checked?"true":"false", ot_saturday_multiplier:$("#otSat").value||"1.5",
+        holiday_multiplier:$("#otHol").value||"2"}});
+      clearApiReadCache(); toast("บันทึกกติกา OT แล้ว","good");
+    }catch(err){ toast(err.message,"bad"); }
+  });
+}
+
+/* ===== OT multiplier calendar ===== */
+let _otCalMonth=null, _otHolidays=[];
+const OTCAL_TH_MON=["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+const OT_COLORS={1.5:["#C0DD97","#27500A"],2:["#FAC775","#633806"],3:["#F09595","#791F1F"]};
+function otMulColor(m){ if(!m||m<=1) return null; if(m>=3) return OT_COLORS[3]; if(m>=2) return OT_COLORS[2]; return OT_COLORS[1.5]; }
+async function otCalLoad(){
+  try{ const d=await api("admin_list_holidays"); _otHolidays=d.holidays||[]; }
+  catch(_){ _otHolidays=[]; }
+  otCalRender();
+}
+function otCalRender(){
+  const grid=$("#otCalGrid"); if(!grid||!_otCalMonth) return;
+  const y=_otCalMonth.getFullYear(), mo=_otCalMonth.getMonth();
+  $("#otCalLabel").textContent=OTCAL_TH_MON[mo]+" "+(y+543);
+  const first=new Date(y,mo,1).getDay(), days=new Date(y,mo+1,0).getDate();
+  const byDate={}; _otHolidays.forEach(h=>byDate[h.date]=h);
+  let html="";
+  for(let i=0;i<first;i++) html+="<div></div>";
+  for(let d=1;d<=days;d++){
+    const iso=`${y}-${String(mo+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const h=byDate[iso], m=h?Number(h.multiplier||0):0, col=otMulColor(m);
+    const bg=col?col[0]:"var(--card)", fg=col?col[1]:"var(--muted)";
+    html+=`<div class="otcal-day" data-date="${iso}" tabindex="0" role="button"
+      style="position:relative;min-height:46px;border-radius:8px;padding:5px 6px;cursor:pointer;background:${bg};border:.5px solid ${col?"transparent":"var(--line)"}">
+      <div style="font-size:12px;color:${col?fg:"var(--ink)"}">${d}</div>
+      ${m>1?`<div style="position:absolute;right:5px;bottom:4px;font-size:13px;font-weight:600;color:${fg}">×${m}</div>`:""}
+      ${h&&h.name?`<div style="font-size:9px;line-height:1.1;margin-top:1px;color:${col?fg:"var(--muted)"};overflow:hidden;max-height:20px">${esc(h.name)}</div>`:""}
+    </div>`;
+  }
+  grid.innerHTML=html;
+  grid.querySelectorAll(".otcal-day").forEach(c=>{
+    const iso=c.dataset.date;
+    c.onclick=()=>otDayDialog(iso, byDate[iso]);
+    c.oncontextmenu=(e)=>{ e.preventDefault(); otDayQuickMenu(e, iso, byDate[iso]); };
+    c.onkeydown=(e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); otDayDialog(iso, byDate[iso]); } };
+  });
+}
+async function otSetDay(iso, mult, name){
+  try{
+    if(mult<=0){
+      // Normal day: remove the special-day row entirely (weekend rules may still apply).
+      await api("admin_delete_holiday",{date:iso});
+    }else{
+      await api("admin_save_holiday",{date:iso, name:name||"วันพิเศษ", multiplier:mult});
+    }
+    clearApiReadCache(); await otCalLoad();
+    toast(mult>0?`ตั้ง ${iso} เป็น ×${mult} แล้ว`:`ล้าง ${iso} เป็นวันปกติแล้ว`,"good");
+  }catch(err){ toast(err.message,"bad"); }
+}
+function otDayQuickMenu(e, iso, h){
+  closeOtMenu();
+  const menu=el(`<div class="otcal-menu" style="position:fixed;z-index:9999;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);overflow:hidden;font-size:13px;min-width:180px">
+    <div style="padding:7px 12px;color:var(--muted);font-size:11px;border-bottom:1px solid var(--line)">${esc(iso)}${h&&h.name?" · "+esc(h.name):""}</div>
+    <button class="otm" data-m="0" style="display:block;width:100%;text-align:left;padding:8px 12px;border:0;background:none;cursor:pointer;color:var(--ink)">ปกติ ×1 (ล้าง)</button>
+    <button class="otm" data-m="1.5" style="display:block;width:100%;text-align:left;padding:8px 12px;border:0;background:var(--blue-soft);cursor:pointer;color:var(--ink)">OT ×1.5</button>
+    <button class="otm" data-m="2" style="display:block;width:100%;text-align:left;padding:8px 12px;border:0;background:none;cursor:pointer;color:var(--ink)">OT ×2</button>
+    <button class="otm" data-m="3" style="display:block;width:100%;text-align:left;padding:8px 12px;border:0;background:none;cursor:pointer;color:var(--ink)">วันหยุด ×3</button>
+    <button class="otm" data-dlg="1" style="display:block;width:100%;text-align:left;padding:8px 12px;border:0;border-top:1px solid var(--line);background:none;cursor:pointer;color:var(--ink)">ตั้งค่าเอง + ตั้งชื่อ…</button>
+  </div>`);
+  document.body.appendChild(menu);
+  const vw=innerWidth, vh=innerHeight, r=menu.getBoundingClientRect();
+  menu.style.left=Math.min(e.clientX,vw-r.width-8)+"px";
+  menu.style.top=Math.min(e.clientY,vh-r.height-8)+"px";
+  menu.querySelectorAll(".otm").forEach(b=>b.onclick=()=>{
+    closeOtMenu();
+    if(b.dataset.dlg) return otDayDialog(iso, h);
+    otSetDay(iso, Number(b.dataset.m), h&&h.name);
+  });
+  setTimeout(()=>document.addEventListener("click", closeOtMenu, {once:true}),0);
+}
+function closeOtMenu(){ document.querySelectorAll(".otcal-menu").forEach(m=>m.remove()); }
+function otDayDialog(iso, h){
+  const cur=h?Number(h.multiplier||0):0;
+  const body=el(`<div>
+    <p class="sub" style="margin:0 0 12px">วันที่ <b>${esc(iso)}</b> — ตั้งตัวคูณค่าแรง OT สำหรับวันนี้</p>
+    <div class="field"><label>ชื่อวัน (ไม่บังคับ)</label><input id="otdName" type="text" value="${esc(h&&h.name?h.name:"")}" placeholder="เช่น วันสงกรานต์"></div>
+    <div class="field"><label>ตัวคูณ</label>
+      <div class="toolbar" style="gap:6px;flex-wrap:wrap" id="otdPresets">
+        ${[["0","ปกติ ×1"],["1.5","×1.5"],["2","×2"],["3","×3"]].map(([m,l])=>`<button type="button" class="btn sub sm otd-p" data-m="${m}" ${String(cur)===m?'style="border-color:#259b24;color:#259b24"':""}>${l}</button>`).join("")}
+      </div>
+      <input id="otdMul" type="number" min="0" step="0.1" value="${cur}" style="margin-top:8px;width:120px">
+    </div></div>`);
+  body.querySelectorAll(".otd-p").forEach(b=>b.onclick=()=>{ body.querySelector("#otdMul").value=b.dataset.m; });
+  const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
+  const save=el(`<button class="btn">บันทึก</button>`);
+  save.onclick=()=>withBtn(save, async()=>{
+    const m=Number(body.querySelector("#otdMul").value||0), nm=body.querySelector("#otdName").value.trim();
+    await otSetDay(iso, m, nm); closeModal();
+  });
+  openModal("ตั้งตัวคูณ OT · "+iso, body, [cancel, save]);
 }
 
 function payRuleDialog(r){

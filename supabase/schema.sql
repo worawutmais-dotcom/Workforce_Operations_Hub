@@ -175,7 +175,8 @@ create table if not exists settings (
 
 create table if not exists holidays (
   date text primary key,            -- 'YYYY-MM-DD' (kept as text to match Sheets exactly)
-  name text default 'วันหยุด'
+  name text default 'วันหยุด',
+  multiplier numeric default 0      -- OT pay multiplier for this day; 0 = use settings.holiday_multiplier
 );
 
 create table if not exists admin_users (

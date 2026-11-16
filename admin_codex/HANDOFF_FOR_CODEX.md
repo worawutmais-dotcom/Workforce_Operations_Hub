@@ -5,6 +5,30 @@
 
 ## สถานะปัจจุบันของหลังบ้าน (เพิ่งทำเสร็จ)
 
+### 0. ⚠️ OT multiplier calendar + กติกาตัวคูณ (ต้อง DEPLOY + รัน PATCH ก่อนใช้งานจริง)
+ฟีเจอร์นี้แตะ **สูตรคำนวณเงินเดือน** — ต้องให้เจ้าของ deploy Edge Function ใหม่ + รัน SQL patch
+ก่อนตัวคูณจะมีผล (frontend ทำงานกับ backend เก่าได้โดยไม่พัง แต่ตัวคูณจะถูกเพิกเฉยจนกว่าจะ deploy)
+
+- **DB**: เพิ่มคอลัมน์ `holidays.multiplier numeric default 0`
+  - ตาราง `supabase/schema.sql` อัปเดตแล้ว + patch idempotent: `supabase/patch_ot_calendar.sql`
+  - patch ยัง seed คีย์ settings เริ่มต้น (insert เฉพาะที่ยังไม่มี ไม่ทับค่าเจ้าของ)
+- **Settings keys ใหม่**: `ot_auto_apply`(true), `ot_multiplier`(1.5), `ot_sunday_multiplier`(2),
+  `ot_saturday_enabled`(false), `ot_saturday_multiplier`(1.5), `holiday_multiplier`(2)
+- **สูตร** (`supabase/functions/bvn-api/index.ts`):
+  - `holidayMultMap(start,end)` + `weekdayOf(date)` + `resolveOtMultiplier(...)` ใหม่
+  - `previewPayroll` อ่านตัวคูณรายวันแทนตัวคูณ flat รายคน (บรรทัดที่เดิมใช้ `rule.ot_multiplier`)
+  - ลำดับความสำคัญ: ตัวคูณในปฏิทิน(holidays.multiplier>0) → holiday row(ใช้ holiday_multiplier) →
+    อาทิตย์/เสาร์ → OT รายคน/ปกติ · ถ้า `ot_auto_apply=false` → กลับไปใช้ตัวคูณ flat รายคน (fallback ปลอดภัย)
+  - `admin_list_holidays`/`admin_save_holiday` ส่ง/รับ `multiplier` แล้ว
+- **เทสต์เลข**: `tools/ot_multiplier_test.mjs` (mirror ของ resolveOtMultiplier) — `node tools/ot_multiplier_test.mjs`
+  ผ่านทั้ง decision table + ตัวอย่าง "อาทิตย์ 3 ชม. @50 = 300". **ถ้าแก้สูตรใน source ต้องแก้ mirror ให้ตรง**
+- **Frontend** (`admin_codex/index.html`, หน้า "ค่าจ้างและ OT"):
+  - panel "กติกาค่าแรง OT" (`renderOtRules`) + ปฏิทินตัวคูณ (`otCalRender`/`otDayDialog`/`otDayQuickMenu`)
+  - คลิกวัน = dialog ตั้งตัวคูณ+ชื่อ · คลิกขวา = เมนูด่วน · "ปกติ ×1" = `admin_delete_holiday` (ลบแถว ไม่ใช่ตั้ง 0)
+  - หน้า "วันนี้": การ์ด "รออนุมัติเดือนนี้" (นับ pending เฉพาะเดือนปัจจุบัน กดไปหน้าอนุมัติ)
+- **สิ่งที่ยัง NOT ทำ/ตรวจ**: ยังไม่ได้ deploy/รัน patch บน DB จริง; ยังไม่พิสูจน์เลขบน Supabase จริง
+  (พิสูจน์แค่ mirror); `autoOvertime` ยังสร้างคำขอ OT ตามเดิม (multiplier ใช้ตอน payroll เท่านั้น ไม่เก็บบน request)
+
 ### 1. Hash routing (commit `1b938c7`)
 - `go(page)` push `#<page>` เข้า history; `popstate` listener คืนหน้าเมื่อกด Back/Forward;
   `enterApp` คืนหน้าที่ deep-link ตอน refresh ไม่งั้น anchor ที่ `#dashboard`
