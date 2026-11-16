@@ -1556,11 +1556,13 @@ async function renderPeople(){
     const modeCount=(m)=>all.filter(i=>i.mode===m&&i.status==="pending").length;
     const emps=(state.employees||[]).slice().sort((a,b)=>(pendBy[b.id]||0)-(pendBy[a.id]||0)||String(a.id).localeCompare(String(b.id)));
     node.innerHTML=`
+      <div id="pwReqPanel"></div>
       <div style="display:grid;grid-template-columns:272px minmax(0,1fr);gap:16px;align-items:start">
         <div class="panel" style="margin:0">
           <div class="head"><h2>พนักงาน</h2><span class="sub" style="margin-left:6px">${fmtInt(emps.length)} คน</span><div class="spacer"></div><button class="btn sm" id="pAdd">+ เพิ่ม</button></div>
           <div class="body" style="padding:10px"><input type="search" id="pSearch" placeholder="ค้นหาชื่อ / รหัส" style="width:100%;margin-bottom:8px">
-            <div id="pList" style="display:flex;flex-direction:column;gap:2px;max-height:64vh;overflow:auto"></div>
+            <div class="sub" style="font-size:10px;margin:0 2px 6px">คลิกชื่อ = ปฏิทินรายคน · ปุ่ม ⋯ = แก้ไข/รีเซ็ตรหัส/ปิดใช้งาน</div>
+            <div id="pList" style="display:flex;flex-direction:column;gap:2px;max-height:62vh;overflow:auto"></div>
           </div>
         </div>
         <div class="panel" style="margin:0">
@@ -1580,13 +1582,24 @@ async function renderPeople(){
       const list=emps.filter(e=>!q||(e.id+e.name+(e.role||"")).toLowerCase().includes(q));
       $("#pList").innerHTML=list.length?list.map(e=>{
         const pc=pendBy[e.id]||0, ini=(e.name||e.id).trim().slice(0,2), sel=_peopleSel===e.id;
-        return `<button class="p-emp" data-emp="${esc(e.id)}" style="display:flex;align-items:center;gap:10px;padding:8px 9px;border:0;background:${sel?"var(--blue-soft)":"transparent"};border-radius:9px;cursor:pointer;text-align:left;width:100%;color:var(--ink)">
-          <span style="width:30px;height:30px;border-radius:50%;flex:none;background:${sel?"var(--blue)":"var(--line-soft)"};color:${sel?"#fff":"var(--muted)"};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">${esc(ini)}</span>
-          <span style="flex:1;min-width:0"><span style="font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.name)}</span><span class="sub" style="font-size:10px">${esc(e.id)}${e.status!=="active"?" · ปิดใช้งาน":""}</span></span>
+        return `<div class="p-emp" data-emp="${esc(e.id)}" style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:9px;background:${sel?"var(--blue-soft)":"transparent"}">
+          <button class="p-open" data-emp="${esc(e.id)}" style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;border:0;background:none;cursor:pointer;text-align:left;color:var(--ink);padding:4px 2px">
+            <span style="width:30px;height:30px;border-radius:50%;flex:none;background:${sel?"var(--blue)":"var(--line-soft)"};color:${sel?"#fff":"var(--muted)"};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">${esc(ini)}</span>
+            <span style="flex:1;min-width:0"><span style="font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.name)}</span><span class="sub" style="font-size:10px">${esc(e.id)}${e.status!=="active"?" · ปิดใช้งาน":""}</span></span>
+          </button>
           ${pc?`<span class="badge red" style="flex:none">${pc}</span>`:""}
-        </button>`;
+          <button class="p-menu" data-emp="${esc(e.id)}" aria-label="จัดการ ${esc(e.name)}" title="จัดการ" style="flex:none;border:0;background:none;cursor:pointer;color:var(--muted);font-size:17px;line-height:1;padding:3px 7px;border-radius:7px">⋯</button>
+        </div>`;
       }).join(""):`<div class="empty">ไม่พบพนักงาน</div>`;
-      $("#pList").querySelectorAll("[data-emp]").forEach(b=>b.onclick=()=>{ _peopleSel=b.dataset.emp; drawList($("#pSearch").value); openAttendanceCalendar(b.dataset.emp); });
+      const menuFor=(id)=>{ const emp=state.empById[id]; if(!emp) return []; return [
+        {label:"ดูปฏิทินรายคน", fn:()=>openAttendanceCalendar(id)},
+        {label:"แก้ไขข้อมูล", fn:()=>employeeDialog(emp)},
+        {label:"รีเซ็ตรหัสผ่าน", fn:()=>resetPassword(emp)},
+        ...(emp.status==="active"?[{label:"⛔ ปิดใช้งาน", danger:true, fn:()=>deactivate(emp)}]:[]),
+      ]; };
+      $("#pList").querySelectorAll(".p-open").forEach(b=>b.onclick=()=>{ _peopleSel=b.dataset.emp; drawList($("#pSearch").value); openAttendanceCalendar(b.dataset.emp); });
+      $("#pList").querySelectorAll(".p-menu").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); openRowMenu(e.clientX, e.clientY, menuFor(b.dataset.emp)); });
+      $("#pList").querySelectorAll(".p-emp").forEach(row=>attachRowMenu(row, menuFor(row.dataset.emp)));
     };
     const drawMode=()=>{
       $("#pModes").querySelectorAll("[data-mode]").forEach(b=>b.classList.toggle("active",b.dataset.mode===_peopleMode));
@@ -1616,7 +1629,7 @@ async function renderPeople(){
       if($("#pGoRules")) $("#pGoRules").onclick=()=>go("payrules");
       if($("#pAddOt")) $("#pAddOt").onclick=()=>addOvertimeDialog();
     };
-    drawList(); drawMode();
+    drawList(); drawMode(); loadPwRequests();
     $("#pSearch").oninput=e=>drawList(e.target.value);
     $("#pAdd").onclick=()=>employeeDialog(null);
     $("#pModes").querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{ _peopleMode=b.dataset.mode; drawMode(); });
@@ -1718,7 +1731,7 @@ async function issueResetForRequest(employeeId, requestId){
   if(!await confirmDialog("ออกรหัสผ่านใหม่", `สุ่มรหัสผ่านใหม่ให้ <b>${esc(emp?emp.name:employeeId)}</b> (${esc(employeeId)})?`, {okText:"ออกรหัสใหม่"})) return;
   try{ const data=await api("admin_reset_employee_password",{employeeId, requestId, reviewer:state.reviewer||"Admin"});
     showSecret("ออกรหัสผ่านใหม่แล้ว", [["Employee ID", employeeId],["รหัสผ่าน", data.temporaryPassword]], "แจ้งรหัสนี้ให้พนักงาน · ระบบจำไว้ถาวร");
-    renderEmployees();
+    PAGES[state.page].load();
   }catch(err){ toast(err.message,"bad"); }
 }
 
@@ -1757,7 +1770,7 @@ async function employeeOnboardingDialog(){
         let payWarning="";
         try{ await api("admin_upsert_pay_rule",{employeeId,payBasis:$("#obBasis").value,baseRate,standardHours,otEnabled:$("#obOt").checked,otMultiplier,daysPerMonth,updatedBy:state.reviewer||"Admin"}); }
         catch(err){ payWarning="สร้างบัญชีแล้ว แต่บันทึกเรตค่าจ้างไม่สำเร็จ: "+err.message; }
-        closeModal(); await loadEmployees(true); renderEmployees();
+        closeModal(); await loadEmployees(true); PAGES[state.page].load();
         showSecret("สร้างพนักงานพร้อมใช้งาน",[["Employee ID",employeeId||"—"],["รหัสผ่าน",created.initialPassword||draft.password||"—"]],payWarning||"สร้างบัญชีและเรตค่าจ้างแล้ว · แจ้งข้อมูลนี้ให้พนักงานใช้เข้า APK");
         if(payWarning) toast(payWarning,"bad");
       }catch(err){ toast(err.message,"bad"); }
@@ -1804,7 +1817,7 @@ function employeeDialog(emp){
     try{
       const data=await api("admin_upsert_employee", fields);
       closeModal();
-      await loadEmployees(true); renderEmployees();
+      await loadEmployees(true); PAGES[state.page].load();
       if(!isEdit && data.initialPassword) showSecret("สร้างพนักงานสำเร็จ",
         [["Employee ID", data.employee?.id||""],["รหัสผ่าน", data.initialPassword]],
         "แสดงรหัสครั้งนี้เท่านั้น หากลืม ให้ผู้ดูแลรีเซ็ตรหัสใหม่");
@@ -1828,7 +1841,7 @@ async function deactivate(emp){
   try{
     await api("admin_upsert_employee",{employeeId:emp.id, name:emp.name, role:emp.role||"Employee",
       department:emp.department||"", status:"inactive", locationRequired:emp.locationRequired, updatedBy:state.reviewer||"Admin"});
-    await loadEmployees(true); renderEmployees(); toast("ปิดใช้งานแล้ว","good");
+    await loadEmployees(true); PAGES[state.page].load(); toast("ปิดใช้งานแล้ว","good");
   }catch(err){ toast(err.message,"bad"); }
 }
 
