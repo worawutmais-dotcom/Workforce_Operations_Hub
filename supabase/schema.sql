@@ -19,11 +19,26 @@ create table if not exists employees (
   name               text not null default '',
   role               text default '',
   department         text default '',
-  work_site_id       text default '',
+  legacy_work_site_id text default '',     -- preserved only from pre-identity migration
+  national_id        text default '',          -- Thai national ID; private admin-only data
+  phone              text default '',
   status             text not null default 'active',   -- active | inactive
   location_required  boolean not null default true,
   password           text default ''                   -- TODO: hash before go-live (currently plaintext, matches Sheets)
 );
+
+create table if not exists employee_identity_requests (
+  request_id    text primary key,
+  employee_id   text not null references employees(employee_id) on update cascade,
+  national_id   text not null,
+  phone         text default '',
+  status        text not null default 'pending', -- pending | approved | rejected
+  submitted_at  timestamptz not null default now(),
+  reviewed_by   text default '',
+  reviewed_at   timestamptz,
+  reviewer_note text default ''
+);
+create index if not exists employee_identity_requests_pending_idx on employee_identity_requests(status, submitted_at desc);
 
 create table if not exists work_sites (
   site_id   text primary key,
@@ -49,6 +64,7 @@ create table if not exists attendance_log (
   device_timezone text default '',
   source          text default '',                       -- mobile_api_location | admin_manual:<who> | ...
   review_status   text not null default 'pending',       -- pending | accepted | rejected
+  note            text default '',                       -- reason for an admin correction, if any
   created_at      timestamptz not null default now()
 );
 create index if not exists attendance_emp_time_idx on attendance_log (employee_id, event_time);

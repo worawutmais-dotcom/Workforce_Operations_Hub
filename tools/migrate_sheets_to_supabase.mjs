@@ -60,7 +60,7 @@ const S = v => String(v == null ? '' : v).trim();
 // table <- csv column order (index-based). Each col: [name, coercer].
 const TABLES = [
   { csv: 'Employees', table: 'employees', pk: 'employee_id', cols: [
-    ['employee_id', S], ['name', S], ['role', S], ['department', S], ['work_site_id', S], ['status', S], ['location_required', B], ['password', S] ] },
+    ['employee_id', S], ['name', S], ['role', S], ['department', S], ['legacy_work_site_id', S], ['status', S], ['location_required', B], ['password', S] ] },
   { csv: 'Work_Sites', table: 'work_sites', pk: 'site_id', cols: [
     ['site_id', S], ['name', S], ['latitude', N], ['longitude', N], ['radius_m', I], ['active', B] ] },
   { csv: 'Attendance_Log', table: 'attendance_log', pk: 'id', cols: [

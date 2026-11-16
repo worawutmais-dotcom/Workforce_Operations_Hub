@@ -9,8 +9,15 @@
 -- ─────────────────────────── TABLES ───────────────────────────
 create table if not exists employees (
   employee_id text primary key, name text not null default '', role text default '',
-  department text default '', work_site_id text default '', status text not null default 'active',
+  department text default '', legacy_work_site_id text default '', national_id text default '', phone text default '', status text not null default 'active',
   location_required boolean not null default true, password text default '' );
+
+create table if not exists employee_identity_requests (
+  request_id text primary key, employee_id text not null references employees(employee_id) on update cascade,
+  national_id text not null, phone text default '', status text not null default 'pending',
+  submitted_at timestamptz not null default now(), reviewed_by text default '', reviewed_at timestamptz,
+  reviewer_note text default '' );
+create index if not exists employee_identity_requests_pending_idx on employee_identity_requests(status, submitted_at desc);
 
 create table if not exists work_sites (
   site_id text primary key, name text default '', latitude double precision default 0,
@@ -22,7 +29,7 @@ create table if not exists attendance_log (
   site_id text default '', event_type text not null, event_time timestamptz not null,
   latitude double precision, longitude double precision, accuracy double precision, distance_m double precision,
   validity text not null default 'accepted', device_timezone text default '', source text default '',
-  review_status text not null default 'pending', created_at timestamptz not null default now() );
+  review_status text not null default 'pending', note text default '', created_at timestamptz not null default now() );
 create index if not exists attendance_emp_time_idx on attendance_log (employee_id, event_time);
 create index if not exists attendance_time_idx on attendance_log (event_time);
 create index if not exists attendance_status_idx on attendance_log (review_status);

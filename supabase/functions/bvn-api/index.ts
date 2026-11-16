@@ -49,6 +49,11 @@ const lc = (v: unknown) => String(v ?? "").trim().toLowerCase();
 
 // ---------- password hashing (PBKDF2-SHA256) ----------
 const b64 = (buf: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+async function sha256Hex(text: string): Promise<string> {
+  const bytes = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 async function hashPw(pw: string): Promise<string> {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveBits"]);
@@ -89,9 +94,11 @@ async function verify(adminToken: string, roles?: string[]) {
 }
 const OPS = ["owner", "manager", "operations"];
 const FIN = ["owner", "manager", "finance"];
-async function audit(actor: string, action: string, target: string, detail = "") {
-  try { await db.from("audit_log").insert({ ts: nowISO(), actor, action, target, detail }); } catch { /* ignore */ }
-}
+// Minimal-data mode: operational records are the source of truth; an extra
+// audit row for every click is intentionally not retained.  This is a product
+// decision to keep the small Supabase project lean, at the cost of not being
+// able to answer "which Admin changed this" after the fact.
+async function audit(_actor: string, _action: string, _target: string, _detail = "") { /* intentionally no-op */ }
 
 // ---------- mobile (employee app) helpers ----------
 const MAX_ACCURACY_M = 100;
@@ -208,12 +215,32 @@ async function loginFailed(id: string) {
 async function loginCleared(id: string) { try { await db.from("login_attempts").delete().eq("id", id); } catch { /* ignore */ } }
 // Opportunistic cleanup of dead rows (no cron needed for the basics).
 async function pruneDeadSessions() {
-  const cutoff = new Date(Date.now() - 30 * 86400000).toISOString();
+  const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
+  const oneWeekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
   try {
-    await db.from("admin_sessions").delete().or(`status.eq.revoked,expires_at.lt.${nowISO()}`).lt("last_used_at", cutoff);
-    await db.from("mobile_access").delete().eq("status", "revoked").lt("last_used_at", cutoff);
+    // Active sessions and active device tokens remain necessary for login;
+    // expired/revoked tokens are transient records and are discarded quickly.
+    await db.from("admin_sessions").delete().lt("expires_at", nowISO());
+    await db.from("admin_sessions").delete().eq("status", "revoked").lt("last_used_at", oneDayAgo);
+    await db.from("mobile_access").delete().eq("status", "revoked").lt("last_used_at", oneDayAgo);
     await db.from("login_attempts").delete().lt("locked_until", nowISO());
+    await db.from("employee_identity_requests").delete().neq("status", "pending").lt("reviewed_at", oneWeekAgo);
+    await db.from("password_requests").delete().neq("status", "pending").lt("handled_at", oneWeekAgo);
+    await db.from("data_reset_challenges").delete().neq("status", "pending").lt("created_at", oneDayAgo);
   } catch { /* ignore */ }
+}
+
+async function attendanceBefore(cutoff: string) {
+  const rows: any[] = [];
+  const pageSize = 1000;
+  for (let start = 0; start < 50000; start += pageSize) {
+    const { data, error } = await db.from("attendance_log").select("employee_id,event_type,event_time,latitude,longitude,accuracy_m,source,validity,review_status,reviewer,reviewed_at,note")
+      .lt("event_time", cutoff).order("event_time", { ascending: true }).range(start, start + pageSize - 1);
+    if (error) throw error;
+    rows.push(...(data || []));
+    if (!data || data.length < pageSize) return rows;
+  }
+  throw new Error("มีข้อมูลเกิน 50,000 รายการ กรุณาแบ่ง archive เป็นรอบเล็กลง");
 }
 
 // ---------- payroll preview (ported from adminPreviewPayroll_) ----------
@@ -285,7 +312,7 @@ async function previewPayroll(start: string, end: string) {
 const H: Record<string, (p: any) => Promise<Response>> = {
   async version() {
     const s = await settingsMap();
-    return reply(true, "ok", { backendVersion: BACKEND_VERSION, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
+    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-16-people-calendar", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: true, otCalendar: true, timesheetReview: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
   },
   async public_branding() {
     const s = await settingsMap();
@@ -342,9 +369,13 @@ const H: Record<string, (p: any) => Promise<Response>> = {
 
   async admin_list_employees(p) {
     await verify(p.adminToken, OPS);
-    const { data } = await db.from("employees").select("*").order("employee_id");
+    const { data, error } = await db.from("employees").select("*").order("employee_id");
+    if (error) {
+      if (/national_id|phone/i.test(error.message || "")) return reply(false, "ฐานข้อมูลยังไม่ได้อัปเดตข้อมูลพนักงาน กรุณารัน patch_employee_identity.sql แล้วลองใหม่");
+      return reply(false, error.message || "โหลดรายชื่อพนักงานไม่สำเร็จ");
+    }
     return reply(true, "Employees loaded", {
-      employees: (data || []).map((e: any) => ({ id: e.employee_id, name: e.name, role: e.role || "", department: e.department || "", siteId: e.work_site_id || "", status: e.status || "active", locationRequired: e.location_required !== false, password: e.password || "" })),
+      employees: (data || []).map((e: any) => ({ id: e.employee_id, name: e.name, role: e.role || "", department: e.department || "", nationalId: e.national_id || "", phone: e.phone || "", status: e.status || "active", locationRequired: e.location_required !== false })),
     });
   },
   async admin_upsert_employee(p) {
@@ -352,18 +383,73 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     let id = String(p.employeeId || p.id || "").trim().toUpperCase();
     const name = String(p.name || "").trim();
     if (!name) return reply(false, "ต้องมีชื่อพนักงาน");
+    const nationalId = String(p.nationalId || "").replace(/[^0-9]/g, "");
+    const phone = String(p.phone || "").trim();
+    if (nationalId && !/^\d{13}$/.test(nationalId)) return reply(false, "เลขบัตรประชาชนต้องมี 13 หลัก");
+    if (phone && !/^[0-9+()\-\s]{7,20}$/.test(phone)) return reply(false, "รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง");
+    const isNew = !id;
     if (!id) {
       const { data: all } = await db.from("employees").select("employee_id");
       let max = 0;
-      (all || []).forEach((e: any) => { const m = /EMP-(\d+)/i.exec(e.employee_id); if (m) max = Math.max(max, Number(m[1])); });
-      id = "EMP-" + String(max + 1).padStart(3, "0");
+      (all || []).forEach((e: any) => { const m = /^BVN-(\d+)$/i.exec(e.employee_id); if (m) max = Math.max(max, Number(m[1])); });
+      id = "BVN-" + String(max + 1).padStart(4, "0");
     }
-    const row: any = { employee_id: id, name, role: String(p.role || ""), department: String(p.department || ""), work_site_id: String(p.siteId || ""), status: lc(p.status) === "inactive" ? "inactive" : "active", location_required: p.locationRequired !== false };
+    const row: any = { employee_id: id, name, role: String(p.role || ""), department: String(p.department || ""), status: lc(p.status) === "inactive" ? "inactive" : "active", location_required: p.locationRequired !== false };
+    if (nationalId) row.national_id = nationalId;
+    if (p.phone !== undefined) row.phone = phone;
+    let initialPassword = "";
     if (p.password != null && String(p.password) !== "") row.password = await hashPw(String(p.password));
+    else if (isNew) {
+      initialPassword = "bvn" + Math.floor(1000 + Math.random() * 9000);
+      row.password = await hashPw(initialPassword);
+    }
     const { error } = await db.from("employees").upsert(row, { onConflict: "employee_id" });
-    if (error) return reply(false, error.message);
+    if (error) {
+      if (/national_id|phone/i.test(error.message || "")) return reply(false, "ฐานข้อมูลยังไม่ได้อัปเดตข้อมูลพนักงาน กรุณารัน patch_employee_identity.sql แล้วลองใหม่");
+      return reply(false, error.message);
+    }
     audit(a.display_name, "employee_saved", id, name);
-    return reply(true, "บันทึกพนักงานแล้ว", { id });
+    return reply(true, "บันทึกพนักงานแล้ว", { id, employee: { id }, initialPassword });
+  },
+  // A permanent removal is intentionally much narrower than deactivation.
+  // Payroll, attendance and requests are legal/operational records, so staff
+  // with any such history must be retained and marked inactive instead.
+  async admin_delete_employee(p) {
+    const a = await verify(p.adminToken, ["owner"]);
+    const id = String(p.employeeId || p.id || "").trim().toUpperCase();
+    if (!id) return reply(false, "ต้องระบุรหัสพนักงาน");
+    const { data: employee } = await db.from("employees").select("employee_id,name").eq("employee_id", id).maybeSingle();
+    if (!employee) return reply(false, "ไม่พบพนักงานที่ต้องการลบ");
+
+    const checks = await Promise.all([
+      db.from("attendance_log").select("id", { count: "exact", head: true }).eq("employee_id", id),
+      db.from("payroll_lines").select("employee_id", { count: "exact", head: true }).eq("employee_id", id),
+      db.from("leave_requests").select("request_id", { count: "exact", head: true }).eq("employee_id", id),
+      db.from("time_requests").select("request_id", { count: "exact", head: true }).eq("employee_id", id),
+      db.from("advances").select("advance_id", { count: "exact", head: true }).eq("employee_id", id),
+    ]);
+    const labels = ["เวลางาน", "รายการเงินเดือน", "คำขอลา", "คำขอแก้ไขเวลา/OT", "คำขอเบิกเงิน"];
+    const history = checks.map((r, i) => ({ label: labels[i], count: r.count || 0, error: r.error })).filter((r) => r.count > 0 || r.error);
+    if (history.length) {
+      if (history.some((r) => r.error)) return reply(false, "ตรวจสอบประวัติพนักงานไม่สำเร็จ จึงไม่อนุญาตให้ลบถาวร");
+      return reply(false, `ลบถาวรไม่ได้ เพราะมี${history.map((r) => `${r.label} ${r.count} รายการ`).join(" · ")} — ให้ใช้ “ปิดใช้งาน” เพื่อเก็บประวัติไว้`);
+    }
+
+    // These are disposable account/configuration records for a person who has
+    // never entered an operational workflow. Delete children first because the
+    // database deliberately does not cascade employee deletion.
+    const cleanup = await Promise.all([
+      db.from("mobile_access").delete().eq("employee_id", id),
+      db.from("password_requests").delete().eq("employee_id", id),
+      db.from("payroll_rules").delete().eq("employee_id", id),
+      db.from("employee_identity_requests").delete().eq("employee_id", id),
+    ]);
+    const cleanupError = cleanup.find((r) => r.error)?.error;
+    if (cleanupError) return reply(false, cleanupError.message || "ล้างข้อมูลบัญชีพนักงานไม่สำเร็จ");
+    const { error } = await db.from("employees").delete().eq("employee_id", id);
+    if (error) return reply(false, error.message);
+    audit(a.display_name, "employee_deleted", id, String(employee.name || ""));
+    return reply(true, "ลบพนักงานแล้ว", { employeeId: id });
   },
   async admin_reset_employee_password(p) {
     const a = await verify(p.adminToken, OPS);
@@ -375,6 +461,31 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     audit(a.display_name, "password_reset", id, "");
     return reply(true, "ตั้งรหัสผ่านชั่วคราวแล้ว", { employeeId: id, temporaryPassword: pw });
   },
+  async admin_list_identity_requests(p) {
+    await verify(p.adminToken, OPS);
+    const [{ data: rows }, names] = await Promise.all([
+      db.from("employee_identity_requests").select("*").eq("status", "pending").order("submitted_at", { ascending: false }),
+      nameMap(),
+    ]);
+    return reply(true, "Identity requests loaded", { requests: (rows || []).map((r: any) => ({
+      requestId: r.request_id, employeeId: r.employee_id, name: names[r.employee_id]?.name || r.employee_id,
+      nationalId: r.national_id, phone: r.phone || "", submittedAt: r.submitted_at,
+    })) });
+  },
+  async admin_review_identity_request(p) {
+    const a = await verify(p.adminToken, OPS);
+    const requestId = String(p.requestId || ""), decision = lc(p.decision), note = String(p.reviewerNote || "").trim();
+    if (!requestId || !["approved", "rejected"].includes(decision)) return reply(false, "คำสั่งไม่ถูกต้อง");
+    const { data: req } = await db.from("employee_identity_requests").select("*").eq("request_id", requestId).eq("status", "pending").maybeSingle();
+    if (!req) return reply(false, "ไม่พบคำขอที่รออนุมัติ");
+    if (decision === "approved") {
+      const { error } = await db.from("employees").update({ national_id: req.national_id, phone: req.phone || "" }).eq("employee_id", req.employee_id);
+      if (error) return reply(false, error.message);
+    }
+    await db.from("employee_identity_requests").update({ status: decision, reviewed_by: a.display_name, reviewed_at: nowISO(), reviewer_note: note }).eq("request_id", requestId);
+    audit(a.display_name, "employee_identity_" + decision, req.employee_id, decision === "approved" ? "identity updated" : note);
+    return reply(true, decision === "approved" ? "อนุมัติและอัปเดตข้อมูลแล้ว" : "ปฏิเสธคำขอแล้ว");
+  },
 
   async admin_get_settings(p) { await verify(p.adminToken, ["owner"]); return reply(true, "Settings loaded", { settings: await settingsMap() }); },
   async admin_save_settings(p) {
@@ -384,11 +495,136 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     if (rows.length) { const { error } = await db.from("settings").upsert(rows, { onConflict: "key" }); if (error) return reply(false, error.message); }
     return reply(true, "บันทึกการตั้งค่าแล้ว");
   },
+  // A factory-reset is deliberately a two-step owner re-authentication.  A
+  // normal active session is not sufficient: the owner must enter their
+  // password once to create a short-lived challenge, then enter it again to
+  // execute the irreversible database procedure.
+  async admin_begin_factory_reset(p) {
+    const a = await verify(p.adminToken, ["owner"]);
+    if (String(p.confirmation || "").trim().toUpperCase() !== "RESET BVN")
+      return reply(false, "พิมพ์ RESET BVN เพื่อยืนยัน");
+    const password = String(p.password || "");
+    const { data: user } = await db.from("admin_users").select("username,password,active,role").eq("username", a.username).maybeSingle();
+    if (!user || user.active === false || user.role !== "owner" || !(await verifyPw(password, String(user.password || ""))))
+      return reply(false, "รหัสผ่าน Owner ไม่ถูกต้อง");
+    const challengeId = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    await db.from("data_reset_challenges").update({ status: "expired" }).eq("requested_by", a.username).eq("status", "pending");
+    const { error } = await db.from("data_reset_challenges").insert({ challenge_id: challengeId, requested_by: a.username, expires_at: expiresAt, status: "pending" });
+    if (error) return reply(false, "สร้างรายการยืนยันไม่ได้: " + error.message);
+    return reply(true, "ยืนยันชั้นที่ 1 แล้ว กรุณายืนยันรหัสผ่านอีกครั้งภายใน 10 นาที", { challengeId, expiresAt });
+  },
+  async admin_confirm_factory_reset(p) {
+    const a = await verify(p.adminToken, ["owner"]);
+    if (String(p.confirmation || "").trim().toUpperCase() !== "RESET BVN")
+      return reply(false, "พิมพ์ RESET BVN เพื่อยืนยัน");
+    const challengeId = String(p.challengeId || "");
+    const { data: challenge } = await db.from("data_reset_challenges").select("*").eq("challenge_id", challengeId).eq("requested_by", a.username).eq("status", "pending").maybeSingle();
+    if (!challenge || new Date(challenge.expires_at).getTime() < Date.now()) return reply(false, "รายการยืนยันหมดอายุ กรุณาเริ่มใหม่");
+    const { data: user } = await db.from("admin_users").select("username,password,active,role").eq("username", a.username).maybeSingle();
+    if (!user || user.active === false || user.role !== "owner" || !(await verifyPw(String(p.password || ""), String(user.password || ""))))
+      return reply(false, "รหัสผ่าน Owner ไม่ถูกต้อง");
+    const { data: result, error } = await db.rpc("app_factory_reset_operational");
+    if (error) return reply(false, "ล้างข้อมูลไม่สำเร็จ: " + error.message);
+    await db.from("data_reset_challenges").update({ status: "used", used_at: nowISO() }).eq("challenge_id", challengeId);
+    // Sign out all other administrators.  The initiating session stays alive
+    // only long enough to show the successful clean-state dashboard.
+    await db.from("admin_sessions").update({ status: "revoked" }).neq("token_hash", String(p.adminToken || "")).eq("status", "active");
+    return reply(true, "ล้างข้อมูลปฏิบัติการแล้ว", { result: result || {} });
+  },
+  // Six-month attendance retention: the archive content goes straight to the
+  // browser for a local download.  The database stores only a short-lived
+  // checksum challenge, never a second copy of the attendance data.
+  async admin_create_attendance_archive(p) {
+    const a = await verify(p.adminToken, ["owner"]);
+    const cutoff = new Date(Date.now() - 183 * 86400000).toISOString();
+    const rows = await attendanceBefore(cutoff);
+    const { data: people } = await db.from("employees").select("employee_id,name,role,status,national_id,phone").order("employee_id");
+    const archiveId = crypto.randomUUID();
+    const archive = {
+      format: "BVN-ATTENDANCE-ARCHIVE/1", archiveId, generatedAt: nowISO(), cutoff,
+      description: "เวลาเช็กอิน/เช็กเอาต์ที่เก่ากว่า 6 เดือน", employees: people || [], attendance: rows,
+    };
+    const content = JSON.stringify(archive, null, 2);
+    const sha256 = await sha256Hex(content);
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    const { error } = await db.from("attendance_archive_challenges").insert({ archive_id: archiveId, requested_by: a.username, cutoff_at: cutoff, record_count: rows.length, sha256, expires_at: expiresAt, status: "downloaded" });
+    if (error) return reply(false, "สร้างไฟล์สำรองไม่ได้: " + error.message);
+    return reply(true, "สร้างไฟล์สำรองแล้ว", { archiveId, fileName: `BVN-attendance-before-${cutoff.slice(0, 10)}.json`, content, sha256, recordCount: rows.length, cutoff, expiresAt });
+  },
+  async admin_verify_attendance_archive(p) {
+    const a = await verify(p.adminToken, ["owner"]);
+    const archiveId = String(p.archiveId || ""), sha256 = lc(p.sha256);
+    const { data: row } = await db.from("attendance_archive_challenges").select("*").eq("archive_id", archiveId).eq("requested_by", a.username).eq("status", "downloaded").maybeSingle();
+    if (!row || new Date(row.expires_at).getTime() < Date.now()) return reply(false, "ไฟล์สำรองหมดอายุหรือไม่ตรงกับรายการที่สร้าง กรุณาดาวน์โหลดใหม่");
+    if (sha256 !== lc(row.sha256)) return reply(false, "ไฟล์ที่เลือกไม่ตรงกับ archive ที่เพิ่งสร้าง");
+    await db.from("attendance_archive_challenges").update({ status: "verified" }).eq("archive_id", archiveId);
+    return reply(true, "ตรวจไฟล์สำรองแล้ว", { recordCount: row.record_count, cutoff: row.cutoff_at, expiresAt: row.expires_at });
+  },
+  async admin_purge_attendance_before_cutoff(p) {
+    const a = await verify(p.adminToken, ["owner"]);
+    if (String(p.confirmation || "").trim().toUpperCase() !== "PURGE 6 MONTHS") return reply(false, "พิมพ์ PURGE 6 MONTHS เพื่อยืนยัน");
+    const archiveId = String(p.archiveId || "");
+    const { data: challenge } = await db.from("attendance_archive_challenges").select("*").eq("archive_id", archiveId).eq("requested_by", a.username).eq("status", "verified").maybeSingle();
+    if (!challenge || new Date(challenge.expires_at).getTime() < Date.now()) return reply(false, "ยังไม่ได้ยืนยันไฟล์สำรอง หรือรายการหมดอายุ");
+    const { data: user } = await db.from("admin_users").select("password,active,role").eq("username", a.username).maybeSingle();
+    if (!user || user.active === false || user.role !== "owner" || !(await verifyPw(String(p.password || ""), String(user.password || "")))) return reply(false, "รหัสผ่าน Owner ไม่ถูกต้อง");
+    const { error } = await db.from("attendance_log").delete().lt("event_time", String(challenge.cutoff_at));
+    if (error) return reply(false, "ล้างเวลาเก่าไม่สำเร็จ: " + error.message);
+    await db.from("attendance_archive_challenges").delete().eq("archive_id", archiveId);
+    return reply(true, "ล้างเวลาเกิน 6 เดือนแล้ว", { removedRecords: challenge.record_count, cutoff: challenge.cutoff_at });
+  },
   async admin_get_invoice_settings(p) {
     await verify(p.adminToken, FIN);
     const s = await settingsMap(), keys = ["invoice_company_name", "invoice_company_name_en", "invoice_address", "invoice_phone", "invoice_tax_id", "invoice_vat_rate", "invoice_prefix", "invoice_footer", "invoice_logo_file_id", "invoice_logo_url"];
     const out: Record<string, string> = {}; keys.forEach((k) => (out[k] = s[k] || ""));
     return reply(true, "Invoice settings loaded", { settings: out });
+  },
+  // Finance may review a Timesheet but must not receive or edit all owner
+  // settings.  Return only the public payroll policy used to explain ×N.
+  async admin_get_ot_policy(p) {
+    await verify(p.adminToken, FIN);
+    const s = await settingsMap();
+    const keys = ["ot_auto_apply", "ot_multiplier", "ot_sunday_multiplier", "ot_saturday_enabled", "ot_saturday_multiplier", "holiday_multiplier"];
+    const policy: Record<string, string> = {}; keys.forEach((k) => (policy[k] = s[k] || ""));
+    return reply(true, "OT policy loaded", { policy });
+  },
+  // The console sends a compressed data URL.  Keep the upload inside the trusted
+  // Edge Function so the browser never needs a Storage service key.  The bucket
+  // is created on first use to make a clean deployment usable without a manual
+  // Storage-console step.
+  async admin_upload_invoice_logo(p) {
+    const a = await verify(p.adminToken, ["owner"]);
+    const dataUrl = String(p.imageData || "");
+    const match = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/i.exec(dataUrl);
+    if (!match) return reply(false, "ไฟล์โลโก้ไม่ถูกต้อง");
+    const bytes = Uint8Array.from(atob(match[2]), (c) => c.charCodeAt(0));
+    if (!bytes.length || bytes.length > 1050000) return reply(false, "ไฟล์โลโก้มีขนาดไม่ถูกต้อง");
+    const bucket = "bvn-assets";
+    // Ignore the expected "already exists" error; any other upload error is
+    // returned to the operator rather than silently saving a broken logo URL.
+    await db.storage.createBucket(bucket, { public: true }).catch(() => {});
+    const ext = match[1].toLowerCase() === "jpeg" ? "jpg" : match[1].toLowerCase();
+    const path = `invoice/logo-${Date.now()}.${ext}`;
+    const { error } = await db.storage.from(bucket).upload(path, bytes, {
+      contentType: `image/${match[1].toLowerCase()}`,
+      cacheControl: "3600",
+      upsert: false,
+    });
+    if (error) return reply(false, "อัปโหลดโลโก้ไม่สำเร็จ: " + error.message);
+    const { data: publicUrl } = db.storage.from(bucket).getPublicUrl(path);
+    const logoUrl = publicUrl.publicUrl;
+    const previous = (await settingsMap()).invoice_logo_file_id || "";
+    const { error: saveError } = await db.from("settings").upsert([
+      { key: "invoice_logo_url", value: logoUrl },
+      { key: "invoice_logo_file_id", value: path },
+    ], { onConflict: "key" });
+    if (saveError) return reply(false, saveError.message);
+    // Each document needs only the current logo. Remove the previous upload so
+    // repeated branding changes cannot quietly consume Storage space.
+    if (previous && previous !== path) await db.storage.from(bucket).remove([previous]).catch(() => {});
+    audit(a.display_name, "invoice_logo_uploaded", path, "");
+    return reply(true, "อัปโหลดโลโก้แล้ว", { settings: { invoice_logo_url: logoUrl, invoice_logo_file_id: path } });
   },
 
   async admin_list_holidays(p) { await verify(p.adminToken); const { data } = await db.from("holidays").select("date,name,multiplier").order("date"); return reply(true, "Holidays loaded", { holidays: (data || []).map((h: any) => ({ date: h.date, name: h.name, multiplier: num(h.multiplier) })) }); },
@@ -429,11 +665,34 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     const a = await verify(p.adminToken, OPS);
     const employeeId = String(p.employeeId || "").trim().toUpperCase(), eventType = String(p.eventType || "");
     if (!employeeId || !["check_in", "check_out"].includes(eventType)) return reply(false, "ข้อมูลไม่ครบ");
-    const { data: emp } = await db.from("employees").select("work_site_id").eq("employee_id", employeeId).maybeSingle();
-    const { error } = await db.from("attendance_log").insert({ employee_id: employeeId, site_id: emp?.work_site_id || "", event_type: eventType, event_time: nowISO(), validity: "accepted", source: "admin_manual:" + a.display_name, review_status: "accepted" });
+    const { error } = await db.from("attendance_log").insert({ employee_id: employeeId, site_id: "", event_type: eventType, event_time: nowISO(), validity: "accepted", source: "admin_manual:" + a.display_name, review_status: "accepted" });
     if (error) return reply(false, error.message);
     audit(a.display_name, "attendance_admin", employeeId, eventType);
     return reply(true, eventType === "check_in" ? "ลงเวลาเข้าแล้ว" : "ลงเวลาออกแล้ว");
+  },
+  async admin_record_attendance_correction(p) {
+    const a = await verify(p.adminToken, OPS);
+    const employeeId = String(p.employeeId || "").trim().toUpperCase();
+    const eventType = String(p.eventType || "");
+    const eventAt = String(p.eventAt || "").trim();
+    const reason = String(p.reason || "").trim();
+    if (!employeeId || !["check_in", "check_out"].includes(eventType)) return reply(false, "ข้อมูลพนักงานหรือประเภทรายการไม่ครบ");
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(eventAt)) return reply(false, "รูปแบบวันเวลาไม่ถูกต้อง");
+    if (reason.length < 5 || reason.length > 400) return reply(false, "เหตุผลต้องมี 5–400 ตัวอักษร");
+    const at = new Date(eventAt + ":00+07:00");
+    if (Number.isNaN(at.getTime()) || at.getTime() > Date.now() + 5 * 60 * 1000) return reply(false, "ไม่สามารถบันทึกเวลาในอนาคตได้");
+    const { data: employee } = await db.from("employees").select("employee_id").eq("employee_id", employeeId).maybeSingle();
+    if (!employee) return reply(false, "ไม่พบพนักงาน");
+    const date = eventAt.slice(0, 10);
+    const { data: existing } = await db.from("attendance_log").select("event_type").eq("employee_id", employeeId).eq("validity", "accepted")
+      .gte("event_time", date + "T00:00:00+07:00").lte("event_time", date + "T23:59:59+07:00");
+    const seen = new Set((existing || []).map((r: any) => r.event_type));
+    if (seen.has(eventType)) return reply(false, eventType === "check_in" ? "วันนี้มี Check in อยู่แล้ว — หากข้อมูลผิด ให้ยกเลิกวันนั้นก่อน" : "วันนี้มี Check out อยู่แล้ว — หากข้อมูลผิด ให้ยกเลิกวันนั้นก่อน");
+    if (eventType === "check_out" && !seen.has("check_in")) return reply(false, "ต้องมี Check in ของวันเดียวกันก่อนจึงจะเพิ่ม Check out ได้");
+    const { error } = await db.from("attendance_log").insert({ employee_id: employeeId, site_id: "", event_type: eventType, event_time: at.toISOString(), validity: "accepted", source: "admin_correction:" + a.display_name, review_status: "accepted", note: reason });
+    if (error) return reply(false, error.message);
+    audit(a.display_name, "attendance_corrected", employeeId, `${eventType} ${eventAt} · ${reason}`);
+    return reply(true, "บันทึกการแก้ไขเวลาแล้ว", { employeeId, eventType, eventAt: at.toISOString() });
   },
   async admin_attendance_days(p) {
     await verify(p.adminToken);
@@ -450,12 +709,14 @@ const H: Record<string, (p: any) => Promise<Response>> = {
       if (r.event_type === "check_out") it.outTs = it.outTs ? Math.max(it.outTs, t) : t;
       byKey[key] = it;
     });
-    const days = Object.values(byKey).map((it: any) => ({
+    const days = Object.values(byKey).map((it: any) => {
+      const workedMinutes = it.inTs && it.outTs && it.outTs > it.inTs ? Math.round((it.outTs - it.inTs) / 60000) : 0;
+      return {
       employeeId: it.employeeId, name: names[it.employeeId]?.name || it.employeeId, date: it.date,
       checkIn: it.inTs ? hhmm(it.inTs) : "", checkOut: it.outTs ? hhmm(it.outTs) : "",
-      workedMinutes: it.inTs && it.outTs && it.outTs > it.inTs ? Math.round((it.outTs - it.inTs) / 60000) : 0,
-      status: it.inTs && it.outTs ? "complete" : "incomplete",
-    })).sort((a: any, b: any) => (a.date === b.date ? a.employeeId.localeCompare(b.employeeId) : a.date < b.date ? 1 : -1));
+      workedMinutes,
+      status: !it.inTs || !it.outTs ? "incomplete" : workedMinutes < 15 ? "anomaly" : "complete",
+    }; }).sort((a: any, b: any) => (a.date === b.date ? a.employeeId.localeCompare(b.employeeId) : a.date < b.date ? 1 : -1));
     return reply(true, "Attendance days loaded", { startDate: start, endDate: end, days });
   },
   async admin_void_attendance_day(p) {
@@ -713,8 +974,7 @@ const H: Record<string, (p: any) => Promise<Response>> = {
 
   async admin_list_audit_log(p) {
     await verify(p.adminToken, ["owner", "manager"]);
-    const { data } = await db.from("audit_log").select("*").order("ts", { ascending: false }).limit(400);
-    return reply(true, "ok", { entries: (data || []).map((r: any) => ({ at: r.ts, actor: r.actor || "", action: r.action || "", target: r.target || "", detail: r.detail || "" })) });
+    return reply(true, "Audit log is disabled in minimal-data mode", { entries: [] });
   },
   async admin_list_password_requests(p) {
     await verify(p.adminToken, OPS);
@@ -742,9 +1002,33 @@ const H: Record<string, (p: any) => Promise<Response>> = {
   async employee_profile(p) {
     const e = await authMobile(p.mobileToken); if (!e) return reply(false, "Mobile authentication failed");
     const s = await settingsMap();
-    return reply(true, "ok", { employeeId: e.employee_id, name: e.name, role: e.role, siteId: e.work_site_id, locationRequired: e.location_required !== false,
+    return reply(true, "ok", { employeeId: e.employee_id, name: e.name, role: e.role, locationRequired: e.location_required !== false,
       shiftStart: s.shift_start || "09:00", shiftEnd: s.shift_end || "18:00", shift_start: s.shift_start || "09:00", shift_end: s.shift_end || "18:00",
       workdays: s.workdays || "1,2,3,4,5", remindBeforeMin: num(s.remind_before_min) || 15, remindCheckoutAfterMin: num(s.remind_checkout_after_min) || 10 });
+  },
+  async employee_identity_profile(p) {
+    const e = await authMobile(p.mobileToken); if (!e) return reply(false, "Mobile authentication failed");
+    const [{ data: current }, { data: pending }] = await Promise.all([
+      db.from("employees").select("phone,national_id").eq("employee_id", e.employee_id).maybeSingle(),
+      db.from("employee_identity_requests").select("status,submitted_at").eq("employee_id", e.employee_id).eq("status", "pending").maybeSingle(),
+    ]);
+    const nationalId = String(current?.national_id || "");
+    return reply(true, "ok", { phone: current?.phone || "", nationalIdLast4: nationalId ? nationalId.slice(-4) : "", identityComplete: nationalId.length === 13, pending: !!pending, submittedAt: pending?.submitted_at || "" });
+  },
+  async employee_submit_identity(p) {
+    const e = await authMobile(p.mobileToken); if (!e) return reply(false, "Mobile authentication failed");
+    const nationalId = String(p.nationalId || "").replace(/[^0-9]/g, ""), phone = String(p.phone || "").trim();
+    if (!/^\d{13}$/.test(nationalId)) return reply(false, "กรอกเลขบัตรประชาชน 13 หลัก");
+    if (phone && !/^[0-9+()\-\s]{7,20}$/.test(phone)) return reply(false, "รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง");
+    const { data: duplicate } = await db.from("employees").select("employee_id").eq("national_id", nationalId).neq("employee_id", e.employee_id).maybeSingle();
+    if (duplicate) return reply(false, "เลขบัตรประชาชนนี้ถูกใช้ในระบบแล้ว");
+    const { data: prior } = await db.from("employee_identity_requests").select("request_id").eq("employee_id", e.employee_id).eq("status", "pending").maybeSingle();
+    if (prior) {
+      await db.from("employee_identity_requests").update({ national_id: nationalId, phone, submitted_at: nowISO() }).eq("request_id", prior.request_id);
+    } else {
+      await db.from("employee_identity_requests").insert({ request_id: crypto.randomUUID(), employee_id: e.employee_id, national_id: nationalId, phone, status: "pending", submitted_at: nowISO() });
+    }
+    return reply(true, "ส่งข้อมูลให้ผู้ดูแลตรวจสอบแล้ว", { pending: true });
   },
   async sites(p) {
     if (!(await authMobile(p.mobileToken))) return reply(false, "Mobile authentication failed");
@@ -769,7 +1053,7 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     if (eventType === "check_out" && !st.checkedIn) return reply(false, "ต้องบันทึกเข้างานก่อนจึงจะบันทึกออกงานได้", st);
     if (eventType === "check_out" && st.checkedOut) return reply(false, "วันนี้คุณบันทึกออกงานแล้ว", st);
     const now = nowISO();
-    await db.from("attendance_log").insert({ employee_id: e.employee_id, site_id: matched ? matched.id : (e.work_site_id || ""), event_type: eventType, event_time: now,
+    await db.from("attendance_log").insert({ employee_id: e.employee_id, site_id: matched ? matched.id : "", event_type: eventType, event_time: now,
       latitude: Number.isFinite(lat) ? lat : null, longitude: Number.isFinite(lng) ? lng : null, accuracy: Number.isFinite(acc) ? acc : null,
       distance_m: distance === null ? null : Math.round(distance * 100) / 100, validity: accepted ? "accepted" : "rejected",
       device_timezone: String(p.deviceTimezone || ""), source: e.location_required !== false ? "mobile_api_location" : "mobile_api_no_location", review_status: accepted ? "accepted" : "rejected" });
@@ -801,7 +1085,10 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     const todayStr = todayISO(), daysInMonth = new Date(year, month, 0).getDate(), days = [];
     for (let dn = 1; dn <= daysInMonth; dn++) {
       const dateStr = `${year}-${mm}-${String(dn).padStart(2, "0")}`;
-      const dow = new Date(dateStr + "T00:00:00+07:00").getDay(), rec = byDay[dateStr], isHoliday = !!holidays[dateStr], leaveType = leaveByDate[dateStr] || "";
+      // Do not call getDay() on a +07:00 timestamp: the Edge runtime is UTC,
+      // which turns Bangkok Monday 00:00 into the preceding Sunday. Use the
+      // canonical plain-date helper shared with payroll instead.
+      const dow = weekdayOf(dateStr), rec = byDay[dateStr], isHoliday = !!holidays[dateStr], leaveType = leaveByDate[dateStr] || "";
       let status = "", inStr = "", outStr = "", worked = 0, ot = 0, late = false;
       if (rec && rec.inTs) {
         inStr = hhmm(rec.inTs);

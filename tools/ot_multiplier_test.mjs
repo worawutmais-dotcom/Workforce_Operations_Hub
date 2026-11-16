@@ -32,6 +32,12 @@ eq("explicit per-day x3 beats holiday default", resolveOtMultiplier("2026-11-18"
 eq("explicit per-day x3 beats Sunday", resolveOtMultiplier("2026-11-15", { "2026-11-15": 3 }, false, S, rule), 3);
 eq("auto off = flat rule multiplier", resolveOtMultiplier("2026-11-15", { "2026-11-15": 3 }, true, { ...S, ot_auto_apply: "false" }, rule), 1.5);
 
+// Regression: the employee month view must use the same UTC plain-date
+// weekday calculation as payroll. A Bangkok +07 timestamp combined with
+// local getDay() in a UTC Edge runtime incorrectly labels this Monday Sunday.
+eq("2026-11-02 Monday weekday index", weekdayOf("2026-11-02"), 1);
+eq("2026-11-02 Monday has normal multiplier", resolveOtMultiplier("2026-11-02", {}, false, S, rule), 1.5);
+
 // Example payout: 50 THB/hr, Sunday OT 3 hours -> 50 * 2 * 3 = 300
 const otHourly = 50, hours = 3;
 const mult = resolveOtMultiplier("2026-11-15", {}, false, S, rule);

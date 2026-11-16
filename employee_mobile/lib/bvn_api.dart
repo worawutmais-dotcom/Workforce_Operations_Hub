@@ -289,6 +289,27 @@ class BvnApi {
     },
   );
 
+  Future<Map<String, dynamic>> identityProfile(String token) async {
+    final response = await post({
+      'action': 'employee_identity_profile',
+      'mobileToken': token,
+    });
+    return (response['data'] as Map<String, dynamic>?) ?? <String, dynamic>{};
+  }
+
+  Future<void> submitIdentity({
+    required String token,
+    required String nationalId,
+    required String phone,
+  }) async {
+    await post({
+      'action': 'employee_submit_identity',
+      'mobileToken': token,
+      'nationalId': nationalId,
+      'phone': phone,
+    });
+  }
+
   static dynamic _firstScheduleValue(
     Map<String, dynamic> values,
     List<String> keys,

@@ -13,7 +13,7 @@ delete from payroll_rules  where employee_id in ('EMP-101','EMP-102');
 delete from employees      where employee_id in ('EMP-101','EMP-102');
 
 -- employees
-insert into employees (employee_id, name, role, department, work_site_id, status, location_required, password) values
+insert into employees (employee_id, name, role, department, legacy_work_site_id, status, location_required, password) values
   ('EMP-101','สมศักดิ์ ตั้งใจ','พนักงานขาย','หน้าร้าน','BVN-HQ','active',true,'1234'),
   ('EMP-102','วิภา ขยันงาน','พนักงานคลัง','คลังสินค้า','BVN-HQ','active',true,'1234');
 

@@ -582,8 +582,8 @@ class _EmployeeShellState extends State<EmployeeShell>
               ? '$h ชม. ${m > 0 ? '$m นาที' : ''}'.trim()
               : '$m นาที';
           msg = ot?['status'] == 'already_requested'
-              ? 'บันทึกออกงานแล้ว • ทำเกินเวลา ~$dur (ส่งขออนุมัติ OT ไว้แล้ว)'
-              : 'บันทึกออกงานแล้ว • ตรวจพบ OT ~$dur ส่งขออนุมัติให้แอดมินแล้ว';
+              ? 'บันทึกออกงานแล้ว • ทำเกินกะ ~$dur ระบบส่งให้ผู้ดูแลตรวจสอบแล้ว'
+              : 'บันทึกออกงานแล้ว • ตรวจพบเวลาทำงานเกินกะ ~$dur ระบบส่งให้ผู้ดูแลตรวจสอบ';
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg), duration: const Duration(seconds: 4)),
@@ -2344,9 +2344,9 @@ class _RequestsPageState extends State<_RequestsPage> {
   );
 
   Widget _timeCard(BuildContext context, Map<String, dynamic> item) {
-    final kind = '${item['requestType']}' == 'overtime'
-        ? 'ขอทำ OT'
-        : 'ขอแก้ไขเวลา';
+    // Employee-request UI is intentionally limited to attendance correction.
+    // Overtime is derived from an actual check-out and reviewed by Admin.
+    const kind = 'ขอแก้ไขเวลา';
     final min = (item['requestedMinutes'] as num?)?.round() ?? 0;
     final duration = min >= 60
         ? '${min ~/ 60} ชม.${min % 60 == 0 ? '' : ' ${min % 60} นาที'}'
@@ -2485,7 +2485,7 @@ class _RequestsPageState extends State<_RequestsPage> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Text(
-                    'OT คิดให้อัตโนมัติเมื่อทำเกินเวลาเลิกงาน ไม่ต้องยื่นขอ',
+                    'เวลาทำงานเกินกะจะคำนวณตามกติกาบริษัทโดยอัตโนมัติ',
                     style: TextStyle(fontSize: 12.5, color: kBrandInk),
                   ),
                 ),
@@ -2590,7 +2590,14 @@ class _RequestsPageState extends State<_RequestsPage> {
   @override
   Widget build(BuildContext context) {
     final leaves = _filter == 'time' ? <Map<String, dynamic>>[] : _leaves;
-    final times = _filter == 'leave' ? <Map<String, dynamic>>[] : _times;
+    // Do not expose automatic overtime approvals as employee-submitted
+    // requests. They remain visible to Admin in the payroll/approval flows.
+    final corrections = _times
+        .where((item) => '${item['requestType']}' != 'overtime')
+        .toList(growable: false);
+    final times = _filter == 'leave'
+        ? <Map<String, dynamic>>[]
+        : corrections;
     final advances = _filter == 'all' ? _advances : <Map<String, dynamic>>[];
     return RefreshIndicator(
       onRefresh: _load,
@@ -2612,7 +2619,7 @@ class _RequestsPageState extends State<_RequestsPage> {
                     ),
                     SizedBox(height: 3),
                     Text(
-                      'ติดตามสถานะลา, OT และคำขอแก้ไขเวลา',
+                      'ติดตามสถานะลาและคำขอแก้ไขเวลา',
                       style: TextStyle(fontSize: 12),
                     ),
                   ],
@@ -2634,7 +2641,7 @@ class _RequestsPageState extends State<_RequestsPage> {
             segments: const [
               ButtonSegment(value: 'all', label: Text('ทั้งหมด')),
               ButtonSegment(value: 'leave', label: Text('ลา')),
-              ButtonSegment(value: 'time', label: Text('เวลา/OT')),
+              ButtonSegment(value: 'time', label: Text('แก้ไขเวลา')),
             ],
             selected: {_filter},
             onSelectionChanged: (v) => setState(() => _filter = v.first),
@@ -2680,7 +2687,7 @@ class _RequestsPageState extends State<_RequestsPage> {
                     ),
                     const SizedBox(height: 3),
                     const Text(
-                      'เมื่อส่งคำขอลาหรือ OT สถานะจะแสดงที่นี่',
+                      'เมื่อส่งคำขอลาหรือขอแก้ไขเวลา สถานะจะแสดงที่นี่',
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -2708,7 +2715,7 @@ class _RequestsPageState extends State<_RequestsPage> {
             if (times.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
-                'เวลาและ OT',
+                'คำขอแก้ไขเวลา',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -3204,6 +3211,14 @@ class _Account extends StatelessWidget {
           children: [
             _accountTile(
               context,
+              Icons.badge_outlined,
+              'ยืนยันข้อมูลส่วนตัว',
+              'เลขบัตรประชาชนและเบอร์โทร ส่งให้ผู้ดูแลอนุมัติ',
+              () => _identityDialog(context),
+            ),
+            const Divider(height: 1, indent: 58),
+            _accountTile(
+              context,
               Icons.payments_outlined,
               'ขอเบิกเงินล่วงหน้า',
               null,
@@ -3280,6 +3295,82 @@ class _Account extends StatelessWidget {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
+  }
+
+  Future<void> _identityDialog(BuildContext context) async {
+    Map<String, dynamic> current = <String, dynamic>{};
+    try {
+      current = await BvnApi().identityProfile(token);
+    } on BvnApiException catch (e) {
+      _snack(context, e.message);
+      return;
+    } catch (_) {
+      _snack(context, 'โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง');
+      return;
+    }
+    if (current['pending'] == true) {
+      _snack(context, 'ส่งข้อมูลให้ผู้ดูแลตรวจสอบแล้ว');
+      return;
+    }
+    final nationalId = TextEditingController();
+    final phone = TextEditingController(text: '${current['phone'] ?? ''}');
+    await showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('ยืนยันข้อมูลส่วนตัว'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'ข้อมูลจะส่งให้ผู้ดูแลตรวจสอบก่อนบันทึกในทะเบียนพนักงาน',
+              style: TextStyle(fontSize: 12, color: kMuted),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nationalId,
+              keyboardType: TextInputType.number,
+              maxLength: 13,
+              decoration: InputDecoration(
+                labelText: 'เลขบัตรประชาชน',
+                hintText: current['nationalIdLast4']?.toString().isNotEmpty == true
+                    ? 'บันทึกแล้ว ••••${current['nationalIdLast4']}'
+                    : '13 หลัก',
+              ),
+            ),
+            TextField(
+              controller: phone,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: 'เบอร์โทรศัพท์'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              try {
+                await BvnApi().submitIdentity(
+                  token: token,
+                  nationalId: nationalId.text,
+                  phone: phone.text,
+                );
+                if (c.mounted) Navigator.pop(c);
+                _snack(context, 'ส่งข้อมูลให้ผู้ดูแลตรวจสอบแล้ว');
+              } on BvnApiException catch (e) {
+                _snack(context, e.message);
+              } catch (_) {
+                _snack(context, 'ส่งข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง');
+              }
+            },
+            child: const Text('ส่งให้ตรวจสอบ'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _advanceDialog(BuildContext context) async {
