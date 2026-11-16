@@ -1379,11 +1379,14 @@ async function renderDashboard(data, preloaded={}){
           <div class="panel" style="margin:0"><div class="head"><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">${cLate?`สาย ${fmtInt(cLate)} · `:""}ยังไม่เข้า ${fmtInt(cOut)} · คลิกดูปฏิทิน</span><div class="spacer"></div><button class="btn sub sm" data-nav="owner">ดูทั้งหมด</button></div><div class="body"><div class="team-grid">${teamHtml}</div></div></div>
           <div class="panel" style="margin:0"><div class="head"><b>ต้องตัดสินใจ</b><div class="spacer"></div><button class="btn sub sm" data-nav="approvals">ดูทั้งหมด</button></div><div class="body flush dash-list">${decideHtml}</div></div>
         </div>
+        <div class="panel" style="margin-top:14px"><div class="head"><b>ภาพรวมรายคน · เดือนนี้</b><span class="sub" style="margin-left:8px">มา / สาย รายคน</span></div>
+          <div class="body"><div id="peoplePulse"><div class="empty">กำลังโหลด…</div></div></div></div>
         <div class="toolbar dash-short" style="margin-top:14px">
           <button class="btn ghost" data-act="emp">+ เพิ่มพนักงาน</button>
           <button class="btn ghost" data-act="ot">บันทึก OT</button>
           ${canFinance?`<button class="btn ghost" data-act="inv">ออกใบแจ้งหนี้</button><button class="btn ghost" data-nav="payroll">พรีวิวเงินเดือน</button>`:""}
         </div>`;
+      renderPeoplePulse(team, dashShiftMin);
     } else {
       // Finance-only account: focused financial summary (unchanged layout).
       node.innerHTML=`
@@ -1431,6 +1434,34 @@ function dashboardFallback(node, err){
   </section>`;
   node.querySelector("[data-retry-dashboard]").onclick=()=>renderDashboard();
   node.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>go(b.dataset.nav));
+}
+// Per-person attendance pulse for the dashboard: a mini donut (on-time vs late)
+// + counts for the current month. Clicking opens that person's calendar.
+async function renderPeoplePulse(team, shiftMin){
+  const box=document.getElementById("peoplePulse"); if(!box) return;
+  try{
+    const now=new Date(), start=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-01`, end=todayISO();
+    const d=await api("admin_attendance_days",{startDate:start,endDate:end});
+    const by={}; (d.days||[]).forEach(r=>{ if(!r.checkIn) return; const x=by[r.employeeId]||{present:0,late:0}; x.present++; if(pmHM(r.checkIn)>shiftMin) x.late++; by[r.employeeId]=x; });
+    const people=(team||[]).filter(e=>String(e.status||"").toLowerCase()==="active");
+    if(!people.length){ box.innerHTML=`<div class="empty">ยังไม่มีพนักงานที่ใช้งานอยู่</div>`; return; }
+    box.style.display="grid"; box.style.gridTemplateColumns="repeat(auto-fill,minmax(158px,1fr))"; box.style.gap="10px";
+    box.innerHTML=people.map(e=>{
+      const s=by[e.id]||{present:0,late:0}, onTime=Math.max(0,s.present-s.late), tot=s.present||1;
+      const pOn=Math.round(onTime/tot*100);
+      return `<button class="card" data-calendar="${esc(e.id)}" style="display:flex;align-items:center;gap:11px;padding:11px;cursor:pointer;text-align:left;border:1px solid var(--line)">
+        <svg viewBox="0 0 42 42" width="50" height="50" style="flex:none">
+          <circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--line-soft)" stroke-width="5"></circle>
+          <circle cx="21" cy="21" r="15.915" fill="none" stroke="#10b981" stroke-width="5" pathLength="100" stroke-dasharray="${pOn} ${100-pOn}" stroke-dashoffset="25"></circle>
+          <circle cx="21" cy="21" r="15.915" fill="none" stroke="#f59e0b" stroke-width="5" pathLength="100" stroke-dasharray="${100-pOn} ${pOn}" stroke-dashoffset="${25-pOn}"></circle>
+          <text x="21" y="24" text-anchor="middle" style="font-size:10px;font-weight:700;fill:var(--ink)">${fmtInt(s.present)}</text>
+        </svg>
+        <span style="flex:1;min-width:0"><span style="font-size:13px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.name)}</span>
+          <span class="sub" style="font-size:11px;display:block;margin-top:3px"><span style="color:#047857">มา ${fmtInt(s.present)}</span> · <span style="color:#b45309">สาย ${fmtInt(s.late)}</span></span></span>
+      </button>`;
+    }).join("");
+    box.querySelectorAll("[data-calendar]").forEach(b=>b.onclick=()=>openAttendanceCalendar(b.dataset.calendar));
+  }catch(_){ box.innerHTML=`<div class="empty">โหลดภาพรวมรายคนไม่สำเร็จ</div>`; }
 }
 function bar(label,val,total,color){
   const pct=total?Math.round(val/total*100):0;
