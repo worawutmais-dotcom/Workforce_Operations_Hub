@@ -1,0 +1,6 @@
+# Supabase CLI project config.
+# project_id = the project ref (also visible in the API endpoint URL).
+# It lets `supabase functions deploy swift-handler` target this project
+# without passing --project-ref every time. Not a secret (the ref is public);
+# the access token used by `supabase login` is what authorises deploys.
+project_id = "vqualksnbctfukcbxqdd"
