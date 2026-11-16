@@ -2502,7 +2502,9 @@ class _RequestsPageState extends State<_RequestsPage> {
   );
 
   Future<void> _newTimeRequest() async {
-    var type = 'overtime';
+    // OT is granted automatically from check-out overtime, never requested by
+    // the employee. This form only asks to correct a recorded time.
+    const type = 'attendance_correction';
     var workDate = DateTime.now();
     final minutes = TextEditingController(text: '60');
     final reason = TextEditingController();
@@ -2510,23 +2512,22 @@ class _RequestsPageState extends State<_RequestsPage> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('ขอ OT / แก้ไขเวลา'),
+          title: const Text('ขอแก้ไขเวลา'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                DropdownButtonFormField<String>(
-                  initialValue: type,
-                  decoration: const InputDecoration(labelText: 'ประเภทคำขอ'),
-                  items: const [
-                    DropdownMenuItem(value: 'overtime', child: Text('ขอทำ OT')),
-                    DropdownMenuItem(
-                      value: 'attendance_correction',
-                      child: Text('ขอแก้ไขเวลา'),
-                    ),
-                  ],
-                  onChanged: (v) =>
-                      setDialogState(() => type = v ?? 'overtime'),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(11),
+                  decoration: BoxDecoration(
+                    color: kBrandSoft,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'OT คิดให้อัตโนมัติเมื่อทำเกินเวลาเลิกงาน ไม่ต้องยื่นขอ',
+                    style: TextStyle(fontSize: 12.5, color: kBrandInk),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 ListTile(
@@ -2554,9 +2555,7 @@ class _RequestsPageState extends State<_RequestsPage> {
                   controller: minutes,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    labelText: type == 'overtime'
-                        ? 'จำนวน OT (นาที)'
-                        : 'เวลาที่ขอแก้ไข (นาที)',
+                    labelText: 'เวลาที่ขอแก้ไข (นาที)',
                     helperText: 'เช่น 60 = 1 ชั่วโมง',
                   ),
                 ),
@@ -2660,7 +2659,7 @@ class _RequestsPageState extends State<_RequestsPage> {
                 ),
               ),
               IconButton(
-                tooltip: 'ขอ OT หรือแก้ไขเวลา',
+                tooltip: 'ขอแก้ไขเวลา',
                 onPressed: _loading ? null : _newTimeRequest,
                 icon: const Icon(Icons.add_circle_outline_rounded),
               ),
