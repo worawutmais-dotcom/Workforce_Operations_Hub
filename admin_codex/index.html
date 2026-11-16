@@ -1536,10 +1536,11 @@ async function renderPeople(){
   const node=$("#page-people"); skeleton(node);
   try{
     await loadEmployees(true).catch(()=>{});
-    const [leaveD,timeD,advD]=await Promise.all([
+    const [leaveD,timeD,advD,usageD]=await Promise.all([
       api("admin_list_leave_requests").catch(()=>({requests:[]})),
       api("admin_list_time_requests").catch(()=>({requests:[]})),
       api("admin_list_advances").catch(()=>({advances:[]})),
+      api("admin_leave_usage").catch(()=>({quota:{},rows:[]})),
     ]);
     const leaves=leaveD.requests||[], times=timeD.requests||[], advs=advD.advances||[];
     const leaveItems=leaves.map(r=>({mode:"leave",status:r.status,eid:r.employeeId,name:empName(r.employeeId),tag:"ลา",
@@ -1599,7 +1600,17 @@ async function renderPeople(){
       }
       const items=(_peopleMode==="leave"?leaveItems:timeItems).filter(i=>i.status==="pending");
       const extra=_peopleMode==="ot"?`<div class="toolbar" style="margin-bottom:10px"><button class="btn sub sm" id="pGoRules">ตั้งค่า OT / วันหยุด / ตัวคูณ ›</button><button class="btn ok sm" id="pAddOt">บันทึก OT</button></div>`:"";
-      box.innerHTML=extra+(items.length?items.map((i,idx)=>peopleRow(i,idx)).join(""):`<div class="empty">ไม่มีคำขอรออนุมัติ</div>`);
+      let after="";
+      if(_peopleMode==="leave"){
+        const q=usageD.quota||{}, rows=usageD.rows||[];
+        const cell=(u,qt)=>qt?`${fmtInt(u||0)}<span class="sub"> /${fmtInt(qt)}</span>`:fmtInt(u||0);
+        after=`<div style="margin-top:14px"><div class="sub" style="margin:0 0 6px;font-weight:600">โควตาวันลา (ปีนี้)</div>
+          <table><thead><tr><th>พนักงาน</th><th class="num">ป่วย</th><th class="num">กิจ</th><th class="num">พักร้อน</th><th class="num">อื่นๆ</th></tr></thead>
+          <tbody>${rows.length?rows.map(r=>`<tr><td class="person">${esc(r.name)}<span class="sub">${esc(r.employeeId)}</span></td>
+            <td class="num">${cell(r.usedSick,q.sick)}</td><td class="num">${cell(r.usedPersonal,q.personal)}</td>
+            <td class="num">${cell(r.usedVacation,q.vacation)}</td><td class="num">${fmtInt(r.usedOther||0)}</td></tr>`).join(""):`<tr><td colspan="5"><div class="empty">ไม่มีข้อมูลโควตา</div></td></tr>`}</tbody></table></div>`;
+      }
+      box.innerHTML=extra+(items.length?items.map((i,idx)=>peopleRow(i,idx)).join(""):`<div class="empty">ไม่มีคำขอรออนุมัติ</div>`)+after;
       box.querySelectorAll("[data-ap]").forEach(b=>b.onclick=(e)=>items[+b.dataset.ap].review(e.target,"approved"));
       box.querySelectorAll("[data-rj]").forEach(b=>b.onclick=(e)=>items[+b.dataset.rj].review(e.target,"rejected"));
       if($("#pGoRules")) $("#pGoRules").onclick=()=>go("payrules");
