@@ -251,78 +251,38 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: kCanvas,
-    body: Column(
-      children: [
-        // Green hero crown — echoes the console's green login identity.
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(28, 0, 28, 34),
-          decoration: const BoxDecoration(
-            gradient: kHeroGradient,
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-          ),
-          child: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 26),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(5),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: kHeroShadow,
-                    ),
-                    child: PppBrandMark(size: 58, logoUrl: widget.brandLogoUrl),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    widget.brandName,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      letterSpacing: .3,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'ระบบลงเวลาพนักงาน',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFFD6F0D9),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(22, 26, 22, 28),
+    // Option 3 — minimal white login: centered BVN mark, clean fields, navy CTA.
+    backgroundColor: Colors.white,
+    body: SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  'เข้าสู่ระบบ',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
+                Center(
+                  child: PppBrandMark(size: 68, logoUrl: widget.brandLogoUrl),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  widget.brandName,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
                     color: _ink,
+                    fontSize: 23,
+                    letterSpacing: .2,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 5),
                 const Text(
-                  'เลือกชื่อของคุณ แล้วกรอกรหัสผ่าน',
+                  'ระบบลงเวลาพนักงาน',
+                  textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 13, color: kMuted),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 30),
                 if (!_loading && _people.isEmpty)
                 Card(
                   child: Padding(
@@ -437,7 +397,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ),
-      ],
+      ),
     ),
   );
 }
