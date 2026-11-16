@@ -1058,6 +1058,10 @@ function enterApp(dashboardData, preloaded={}){
   renderDashboard(dashboardData, preloaded);
   // warm the employee cache (used by many pages)
   if(!preloaded.employees) loadEmployees().catch(()=>{});
+  // Restore the deep-linked page on refresh / shared link; otherwise anchor at dashboard.
+  const start=(location.hash||"").replace(/^#/,"");
+  if(start && start!=="dashboard" && PAGES[start] && allowedPages().includes(start)) go(start);
+  else { try{ history.replaceState(null,"","#dashboard"); }catch(_){} }
 }
 async function logout(){
   const activeToken=state.token;
@@ -1118,9 +1122,12 @@ function groupTabsHtml(active){
     `<button type="button" class="${p===active?"active":""}" data-grp="${p}">${label}</button>`).join("")+`</div>`;
 }
 function wireGroupTabs(node){ node.querySelectorAll("[data-grp]").forEach(b=>b.onclick=()=>go(b.dataset.grp)); }
+let _navFromPop=false;
 function go(page){
   if(!PAGES[page]||!allowedPages().includes(page)){ toast("บัญชีนี้ไม่มีสิทธิ์เปิดหน้านี้","bad"); return; }
   state.page=page;
+  // Keep the URL hash in sync so Back/Forward, refresh and shared deep-links work.
+  if(!_navFromPop){ const h="#"+page; try{ if(location.hash!==h) history.pushState(null,"",h); }catch(_){ try{ location.hash=page; }catch(_e){} } }
   const navHi=NAV_GROUP[page]||page;
   $("#nav").querySelectorAll("button").forEach(b=>{
     const active=b.dataset.page===navHi; b.classList.toggle("active",active);
@@ -1140,6 +1147,7 @@ function go(page){
 $("#nav").querySelectorAll("button[data-page]").forEach(b=>b.setAttribute("aria-controls","page-"+b.dataset.page));
 $("#nav").addEventListener("click", e=>{ const b=e.target.closest("button[data-page]"); if(b) go(b.dataset.page); });
 document.addEventListener("click", e=>{ const b=e.target.closest("[data-grp]"); if(b){ e.preventDefault(); go(b.dataset.grp); } });
+window.addEventListener("popstate", ()=>{ if(!state.token) return; const p=(location.hash||"").replace(/^#/,""); if(p && PAGES[p] && allowedPages().includes(p) && p!==state.page){ _navFromPop=true; try{ go(p); } finally { _navFromPop=false; } } });
 $("#refreshBtn").addEventListener("click", ()=>{ clearApiReadCache(); withBtn($("#refreshBtn"), async()=>{ await PAGES[state.page].load(); refreshApprovalBadge(); }); });
 $("#menuBtn").addEventListener("click", ()=>{
   const opened=$("#side").classList.toggle("open");
