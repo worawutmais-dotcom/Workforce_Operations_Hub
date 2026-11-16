@@ -12,7 +12,7 @@
   :root{
     --navy:#1e2818;--navy2:#304020;--panel:#304020;--ink:#172014;--muted:#697362;
     --line:#e6ebe2;--line-soft:#f1f5ee;--bg:#f7f9f5;--card:#ffffff;
-    --blue:#2f9e3f;--blue-ink:#1f7c33;--blue-soft:#e8f4ea;
+    --blue:#1e3a5f;--blue-ink:#152c47;--blue-soft:#e9eef5;
     --green:#168b45;--green-soft:#e6f8ea;--amber:#d9731a;--amber-soft:#fbeede;
     --red:#c93b3b;--red-soft:#fbe9e9;--radius:12px;--radius-sm:8px;
     --shadow:0 1px 2px rgba(20,30,20,.04),0 4px 14px rgba(20,30,20,.05);
@@ -61,7 +61,7 @@
 
   /* ---------- Login ---------- */
   #login{position:fixed;inset:0;display:grid;place-items:center;
-    background:radial-gradient(1200px 700px at 15% -10%,#1f7c33,#0c160a 62%),var(--navy);padding:20px;z-index:40}
+    background:radial-gradient(1200px 700px at 15% -10%,#152c47,#0b1b2d 62%),var(--navy);padding:20px;z-index:40}
   .login-card{width:100%;max-width:412px;background:var(--card);border-radius:22px;
     padding:36px 34px;box-shadow:0 40px 90px rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.06)}
   .login-card .logo{font-weight:600;font-size:18px;letter-spacing:0;color:var(--ink);display:flex;flex-direction:column}
@@ -96,7 +96,7 @@
      as a modern enterprise console rather than the old olive slab. */
   .side{background:var(--card);color:var(--ink);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;border-right:1px solid var(--line)}
   .side .brand{font-weight:600;font-size:14px;letter-spacing:0;padding:17px 16px 15px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line-soft)}
-  .side .brand::before{content:"BVN";display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;letter-spacing:.4px;width:32px;height:32px;border-radius:10px;background:linear-gradient(145deg,#2fb344,#1f7c33);flex:none;box-shadow:0 3px 8px rgba(31,124,51,.28)}
+  .side .brand::before{content:"BVN";display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;letter-spacing:.4px;width:32px;height:32px;border-radius:10px;background:linear-gradient(145deg,#2b4d72,#152c47);flex:none;box-shadow:0 3px 8px rgba(30,58,95,.28)}
   .side .brand small{display:block;font-weight:400;color:var(--muted);font-size:10px;margin-top:2px;letter-spacing:.2px}
   .nav{display:flex;flex-direction:column;gap:3px;padding:12px 11px;flex:1;overflow:auto}
   .nav-section{margin:17px 10px 6px;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;opacity:.78}
@@ -366,8 +366,8 @@
   /* ---------- Unslop pass: quiet operational chrome ----------
      BVN uses lime for a selected/complete state and orange for attention.
      Surfaces stay neutral so tables and decisions carry the visual hierarchy. */
-  :root{--bg:#f5f6f8;--card:#ffffff;--ink:#1b2430;--muted:#6b7480;--line:#e4e7ec;--line-soft:#eef0f3;--panel:#ffffff;--navy:#1b2430;--blue:#259b24;--blue-ink:#176d16;--blue-soft:#e7f4e4;--shadow:0 1px 2px rgba(16,24,32,.04),0 4px 14px rgba(16,24,32,.05);--shadow-lg:0 12px 28px rgba(16,24,32,.10);--ring:0 0 0 3px rgba(37,155,36,.18)}
-  :root[data-theme="dark"]{--bg:#0e1116;--card:#171b21;--ink:#eef1f5;--muted:#9aa3ae;--line:#272d35;--line-soft:#1d222a;--panel:#171b21;--navy:#eef1f5;--blue:#34b07e;--blue-ink:#bfe9d4;--blue-soft:#15271f;--shadow:none;--shadow-lg:none}
+  :root{--bg:#f8fafc;--card:#ffffff;--ink:#0f172a;--muted:#64748b;--line:#eef1f6;--line-soft:#f4f6fb;--panel:#ffffff;--navy:#0f172a;--blue:#1e3a5f;--blue-ink:#152c47;--blue-soft:#e9eef5;--shadow:0 1px 2px rgba(15,23,42,.04),0 4px 16px rgba(15,23,42,.05);--shadow-lg:0 14px 34px rgba(15,23,42,.10);--ring:0 0 0 3px rgba(30,58,95,.18)}
+  :root[data-theme="dark"]{--bg:#0b0f17;--card:#141a24;--ink:#eef1f5;--muted:#94a3b8;--line:#232c3a;--line-soft:#1a2130;--panel:#141a24;--navy:#eef1f5;--blue:#6b86aa;--blue-ink:#cdd9ea;--blue-soft:#0b1b2d;--shadow:none;--shadow-lg:none}
   body,:root[data-theme="dark"] body{background:var(--bg);font-size:13px;line-height:1.5}
   #login{background:#111510}
   .login-card{border-radius:16px;box-shadow:0 20px 48px rgba(0,0,0,.22)}
@@ -404,14 +404,14 @@
   .clock-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center}.clock-primary{min-height:72px;border:0;border-radius:12px;background:#ea6b18;color:#fff;display:flex;align-items:center;gap:12px;padding:12px 16px;text-align:left;font:inherit;cursor:pointer;transition:background .16s,transform .12s}.clock-primary:hover{background:#d85e0d}.clock-primary:active{transform:scale(.985)}.clock-primary .clock-icon{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:rgba(255,255,255,.16);flex:none}.clock-primary svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.clock-primary strong{display:block;font-size:16px;font-weight:600}.clock-primary small{display:block;margin-top:2px;color:#fff0e6;font-size:11px}.clock-secondary{padding:9px 10px;background:transparent;border:1px solid #5a6b54;border-radius:8px;color:#eef2eb;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap;transition:background .16s,border-color .16s}.clock-secondary:hover{background:#273023;border-color:#8aae7b}
   .clock-meter{justify-self:end;min-width:160px;padding-left:20px;border-left:1px solid #354332}.clock-meter b{display:block;font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}.clock-meter span{display:block;margin-top:2px;color:#b9cbb0;font-size:11px}.clock-meter .meter-track{height:6px;margin-top:10px;background:#354332;border-radius:3px;overflow:hidden}.clock-meter .meter-fill{height:100%;background:#8ade4f;border-radius:3px}
   .dashboard-pulse{margin-top:16px}.dashboard-pulse .cards{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.dashboard-pulse .card{padding:14px 16px;border-radius:12px}.dashboard-pulse .card .label{font-size:11px}.dashboard-pulse .card .value{margin:5px 0 2px;font-size:24px}.dashboard-pulse .card:first-child{display:none}
-  .dashboard-work{grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr)!important;gap:16px!important;margin-top:16px!important}.dashboard-work .panel .head{padding:13px 16px}.dashboard-work .panel .body{padding:14px 16px}.dashboard-work .track{height:7px;background:#edf0ea;border-radius:4px;overflow:hidden}:root[data-theme="dark"] .dashboard-work .track{background:#29302a}
-  .dashboard-shortcuts{margin-top:16px!important}.dashboard-shortcuts .body{gap:8px}.dashboard-shortcuts .btn.ghost{background:#edf5e9;color:#275a12;border:0}:root[data-theme="dark"] .dashboard-shortcuts .btn.ghost{background:#20351a;color:#d6f8bf}
+  .dashboard-work{grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr)!important;gap:16px!important;margin-top:16px!important}.dashboard-work .panel .head{padding:13px 16px}.dashboard-work .panel .body{padding:14px 16px}.dashboard-work .track{height:7px;background:#eef1f6;border-radius:4px;overflow:hidden}:root[data-theme="dark"] .dashboard-work .track{background:#29302a}
+  .dashboard-shortcuts{margin-top:16px!important}.dashboard-shortcuts .body{gap:8px}.dashboard-shortcuts .btn.ghost{background:#e9eef5;color:#152c47;border:0}:root[data-theme="dark"] .dashboard-shortcuts .btn.ghost{background:#0f2338;color:#cdd9ea}
   @media(max-width:1040px){.clock-dock{grid-template-columns:1fr 1fr}.clock-meter{justify-self:start;border-left:0;border-top:1px solid #354332;padding:12px 0 0;grid-column:1/-1;width:100%}.clock-meter .meter-track{max-width:320px}}@media(max-width:720px){.clock-dock{grid-template-columns:1fr;gap:16px;padding:18px}.clock-actions{grid-template-columns:1fr}.clock-secondary{min-height:40px}.clock-meter{grid-column:auto}.dashboard-pulse .cards{grid-template-columns:1fr 1fr}.dashboard-pulse .card:first-child{display:block}}@media(max-width:480px){.dashboard-pulse .cards{grid-template-columns:1fr}.clock-primary{min-height:68px}}
 
   /* Light-only shell: the workbench remains prominent through structure,
      not a dark surface. Orange is reserved for the attendance action. */
-  .side{background:#fff;color:#182018;border-right-color:#dce4d9}.side .brand{color:#182018}.side .brand small{color:#687166}.side .brand::before{background:#257a2e;color:#fff}.nav-section{color:#6c7b68}.nav button{color:#52604f}.nav button:hover{background:#f1f5ef;color:#182018}.nav button.active{background:#e8f5df;color:#275a12;box-shadow:inset 0 0 0 1px #cbe7bf}.nav .pill{background:#d85e0d;color:#fff}.side .foot{border-top-color:#dce4d9;color:#687166}.side .foot b{color:#182018}.side .foot a{color:#a9470a}
-  .clock-dock{background:#fff;color:#182018;border-color:#dce4d9}.clock-dock .dock-kicker{color:#52604f}.clock-dock .dock-kicker i{background:#257a2e}.clock-dock p{color:#52604f}.clock-secondary{color:#275a12;border-color:#8cb989;background:#fff}.clock-secondary:hover{background:#edf5e9;border-color:#5d9c5d}.clock-meter{border-left-color:#dce4d9}.clock-meter span{color:#687166}.clock-meter .meter-track{background:#edf0ea}.clock-meter .meter-fill{background:#257a2e}@media(max-width:1040px){.clock-meter{border-top-color:#dce4d9}}
+  .side{background:#fff;color:#0f172a;border-right-color:#eef1f6}.side .brand{color:#0f172a}.side .brand small{color:#94a3b8}.side .brand::before{background:#1e3a5f;color:#fff}.nav-section{color:#94a3b8}.nav button{color:#475569}.nav button:hover{background:#f8fafc;color:#0f172a}.nav button.active{background:#e9eef5;color:#152c47;box-shadow:inset 0 0 0 1px #cdd9ea}.nav .pill{background:#d85e0d;color:#fff}.side .foot{border-top-color:#eef1f6;color:#94a3b8}.side .foot b{color:#0f172a}.side .foot a{color:#a9470a}
+  .clock-dock{background:#fff;color:#0f172a;border-color:#eef1f6}.clock-dock .dock-kicker{color:#475569}.clock-dock .dock-kicker i{background:#1e3a5f}.clock-dock p{color:#475569}.clock-secondary{color:#152c47;border-color:#90a8c6;background:#fff}.clock-secondary:hover{background:#e9eef5;border-color:#6b86aa}.clock-meter{border-left-color:#eef1f6}.clock-meter span{color:#94a3b8}.clock-meter .meter-track{background:#eef1f6}.clock-meter .meter-fill{background:#1e3a5f}@media(max-width:1040px){.clock-meter{border-top-color:#eef1f6}}
 
   /* Attendance summary: compact, row-first and audit-friendly. The calendar
      remains one click away, but the dashboard no longer spends its primary
@@ -446,8 +446,8 @@
   .appr-stat.accent{border-color:#9bd3ac;background:#f0f9f2}.appr-stat.accent .n{color:#1f7a3a}
   @media(max-width:720px){.appr-stats{grid-template-columns:1fr 1fr}.appr-stat .n{font-size:20px}}
   @media(max-width:720px){.content{padding:14px 14px 32px}.topbar{padding:9px 14px}.attendance-summary-head{display:none}.attendance-summary-head,.attendance-row{grid-template-columns:minmax(108px,1fr) 34px 44px 120px;column-gap:7px}.attendance-row{min-height:58px;padding:8px 10px}.att-total small,.att-review small{display:none}.att-state{display:none}.att-clock{max-width:58px;padding:9px 0}}
-  /* Built-in PPP mark: no network or Drive access is required for Admin identity. */
-  .login-card .logo::before,.side .brand::before{content:"PPP";background:#fff;color:#173957;border:2px solid #173957;border-radius:50%;box-shadow:none;font-family:Arial,sans-serif;letter-spacing:-1px}
+  /* Built-in BVN mark: no network or Drive access is required for Admin identity. */
+  .login-card .logo::before,.side .brand::before{content:"BVN";background:var(--blue);color:#fff;border:0;border-radius:11px;box-shadow:none;font-family:Arial,sans-serif;letter-spacing:-1px}
 
   /* -----------------------------------------------------------------
      BVN light operations ledger
@@ -455,31 +455,39 @@
      quiet, dense and printable. This final layer deliberately overrides
      early visual experiments so every Admin page shares one system.
      ----------------------------------------------------------------- */
-  :root,:root[data-theme="dark"]{
-    --bg:#f4f6f7;--card:#ffffff;--panel:#ffffff;--ink:#17313f;--navy:#17313f;
-    --muted:#6d7d86;--line:#dce4e8;--line-soft:#edf1f3;
-    --blue:#2d854d;--blue-ink:#1f6c3a;--blue-soft:#e8f4ea;
-    --green:#2d854d;--green-soft:#eaf6ee;--amber:#df6c1d;--amber-soft:#fff1e6;
-    --red:#bf4b4b;--red-soft:#fcecec;--radius:12px;--radius-sm:8px;
-    --shadow:0 1px 2px rgba(20,49,63,.04);--shadow-lg:0 8px 20px rgba(20,49,63,.08);
-    --ring:0 0 0 3px rgba(45,133,77,.2);
+  :root{
+    --bg:#f8fafc;--card:#ffffff;--panel:#ffffff;--ink:#0f172a;--navy:#0f172a;
+    --muted:#64748b;--line:#eef1f6;--line-soft:#f4f6fb;
+    --blue:#1e3a5f;--blue-ink:#152c47;--blue-soft:#e9eef5;
+    --green:#10b981;--green-soft:#d1fae5;--amber:#f59e0b;--amber-soft:#fef3e2;
+    --red:#f43f5e;--red-soft:#fff0f2;--radius:14px;--radius-sm:9px;
+    --shadow:0 1px 2px rgba(15,23,42,.04),0 4px 16px rgba(15,23,42,.05);--shadow-lg:0 14px 34px rgba(15,23,42,.10);
+    --ring:0 0 0 3px rgba(30,58,95,.2);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0b0f17;--card:#141a24;--panel:#141a24;--ink:#eef1f5;--navy:#eef1f5;
+    --muted:#94a3b8;--line:#232c3a;--line-soft:#1a2130;
+    --blue:#6b86aa;--blue-ink:#cdd9ea;--blue-soft:#0b1b2d;
+    --green:#34d399;--green-soft:#0c3b2e;--amber:#fbbf24;--amber-soft:#3a2a0a;
+    --red:#fb7185;--red-soft:#3a1420;
+    --shadow:none;--shadow-lg:none;
   }
   body,:root[data-theme="dark"] body{background:var(--bg);color:var(--ink);font-size:13px;line-height:1.45}
   #login{background:#eef2f4}
   .login-card{max-width:400px;border:1px solid var(--line);border-radius:16px;padding:30px;box-shadow:0 18px 42px rgba(20,49,63,.10)}
   .login-card .logo{font-size:20px;color:var(--ink)}
-  .login-card .logo::before{width:46px;height:46px;margin-bottom:13px;color:#173957;border-color:#173957}
+  .login-card .logo::before{width:46px;height:46px;margin-bottom:13px;color:#1e3a5f;border-color:#1e3a5f}
   .login-card .logo small{font-size:11px;color:var(--muted);letter-spacing:0}
   .side{background:#fff;color:var(--ink);border-right:1px solid var(--line);box-shadow:none}
   #app{grid-template-columns:224px minmax(0,1fr)}
   .side .brand{padding:20px 18px 16px;font-size:15px;color:var(--ink);gap:10px;border-bottom:1px solid var(--line-soft)}
-  .side .brand::before{width:34px;height:34px;color:#173957;border-color:#173957;background:#fff}
+  .side .brand::before{width:34px;height:34px;color:#1e3a5f;border-color:#1e3a5f;background:#fff}
   .side .brand small{font-size:10px;margin-top:2px;letter-spacing:0;color:var(--muted)}
   .nav{padding:12px 10px;gap:2px}.nav-section{margin:14px 8px 5px;color:#788790;font-size:10px;font-weight:600;letter-spacing:0;text-transform:none}
   .nav button{min-height:32px;padding:6px 10px;gap:9px;border-radius:8px;color:#50616b;font-size:12px}
   .nav button .ico{width:16px;height:16px}.nav button .ico svg{width:16px;height:16px;stroke-width:1.5}
   .nav button:hover{background:#f1f5f6;color:var(--ink)}
-  .nav button.active{background:#e8f4ea;color:#1f6c3a;box-shadow:inset 3px 0 0 #2d854d;font-weight:600}
+  .nav button.active{background:#e9eef5;color:#1f6c3a;box-shadow:inset 3px 0 0 #2d854d;font-weight:600}
   .nav button.active::before{display:none}.nav .pill{background:var(--amber);border-radius:5px;box-shadow:none;font-size:10px;padding:1px 6px}
   .side .foot{padding:12px 18px;border-top:1px solid var(--line-soft);color:var(--muted);font-size:10px}.side .foot b{color:var(--ink);font-weight:600}.side .foot a{color:#a85016!important}
   .topbar,:root[data-theme="dark"] .topbar{min-height:54px;padding:9px 22px;background:#fff;border-color:var(--line);box-shadow:none;backdrop-filter:none}
@@ -508,7 +516,7 @@
   .clock-secondary:hover{background:#254554!important;border-color:#c3d8df!important}
   .clock-secondary:focus-visible{outline:2px solid #fff;outline-offset:2px}
   .action-grid{gap:10px;margin-top:10px}.action-card{border-color:var(--line);border-radius:10px;padding:10px 12px;box-shadow:none}.action-card:hover{transform:none;box-shadow:none;border-color:#9bd3ac}.action-card .a-icon{background:var(--blue-soft);color:var(--blue-ink);border-radius:7px}.action-card.warn .a-icon{background:var(--amber-soft);color:#a54c14}.action-card.danger .a-icon{background:var(--red-soft);color:#a63a3a}
-  .attendance-summary{border-color:var(--line);border-radius:10px}.attendance-summary-head{background:#f5f7f8}.attendance-row{background:#fff;border-color:var(--line-soft)}.attendance-row:hover{background:#eef7f0}.attendance-row:active{background:#e8f4ea}.att-state{color:#28713f}.att-state i{background:#2d854d}.att-state.is-warning{color:#a44c13}.att-state.is-warning i{background:var(--amber)}
+  .attendance-summary{border-color:var(--line);border-radius:10px}.attendance-summary-head{background:#f5f7f8}.attendance-row{background:#fff;border-color:var(--line-soft)}.attendance-row:hover{background:#eef7f0}.attendance-row:active{background:#e9eef5}.att-state{color:#28713f}.att-state i{background:#2d854d}.att-state.is-warning{color:#a44c13}.att-state.is-warning i{background:var(--amber)}
   .finance-box{background:#fff!important;border-color:var(--line)}.flow-steps .n{background:var(--blue-soft);color:var(--blue-ink)}.payroll-workbench,.payroll-metric,.payroll-readiness{background:#fff;border-color:var(--line)}
   .toast{background:#17313f;color:#fff;border-radius:9px;box-shadow:0 10px 24px rgba(20,49,63,.18)}
   @media(max-width:1040px){#app{grid-template-columns:210px minmax(0,1fr)}.content{padding:16px 18px 38px}.clock-dock{grid-template-columns:1fr 1fr}.clock-meter{border-left:0;border-top:1px solid #42606c;padding:10px 0 0;grid-column:1/-1;width:100%}}
@@ -532,7 +540,7 @@
   /* Sidebar: deep slate */
   .side{background:#19222c;color:#cdd4dc;border-right-color:#283340}
   .side .brand{color:#fff}.side .brand small{color:#8b94a0}
-  .side .brand::before,.login-card .logo::before{content:"PPP";background:var(--blue);color:#fff;border:0;border-radius:10px;box-shadow:none;font-family:Arial,sans-serif;letter-spacing:-1px}
+  .side .brand::before,.login-card .logo::before{content:"BVN";background:var(--blue);color:#fff;border:0;border-radius:11px;box-shadow:none;font-family:Arial,sans-serif;letter-spacing:-1px}
   .nav-section{color:#727d8a;text-transform:none;letter-spacing:0}
   .nav button{color:#aab2bd;border-radius:8px}
   .nav button:hover{background:#222e3b;color:#fff}
@@ -593,8 +601,8 @@
   .be-badge.be-legacy{color:#8a560f;background:#f6ecd9}
   .be-badge.be-legacy::before{content:"▲ "}
   .live-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--blue-ink);background:var(--blue-soft);border-radius:20px;padding:3px 10px;white-space:nowrap}
-  .live-badge i{width:7px;height:7px;border-radius:50%;background:#259b24;box-shadow:0 0 0 0 rgba(37,155,36,.5);animation:livePulse 1.8s infinite}
-  @keyframes livePulse{0%{box-shadow:0 0 0 0 rgba(37,155,36,.5)}70%{box-shadow:0 0 0 6px rgba(37,155,36,0)}100%{box-shadow:0 0 0 0 rgba(37,155,36,0)}}
+  .live-badge i{width:7px;height:7px;border-radius:50%;background:#10b981;box-shadow:0 0 0 0 rgba(16,185,129,.5);animation:livePulse 1.8s infinite}
+  @keyframes livePulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,.5)}70%{box-shadow:0 0 0 6px rgba(16,185,129,0)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}}
 
   /* ============ Redesign v2 — authoritative shell + table layer (wins cascade) ============ */
   /* Crisp, enterprise data tables: quiet tracked headers, hairline zebra, clear hover,
@@ -622,7 +630,7 @@
   .subtabs button.active{box-shadow:0 1px 3px rgba(16,24,32,.12)}
   /* Buttons: a touch more presence on the primary action */
   .btn{font-weight:600;border-radius:10px}
-  .btn:not(.sub):not(.ghost):not(.danger):not(.ok){box-shadow:0 1px 2px rgba(31,124,51,.25)}
+  .btn:not(.sub):not(.ghost):not(.danger):not(.ok){box-shadow:0 1px 2px rgba(30,58,95,.25)}
   /* Topbar numerals + badges sit on one calm baseline */
   .topbar .page-title{font-weight:700}
 
@@ -784,9 +792,9 @@ const isSupabaseEndpoint = (u)=>/\.supabase\.co\/functions\//.test(String(u||"")
 const SS = sessionStorage, LS = localStorage;
 
 /* ---------- ผู้ออกใบแจ้งหนี้ (หัวบิล) ---------- */
-// A print-safe embedded PPP mark. Documents must never lose their identity
+// A print-safe embedded BVN mark. Documents must never lose their identity
 // merely because a Drive-hosted logo has not yet been authorised or loaded.
-const BUILTIN_PPP_LOGO = "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><rect width="240" height="240" fill="white"/><g fill="none" stroke="#173957"><circle cx="120" cy="120" r="112" stroke-width="4"/><circle cx="120" cy="120" r="103" stroke-width="3"/><circle cx="120" cy="120" r="95" stroke-width="3"/></g><text x="120" y="118" text-anchor="middle" font-family="Arial,sans-serif" font-size="61" font-weight="900" letter-spacing="-9" fill="#173957">PPP</text><path d="M55 142 Q120 194 185 142" fill="none" stroke="#173957" stroke-width="5"/><text x="120" y="174" text-anchor="middle" font-family="Tahoma,sans-serif" font-size="15" font-weight="700" fill="#173957">บริษัท พนมพร พาณิชย์ จำกัด</text></svg>`);
+const BUILTIN_PPP_LOGO = "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><rect width="240" height="240" fill="white"/><g fill="none" stroke="#1e3a5f"><circle cx="120" cy="120" r="112" stroke-width="4"/><circle cx="120" cy="120" r="103" stroke-width="2"/></g><text x="120" y="132" text-anchor="middle" font-family="Arial,sans-serif" font-size="66" font-weight="800" letter-spacing="-6" fill="#1e3a5f">PPP</text><path d="M58 150 Q120 196 182 150" fill="none" stroke="#1e3a5f" stroke-width="3"/><text x="120" y="178" text-anchor="middle" font-family="Tahoma,sans-serif" font-size="14" font-weight="700" fill="#1e3a5f">บริษัท พนมพร พาณิชย์ จำกัด</text></svg>`);
 const ISSUER = {
   name: "บริษัท พนมพร พาณิชย์ จำกัด",
   nameEn: "Phanomporn Phanich Co., Ltd.",
@@ -1305,7 +1313,7 @@ async function renderDashboard(data, preloaded={}){
       const cOut=team.length-cOn-cLate, tot=team.length||1;
       const pOn=Math.round(cOn/tot*100), pLate=Math.round(cLate/tot*100);
       const SMETA={
-        in:{soft:"var(--blue-soft)",ink:"var(--blue-ink)",ring:"#259b24",label:"ตรงเวลา"},
+        in:{soft:"var(--blue-soft)",ink:"var(--blue-ink)",ring:"#10b981",label:"ตรงเวลา"},
         late:{soft:"#fdecd8",ink:"#b45309",ring:"#ef8b1f",label:"มาสาย"},
         out:{soft:"#eef0f3",ink:"#6b7480",ring:"#cdd3da",label:"ยังไม่เข้า"}
       };
@@ -1342,13 +1350,13 @@ async function renderDashboard(data, preloaded={}){
           <div class="card dash-donut">
             <svg viewBox="0 0 42 42" width="78" height="78" aria-hidden="true">
               <circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--line-soft)" stroke-width="5" pathLength="100"></circle>
-              <circle cx="21" cy="21" r="15.915" fill="none" stroke="#259b24" stroke-width="5" pathLength="100" stroke-dasharray="${pOn} ${100-pOn}" stroke-dashoffset="25" stroke-linecap="butt"></circle>
+              <circle cx="21" cy="21" r="15.915" fill="none" stroke="#10b981" stroke-width="5" pathLength="100" stroke-dasharray="${pOn} ${100-pOn}" stroke-dashoffset="25" stroke-linecap="butt"></circle>
               <circle cx="21" cy="21" r="15.915" fill="none" stroke="#ef8b1f" stroke-width="5" pathLength="100" stroke-dasharray="${pLate} ${100-pLate}" stroke-dashoffset="${25-pOn}" stroke-linecap="butt"></circle>
               <text x="21" y="20.5" text-anchor="middle" style="font-size:8px;font-weight:600;fill:var(--ink)">${fmtInt(cOn+cLate)}/${fmtInt(team.length)}</text>
               <text x="21" y="26.5" text-anchor="middle" style="font-size:4px;fill:var(--muted)">มาแล้ว</text>
             </svg>
             <div class="donut-legend">
-              <div><i style="background:#259b24"></i>ตรงเวลา ${fmtInt(cOn)}</div>
+              <div><i style="background:#10b981"></i>ตรงเวลา ${fmtInt(cOn)}</div>
               <div><i style="background:#ef8b1f"></i>มาสาย ${fmtInt(cLate)}</div>
               <div><i style="background:#cdd3da"></i>ยังไม่เข้า ${fmtInt(cOut)}</div>
               <div class="sub" style="margin-top:3px;font-size:10px">เกณฑ์สาย: เข้าหลัง ${esc(dashShiftStart)}${dashGrace?` (+${dashGrace} น.)`:""}</div>
@@ -1440,7 +1448,7 @@ function openAttendanceCalendar(employeeId){
     </div>
     <div id="calBody"><div class="empty">กำลังโหลด…</div></div>
     <div class="calendar-legend" style="margin-top:12px;display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap">
-      <span><span class="lgd" style="background:#1f7a1e"></span>ลงเวลาครบ</span>
+      <span><span class="lgd" style="background:#047857"></span>ลงเวลาครบ</span>
       <span><span class="lgd" style="background:#ef8b1f"></span>ไม่ครบ</span>
       <span><span class="lgd" style="background:repeating-linear-gradient(45deg,#eef0f3,#eef0f3 2px,#dfe3e9 2px,#dfe3e9 4px);border:1px solid var(--line)"></span>หยุด/ไม่มีบันทึก</span>
     </div>
@@ -1469,8 +1477,8 @@ async function calRender(){
     const ds=`${y}-${pad(m+1)}-${pad(dn)}`, rec=byDate[ds], isToday=ds===today, dow=new Date(ds+"T00:00:00+07:00").getDay();
     const tif=isToday?";outline:2px solid var(--blue-ink);outline-offset:-2px":"";
     if(rec){
-      const complete=rec.status==="complete", ink=complete?"#1f7a1e":"#b45309";
-      cal+=`<div class="cd" style="border-left:3px solid ${ink}${tif}"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="d">${dn}</span>${complete?'<span style="font-size:9px;color:#1f7a1e">✓</span>':'<span style="font-size:8px;color:#b45309;background:#fdecd8;padding:1px 4px;border-radius:8px">ไม่ครบ</span>'}</div><div class="io">${esc(rec.checkIn||"—")}–${esc(rec.checkOut||"—")}</div><div class="hp"><span class="sub">${rec.workedMinutes?fmtHours(rec.workedMinutes):"—"}</span></div></div>`;
+      const complete=rec.status==="complete", ink=complete?"#047857":"#b45309";
+      cal+=`<div class="cd" style="border-left:3px solid ${ink}${tif}"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="d">${dn}</span>${complete?'<span style="font-size:9px;color:#047857">✓</span>':'<span style="font-size:8px;color:#b45309;background:#fdecd8;padding:1px 4px;border-radius:8px">ไม่ครบ</span>'}</div><div class="io">${esc(rec.checkIn||"—")}–${esc(rec.checkOut||"—")}</div><div class="hp"><span class="sub">${rec.workedMinutes?fmtHours(rec.workedMinutes):"—"}</span></div></div>`;
     } else {
       const future=ds>today, off=(dow===0||dow===6);
       cal+=`<div class="cd off" style="${tif}"><span class="d" style="color:${dow===0?"#8f322d":dow===6?"#2b5a86":"var(--muted)"};font-weight:400">${dn}</span><span class="sub" style="margin-top:auto;font-size:9px">${future?"":off?"หยุด":"—"}</span></div>`;
@@ -1920,13 +1928,13 @@ async function printMonthlySummary(data){
   const html=`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>สรุปเงินเดือน ${esc(data.startDate)}</title>
     <style>*{box-sizing:border-box}body{font-family:"Sarabun","Tahoma",sans-serif;color:#111;margin:0;padding:24px;background:#f3f4f6}
     .sheet{max-width:900px;margin:0 auto;background:#fff;padding:36px 40px;box-shadow:0 1px 6px rgba(0,0,0,.12)}
-    .top{display:flex;justify-content:space-between;gap:22px;border-bottom:3px solid #1f7c33;padding-bottom:14px}.issuer-brand{display:flex;gap:12px;align-items:flex-start}.issuer-logo{width:58px;height:58px;object-fit:contain;flex:none}
-    .co{font-size:18px;font-weight:700;color:#1f7c33;margin:0}.co-l{font-size:12px;color:#374151}
+    .top{display:flex;justify-content:space-between;gap:22px;border-bottom:3px solid #152c47;padding-bottom:14px}.issuer-brand{display:flex;gap:12px;align-items:flex-start}.issuer-logo{width:58px;height:58px;object-fit:contain;flex:none}
+    .co{font-size:18px;font-weight:700;color:#152c47;margin:0}.co-l{font-size:12px;color:#374151}
     h1{font-size:20px;margin:0}.sub{font-size:12px;color:#6b7280}
     table{width:100%;border-collapse:collapse;margin-top:20px;font-size:13px}
-    th{background:#1f7c33;color:#fff;text-align:left;padding:8px 10px}th.num,td.num{text-align:right}
-    td{padding:8px 10px;border-bottom:1px solid #e5e7eb}tfoot td{border-top:2px solid #1f7c33;font-weight:700}
-    .pbtn{font:inherit;padding:8px 18px;border:0;border-radius:8px;background:#1f7c33;color:#fff;cursor:pointer}
+    th{background:#152c47;color:#fff;text-align:left;padding:8px 10px}th.num,td.num{text-align:right}
+    td{padding:8px 10px;border-bottom:1px solid #e5e7eb}tfoot td{border-top:2px solid #152c47;font-weight:700}
+    .pbtn{font:inherit;padding:8px 18px;border:0;border-radius:8px;background:#152c47;color:#fff;cursor:pointer}
     .tb{max-width:900px;margin:0 auto 12px;text-align:right}@media print{body{background:#fff;padding:0}.sheet{box-shadow:none}.tb{display:none}}</style></head><body>
     <div class="tb"><button class="pbtn" onclick="window.print()">พิมพ์ / บันทึก PDF</button></div>
     <div class="sheet">
@@ -2312,7 +2320,7 @@ function otDayDialog(iso, h){
     <div class="field"><label>ชื่อวัน (ไม่บังคับ)</label><input id="otdName" type="text" value="${esc(h&&h.name?h.name:"")}" placeholder="เช่น วันสงกรานต์"></div>
     <div class="field"><label>ตัวคูณ</label>
       <div class="toolbar" style="gap:6px;flex-wrap:wrap" id="otdPresets">
-        ${[["0","ปกติ ×1"],["1.5","×1.5"],["2","×2"],["3","×3"]].map(([m,l])=>`<button type="button" class="btn sub sm otd-p" data-m="${m}" ${String(cur)===m?'style="border-color:#259b24;color:#259b24"':""}>${l}</button>`).join("")}
+        ${[["0","ปกติ ×1"],["1.5","×1.5"],["2","×2"],["3","×3"]].map(([m,l])=>`<button type="button" class="btn sub sm otd-p" data-m="${m}" ${String(cur)===m?'style="border-color:#10b981;color:#10b981"':""}>${l}</button>`).join("")}
       </div>
       <input id="otdMul" type="number" min="0" step="0.1" value="${cur}" style="margin-top:8px;width:120px">
     </div></div>`);
@@ -2432,7 +2440,7 @@ async function renderOwner(){
             <span id="pmShiftNote" class="sub" style="margin-left:6px"></span>
           </div>
           <div style="display:flex;gap:10px;align-items:center;font-size:12px;color:var(--muted);flex-wrap:wrap">
-            <span><span class="lgd" style="background:#259b24"></span>มา</span>
+            <span><span class="lgd" style="background:#10b981"></span>มา</span>
             <span><span class="lgd" style="background:#ef8b1f"></span>สาย/ไม่ครบ</span>
             <span><span class="lgd" style="background:#d6453f"></span>ขาด</span>
             <span><span class="lgd" style="background:#fff;position:relative"><span style="position:absolute;inset:0;margin:auto;width:5px;height:5px;border-radius:50%;background:#2f7fd6"></span></span>เกินเวลา</span>
@@ -2648,7 +2656,7 @@ function pmBadge(m){
   return `<span class="badge grey">—</span>`;
 }
 function pmStripHtml(m){
-  const col={present:"#259b24",late:"#ef8b1f",absent:"#d6453f"};
+  const col={present:"#10b981",late:"#ef8b1f",absent:"#d6453f"};
   return `<div class="pm-strip">`+m.cells.map(c=>{
     if(c.base==="future") return `<span class="pm-cell pm-future" title="${c.iso}"></span>`;
     if(c.base==="off") return `<span class="pm-cell pm-off"${c.isToday?" data-today":""} title="${c.iso} · ${esc(c.holName||"วันหยุด")}"></span>`;
@@ -2701,7 +2709,7 @@ function pmRenderDetail(){
   const r=pmRange(), pl=m.pl;
   const daily=(pl.workDays&&pl.baseGross)?Math.round(pl.baseGross/pl.workDays):0;
   const net=pl.netPay!=null?pl.netPay:(pl.grossPay||0);
-  const dc={present:["#e7f4e4","#1f7a1e"],late:["#fdecd8","#b45309"],absent:["#f7e3e1","#8f322d"]};
+  const dc={present:["#d1fae5","#047857"],late:["#fdecd8","#b45309"],absent:["#f7e3e1","#8f322d"]};
   const head=["จ","อ","พ","พฤ","ศ","ส","อา"];
   let cal=`<div class="calm">`+head.map((d,i)=>`<div class="dh" style="color:${i===5?"#185fa5":i===6?"#a32d2d":"var(--muted)"}">${d}</div>`).join("");
   const lead=(r.first.getDay()+6)%7; for(let b=0;b<lead;b++) cal+=`<div></div>`;
@@ -2713,7 +2721,7 @@ function pmRenderDetail(){
       const col=dc[c.base]||dc.present, pay=c.d.status==="complete"?daily:0;
       const tag=c.ot?'<span style="font-size:8px;color:#1f66b0;background:#e4eff9;padding:1px 4px;border-radius:8px"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:#2f7fd6;vertical-align:1px;margin-right:2px"></span>เกินเวลา</span>'
         :c.base==="late"?'<span style="font-size:8px;color:#b45309;background:#fdecd8;padding:1px 4px;border-radius:8px">สาย</span>'
-        :'<span style="font-size:9px;color:#1f7a1e">✓</span>';
+        :'<span style="font-size:9px;color:#047857">✓</span>';
       cal+=`<div class="cd" style="border-left:3px solid ${c.ot?"#2f7fd6":col[1]}"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="d">${c.dn}</span>${tag}</div><div class="io">${esc(c.d.checkIn||"—")}–${esc(c.d.checkOut||"—")}</div><div class="hp"><span class="sub">${c.d.workedMinutes?fmtHours(c.d.workedMinutes):"—"}</span>${pay?`<span style="font-size:11px;font-weight:600;color:var(--blue-ink)">${fmtBaht(pay)}</span>`:""}</div></div>`; return;
     }
     if(c.base==="absent"){ cal+=`<div class="cd off"><span class="d" style="color:#8f322d">${c.dn}</span><span class="sub" style="margin-top:auto">ขาด</span></div>`; return; }
@@ -3050,23 +3058,23 @@ function printInvoice(i){
     <style>
       *{box-sizing:border-box} body{font-family:"Sarabun","TH Sarabun New","Tahoma",sans-serif;color:#111;margin:0;padding:24px;background:#f3f4f6}
       .sheet{max-width:780px;margin:0 auto;background:#fff;padding:40px 44px;box-shadow:0 1px 6px rgba(0,0,0,.12)}
-      .top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;border-bottom:3px solid #1f7c33;padding-bottom:16px}
+      .top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;border-bottom:3px solid #152c47;padding-bottom:16px}
       .issuer-brand{display:flex;align-items:flex-start;gap:14px}.issuer-logo{width:74px;height:74px;object-fit:contain;flex:none}
-      .co-name{font-size:20px;font-weight:700;color:#1f7c33;margin:0} .co-en{font-size:13px;color:#374151;margin:2px 0 8px}
+      .co-name{font-size:20px;font-weight:700;color:#152c47;margin:0} .co-en{font-size:13px;color:#374151;margin:2px 0 8px}
       .co-line{font-size:13px;color:#374151;line-height:1.5}
       .doc-title{text-align:right} .doc-title h1{font-size:26px;margin:0;letter-spacing:1px;color:#111} .doc-title .sub{font-size:12px;color:#6b7280}
       .meta{display:flex;justify-content:space-between;margin-top:20px;gap:24px}
       .meta .box{font-size:13px;line-height:1.7} .meta .k{color:#6b7280} .meta b{color:#111}
       table{width:100%;border-collapse:collapse;margin-top:22px;font-size:14px}
-      th{background:#1f7c33;color:#fff;text-align:left;padding:9px 12px;font-weight:600} th.num,td.num{text-align:right}
+      th{background:#152c47;color:#fff;text-align:left;padding:9px 12px;font-weight:600} th.num,td.num{text-align:right}
       td{padding:10px 12px;border-bottom:1px solid #e5e7eb;vertical-align:top}
       .totals{margin-top:14px;margin-left:auto;width:280px;font-size:14px}
-      .totals div{display:flex;justify-content:space-between;padding:6px 2px} .totals .grand{border-top:2px solid #1f7c33;margin-top:4px;padding-top:10px;font-size:17px;font-weight:700;color:#1f7c33}
-      .status{display:inline-block;margin-top:4px;padding:2px 10px;border-radius:999px;font-size:12px;background:#e6f8ea;color:#1f7c33}
+      .totals div{display:flex;justify-content:space-between;padding:6px 2px} .totals .grand{border-top:2px solid #152c47;margin-top:4px;padding-top:10px;font-size:17px;font-weight:700;color:#152c47}
+      .status{display:inline-block;margin-top:4px;padding:2px 10px;border-radius:999px;font-size:12px;background:#e6f8ea;color:#152c47}
       .foot{margin-top:40px;display:flex;justify-content:space-between;font-size:13px;color:#374151}
       .sign{text-align:center;width:220px} .sign .line{margin-top:48px;border-top:1px dotted #9ca3af;padding-top:6px}
       .toolbar{max-width:780px;margin:0 auto 14px;text-align:right}
-      .pbtn{font:inherit;font-size:14px;padding:8px 18px;border:0;border-radius:8px;background:#1f7c33;color:#fff;cursor:pointer}
+      .pbtn{font:inherit;font-size:14px;padding:8px 18px;border:0;border-radius:8px;background:#152c47;color:#fff;cursor:pointer}
       @media print{body{background:#fff;padding:0}.sheet{box-shadow:none;max-width:none;padding:24px}.toolbar{display:none}}
     </style></head><body>
     <div class="toolbar"><button class="pbtn" onclick="window.print()">พิมพ์ / บันทึก PDF</button></div>
@@ -3124,23 +3132,23 @@ async function printPayslip(l, period){
     <style>
       *{box-sizing:border-box} body{font-family:"Sarabun","TH Sarabun New","Tahoma",sans-serif;color:#111;margin:0;padding:24px;background:#f3f4f6}
       .sheet{max-width:620px;margin:0 auto;background:#fff;padding:40px 44px;box-shadow:0 1px 6px rgba(0,0,0,.12)}
-      .top{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;border-bottom:3px solid #1f7c33;padding-bottom:16px}.issuer-brand{display:flex;align-items:flex-start;gap:13px}.issuer-logo{width:68px;height:68px;object-fit:contain;flex:none}
-      .co-name{font-size:19px;font-weight:700;color:#1f7c33;margin:0} .co-en{font-size:12px;color:#374151;margin:2px 0 8px}
+      .top{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;border-bottom:3px solid #152c47;padding-bottom:16px}.issuer-brand{display:flex;align-items:flex-start;gap:13px}.issuer-logo{width:68px;height:68px;object-fit:contain;flex:none}
+      .co-name{font-size:19px;font-weight:700;color:#152c47;margin:0} .co-en{font-size:12px;color:#374151;margin:2px 0 8px}
       .co-line{font-size:12px;color:#374151;line-height:1.5}
       .doc-title{text-align:right} .doc-title h1{font-size:22px;margin:0;letter-spacing:1px;color:#111} .doc-title .sub{font-size:11px;color:#6b7280}
       .meta{display:flex;justify-content:space-between;margin-top:20px;gap:24px;font-size:13px;line-height:1.7} .meta .k{color:#6b7280}
       table{width:100%;border-collapse:collapse;margin-top:22px;font-size:14px}
-      th{background:#1f7c33;color:#fff;text-align:left;padding:9px 12px;font-weight:600} th.num,td.num{text-align:right}
+      th{background:#152c47;color:#fff;text-align:left;padding:9px 12px;font-weight:600} th.num,td.num{text-align:right}
       td{padding:9px 12px;border-bottom:1px solid #e5e7eb}
       .totals{margin-top:14px;margin-left:auto;width:300px;font-size:14px}
       .totals div{display:flex;justify-content:space-between;padding:6px 2px}
       .totals .ded{color:#b91c1c}
-      .totals .grand{border-top:2px solid #1f7c33;margin-top:4px;padding-top:10px;font-size:18px;font-weight:700;color:#1f7c33}
+      .totals .grand{border-top:2px solid #152c47;margin-top:4px;padding-top:10px;font-size:18px;font-weight:700;color:#152c47}
       .foot{margin-top:40px;display:flex;justify-content:space-between;font-size:13px;color:#374151}
       .sign{text-align:center;width:200px} .sign .line{margin-top:48px;border-top:1px dotted #9ca3af;padding-top:6px}
       .note{margin-top:8px;font-size:11px;color:#6b7280}
       .toolbar{max-width:620px;margin:0 auto 14px;text-align:right}
-      .pbtn{font:inherit;font-size:14px;padding:8px 18px;border:0;border-radius:8px;background:#1f7c33;color:#fff;cursor:pointer}
+      .pbtn{font:inherit;font-size:14px;padding:8px 18px;border:0;border-radius:8px;background:#152c47;color:#fff;cursor:pointer}
       @media print{body{background:#fff;padding:0}.sheet{box-shadow:none;max-width:none;padding:24px}.toolbar{display:none}}
     </style></head><body>
     <div class="toolbar"><button class="pbtn" onclick="window.print()">พิมพ์ / บันทึก PDF</button></div>
