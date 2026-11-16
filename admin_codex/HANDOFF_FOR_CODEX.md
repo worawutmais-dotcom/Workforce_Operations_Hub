@@ -1,69 +1,51 @@
-# Handoff for Codex — Admin Codex console
+# Handoff for Codex — BVN Package
 
-อัปเดตล่าสุด: 2026-11-16 (โดย Claude). อ่านไฟล์นี้ + `../AI_COLLAB_BRIEF.md` ก่อนแก้ `index.html`
-ทุกครั้ง และอัปเดต changelog ใน brief หลังทำงานเสร็จแต่ละชิ้น
+อัปเดต: 2026-11-16 (Claude). อ่านไฟล์นี้ + `../AI_COLLAB_BRIEF.md` + `../docs/DEPLOY_STATUS.md`
+ก่อนแก้ทุกครั้ง และอัปเดต changelog ใน brief หลังทำงานเสร็จแต่ละชิ้น
 
-## สถานะปัจจุบันของหลังบ้าน (เพิ่งทำเสร็จ)
+## ภาพรวมสถาปัตยกรรม
+- **แอปพนักงาน (APK)** = Flutter `employee_mobile/` → เรียก **Edge Function เดียว** → **Supabase Postgres**
+- **หลังบ้าน (คอนโซล)** = ไฟล์เดียว `admin_codex/index.html` (HTML+CSS+JS) → Edge Function เดียวกัน
+- **Edge Function**: slug จริง = **`swift-handler`** (source อยู่โฟลเดอร์ `supabase/functions/bvn-api/index.ts`)
+  ⚠️ deploy ต้องใช้ slug `swift-handler` เท่านั้น ห้าม deploy เป็น `bvn-api`
+- **DB**: 17 ตาราง (ดู `supabase/schema.sql`). ทุก action คุยผ่าน `{action, adminToken|mobileToken, ...}` → `{ok,message,data}`
+- **ไม่มี auto-host** สำหรับคอนโซล — ไฟล์ `index.html` ต้อง deploy/เปิดเองที่ไหนสักที่ (ถามเจ้าของว่าเปิดจากไหน)
 
-### 0. ⚠️ OT multiplier calendar + กติกาตัวคูณ (ต้อง DEPLOY + รัน PATCH ก่อนใช้งานจริง)
-ฟีเจอร์นี้แตะ **สูตรคำนวณเงินเดือน** — ต้องให้เจ้าของ deploy Edge Function ใหม่ + รัน SQL patch
-ก่อนตัวคูณจะมีผล (frontend ทำงานกับ backend เก่าได้โดยไม่พัง แต่ตัวคูณจะถูกเพิกเฉยจนกว่าจะ deploy)
+## สถานะล่าสุด (deploy แล้ว ทำงานจริง)
+ระบบ **ตัวคูณ OT/วันหยุด** deploy + รัน `supabase/patch_ot_calendar.sql` แล้ว ยืนยัน live (ดู `docs/DEPLOY_STATUS.md`).
+APK ล่าสุด **1.0.8+9** (console app-version = 9). เหลือใส่ลิงก์ APK บน Drive (`appApkUrl` ยังว่าง).
 
-- **DB**: เพิ่มคอลัมน์ `holidays.multiplier numeric default 0`
-  - ตาราง `supabase/schema.sql` อัปเดตแล้ว + patch idempotent: `supabase/patch_ot_calendar.sql`
-  - patch ยัง seed คีย์ settings เริ่มต้น (insert เฉพาะที่ยังไม่มี ไม่ทับค่าเจ้าของ)
-- **Settings keys ใหม่**: `ot_auto_apply`(true), `ot_multiplier`(1.5), `ot_sunday_multiplier`(2),
-  `ot_saturday_enabled`(false), `ot_saturday_multiplier`(1.5), `holiday_multiplier`(2)
-- **สูตร** (`supabase/functions/bvn-api/index.ts`):
-  - `holidayMultMap(start,end)` + `weekdayOf(date)` + `resolveOtMultiplier(...)` ใหม่
-  - `previewPayroll` อ่านตัวคูณรายวันแทนตัวคูณ flat รายคน (บรรทัดที่เดิมใช้ `rule.ot_multiplier`)
-  - ลำดับความสำคัญ: ตัวคูณในปฏิทิน(holidays.multiplier>0) → holiday row(ใช้ holiday_multiplier) →
-    อาทิตย์/เสาร์ → OT รายคน/ปกติ · ถ้า `ot_auto_apply=false` → กลับไปใช้ตัวคูณ flat รายคน (fallback ปลอดภัย)
-  - `admin_list_holidays`/`admin_save_holiday` ส่ง/รับ `multiplier` แล้ว
-- **เทสต์เลข**: `tools/ot_multiplier_test.mjs` (mirror ของ resolveOtMultiplier) — `node tools/ot_multiplier_test.mjs`
-  ผ่านทั้ง decision table + ตัวอย่าง "อาทิตย์ 3 ชม. @50 = 300". **ถ้าแก้สูตรใน source ต้องแก้ mirror ให้ตรง**
-- **Frontend** (`admin_codex/index.html`, หน้า "ค่าจ้างและ OT"):
-  - panel "กติกาค่าแรง OT" (`renderOtRules`) + ปฏิทินตัวคูณ (`otCalRender`/`otDayDialog`/`otDayQuickMenu`)
-  - คลิกวัน = dialog ตั้งตัวคูณ+ชื่อ · คลิกขวา = เมนูด่วน · "ปกติ ×1" = `admin_delete_holiday` (ลบแถว ไม่ใช่ตั้ง 0)
-  - หน้า "วันนี้": การ์ด "รออนุมัติเดือนนี้" (นับ pending เฉพาะเดือนปัจจุบัน กดไปหน้าอนุมัติ)
-- **สิ่งที่ยัง NOT ทำ/ตรวจ**: ยังไม่ได้ deploy/รัน patch บน DB จริง; ยังไม่พิสูจน์เลขบน Supabase จริง
-  (พิสูจน์แค่ mirror); `autoOvertime` ยังสร้างคำขอ OT ตามเดิม (multiplier ใช้ตอน payroll เท่านั้น ไม่เก็บบน request)
+## สิ่งที่ทำเสร็จในรอบนี้ (อยู่ใน main แล้ว)
+1. **รีแบรนด์โทนน้ำเงินเข้ม (navy #1e3a5f)** ทั้งคอนโซล + แอป + โลโก้/ไอคอน BVN
+   - token หลักอยู่ `:root` (บล็อก redesign-v2 ที่ประมาณบรรทัดหลังสุด) — `--blue`=navy, `--green`=emerald(สถานะมาทำงาน), `--amber`,`--red`
+   - สถานะ "มาทำงาน/สำเร็จ" = emerald, แบรนด์ = navy
+2. **หน้ารวม "บุคคล & อนุมัติ"** (`renderPeople`, page id `people`) — รวม พนักงาน + งานรออนุมัติ
+   - ซ้าย: รายชื่อ (ค้นหา, badge งานค้าง, ไอคอน GPS ถ้า `locationRequired`, ไอคอนปฏิทิน, เมนู ⋯ = แก้ไข/รีเซ็ตรหัส/ปิดใช้งาน, แผง `#pwReqPanel`)
+   - ขวา: 3 โหมด segmented — OT&วันหยุด / การลา(มีตารางโควตา) / เบิกเงิน — reuse `reviewLeave/reviewTime/decideAdvance/markAdvancePaid`
+   - หน้าเดิม `employees`/`approvals` ยังมีใน PAGES (ไม่มีปุ่มเมนู) ไว้เป็น deep-link
+   - review handler ทั้งหมดรีเฟรชหน้าปัจจุบันด้วย `PAGES[state.page].load()`
+3. **หน้าวันนี้: donut รายคน** (`renderPeoplePulse`) — มา(เขียว)/สาย(ส้ม)/ขาด(แดง) + ตัวเลข, คลิกเปิดปฏิทิน
+   - "ขาด" = วันทำงานที่ควรมา (settings.workdays − holidays − วันที่มา)
+4. **ปฏิทินตัวคูณ OT** (`otCalRender`/`otEffectiveMult`) — ลงสีเสาร์/อาทิตย์+วันหยุดตามกติกา, ×N จาง=มาจากกติกา ×N เข้ม=ตั้งเอง
+   - ปุ่ม "ดึงวันหยุดแบงก์ชาติ" (`otImportBotHolidays`) → `admin_import_holidays` + `defaultMultiplier`
+5. **กติกา OT** (`renderOtRules`) — ot_multiplier/sunday/saturday/holiday + toggle auto
+6. **Login ใหม่**: คอนโซล navy gradient + การ์ดลอย · แอป แบบมินิมอลขาว (option 3)
+7. **APK**: โทน navy, โลโก้ในแอป BVN (`PppBrandMark._fallback`), launcher icon (flutter_launcher_icons),
+   เอาการขอ OT เองออก (OT อัตโนมัติจากเช็กเอาต์), `employee_month` ส่ง `multiplier` ให้แอปแสดง ×N
 
-### 1. Hash routing (commit `1b938c7`)
-- `go(page)` push `#<page>` เข้า history; `popstate` listener คืนหน้าเมื่อกด Back/Forward;
-  `enterApp` คืนหน้าที่ deep-link ตอน refresh ไม่งั้น anchor ที่ `#dashboard`
-- ตัวแปรกันลูป: `_navFromPop` (ต้องคง guard นี้ไว้ถ้าแตะ `go`)
+## ลำดับการคำนวณตัวคูณ OT (backend `resolveOtMultiplier`)
+ปฏิทินรายวัน(holidays.multiplier>0) → holiday(ใช้ holiday_multiplier) → อาทิตย์/เสาร์ → OT รายคน/ปกติ
+(`ot_auto_apply=false` → กลับไปใช้ flat). เทสต์ mirror: `node tools/ot_multiplier_test.mjs`.
 
-### 2. Export / Backup (commit ล่าสุด)
-- `downloadCSV(filename, rows, msg)` — helper กลาง (มี UTF-8 BOM ให้ Excel อ่านไทยได้) ใช้ร่วมกันทุก export
-- `exportEmployeesCSV()` — ปุ่ม "ส่งออก CSV" ในหน้าพนักงาน (`#expEmpBtn`). **ไม่ส่งออกรหัสผ่าน** โดยเจตนา
-- `exportAttendanceCSV(start,end)` + `attendanceExportDialog()` — ปุ่มในหน้าเวลาทำงาน แท็บ "บันทึกเวลา" (`#expAttBtn`),
-  มี dialog เลือกช่วงวันที่ (ดีฟอลต์เดือนปัจจุบัน). ใช้ action **`admin_attendance_days`** (ชื่อ action นี้คือของจริง
-  — ระวัง: `admin_attendance_report` **ไม่มี** ในแบ็กเอนด์)
-- `exportFullBackup()` — ปุ่มในหน้าตั้งค่า (`#backupBtn`) ดาวน์โหลด JSON รวม
-  settings/employees/payRules/sites/holidays/payrolls เป็นไฟล์เดียว (กัน "ข้อมูลโดนจับเป็นตัวประกัน")
+## งานที่ยัง "ไม่ได้ทำ" / ทำต่อได้ (เรียงตามคุณค่า)
+- **ลิงก์ APK บน Drive** — ใส่ใน `appApkUrl` (หน้าตั้งค่า) เพื่อเปิดระบบอัปเดต (เล็ก รอลิงก์จากเจ้าของ)
+- **ฝังปฏิทินรายคน + ปฏิทินลา เข้าโหมด inline** — ตอนนี้โหมด OT ลิงก์ไปหน้า payrules, คลิกคนเปิด modal ปฏิทิน
+- **แยกไฟล์ monolith** — `index.html` ~3,900 บรรทัด + `main.dart` ~3,500 บรรทัด (งานใหญ่ ค่อยเป็นค่อยไป, คุยก่อน)
+- **ทดสอบเลขเงินเดือนจริงครบวงจร** — อนุมัติ OT วันอาทิตย์/วันหยุด → พรีวิว → เทียบยอด (แนะนำบนข้อมูลไม่สำคัญ)
 
-## สิ่งที่ยัง "ไม่ได้ทำ" — งานค้างเรียงตามความสำคัญ
-
-### A. แยกไฟล์ monolith (ใหญ่/เสี่ยง — คุยกันก่อนทำ)
-`index.html` ยาว ~3,500 บรรทัด (HTML+CSS+JS กองเดียว) ทำให้แก้ต่อลำบากและเสี่ยง merge conflict ระหว่างเรา
-- แนวทางที่เสนอ (ค่อยเป็นค่อยไป ไม่ต้องรื้อทีเดียว):
-  1. แยก CSS block → `admin_codex/styles.css`
-  2. แยก JS → ES modules เช่น `js/api.js` (api/esc/downloadCSV), `js/router.js` (go/popstate),
-     `js/pages/*.js` (render แต่ละหน้า)
-  3. คงพฤติกรรม/คลาส/ชื่อ selector เดิมไว้ทั้งหมด เพื่อไม่ให้ UI หรือ test พัง
-- **อย่ารื้อ** จนกว่าจะตกลงขอบเขตกันใน brief ก่อน (ไฟล์เดียวยังทำงานได้ดี การแยกคือเรื่อง maintainability ล้วนๆ)
-
-### B. ลิงก์ APK ค้าง (เล็ก)
-ตั้ง version 5 ไว้แล้วในแบ็กเอนด์ แต่ช่อง `#appUrl` ยังว่าง (รอลิงก์ Google Drive จากเจ้าของ) —
-พนักงานยังไม่เห็น prompt อัปเดตจนกว่าจะใส่ลิงก์ (ยืนยันแล้วใน `employee_mobile/lib/update.dart:34`)
-
-### C. ของควรพิจารณาต่อ (ยังไม่จำเป็นเร่งด่วน)
-- Backup อัตโนมัติตามเวลา (ตอนนี้เป็น manual ปุ่มเดียว)
-- รวม attendance ลงในไฟล์ backup JSON ด้วย (ตอนนี้แยกเป็น CSV เพราะข้อมูลอาจใหญ่)
-
-## กติกาที่ต้องรักษา (จาก CLAUDE.md + งานที่ผ่านมา)
+## กติกาที่ต้องรักษา (CLAUDE.md + งานที่ผ่านมา)
 - อย่าทับงานอีก agent โดยไม่ดู working tree + handoff ก่อน
-- รหัสผ่านต้อง hash; **ห้าม** ส่งออก/โชว์ค่า hash หรือ plaintext ของรหัสพนักงาน
-- publishable apikey เป็น public ปลอดภัย; service_role key ลับ ห้ามเข้า repo/แชต
-- ทุก export ใช้ `downloadCSV`/Blob ฝั่ง client เท่านั้น — ไม่มีการส่งข้อมูลออกนอกไปที่ third-party
+- รหัสผ่านต้อง hash; ห้ามส่งออก/โชว์ค่า hash/plaintext; publishable apikey เป็น public ปลอดภัย, service_role ลับ ห้ามเข้า repo/แชต
+- ทุก export ใช้ `downloadCSV`/Blob ฝั่ง client เท่านั้น
+- commit ลงท้ายด้วย `Co-Authored-By: ...`; push เมื่อเจ้าของสั่งเท่านั้น
+- ก่อน deploy: slug ต้องเป็น `swift-handler`
