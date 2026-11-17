@@ -6,8 +6,19 @@ import 'bvn_api.dart';
 /// Bump this on every release so it matches pubspec `version: x.y.z+<code>`.
 /// The backend's `version` action returns `appVersionCode`; when that is higher
 /// than this, the app offers the new APK (hosted on Drive).
-const int kAppVersionCode = 11;
-const String kAppVersionName = '1.0.11';
+const int kAppVersionCode = 13;
+const String kAppVersionName = '1.0.13';
+
+/// Old console metadata advertised attendance correction, a flow that is no
+/// longer available to employees. Keep the update prompt truthful while an
+/// administrator replaces that old note in System Settings.
+String _safeReleaseNotes(Object? raw) {
+  final notes = '${raw ?? ''}'.trim();
+  if (notes == 'ยืนยันตัวตนพนักงาน + timesheet + แก้เวลา + ดีไซน์ใหม่') {
+    return 'ปรับปรุงข้อมูลพนักงาน, Timesheet และความเสถียรของระบบ';
+  }
+  return notes;
+}
 
 class UpdateInfo {
   const UpdateInfo({
@@ -37,7 +48,7 @@ Future<UpdateInfo?> checkForUpdate() async {
       versionName: '${d['appVersionName'] ?? ''}'.trim(),
       apkUrl: url,
       mandatory: d['appMandatory'] == true,
-      notes: '${d['appNotes'] ?? ''}'.trim(),
+      notes: _safeReleaseNotes(d['appNotes']),
     );
   } catch (_) {
     return null;

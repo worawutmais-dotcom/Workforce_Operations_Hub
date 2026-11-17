@@ -25,18 +25,23 @@
 
 ## 2) Factory reset — ⏳ ยังไม่ได้ทดสอบ (เจ้าของต้องทำเอง)
 
+**สถานะล่าสุด:** ภาพที่รายงานแสดง error `payroll_rules_employee_id_fkey` เพราะ
+migration เดิมลบ `employees` ก่อน `payroll_rules` แล้ว จึงยังไม่ถือว่าทดสอบผ่าน
+ได้แก้ลำดับใน `patch_factory_reset.sql` แล้ว แต่ต้องรันไฟล์ patch นี้ใน SQL Editor
+และทดสอบกับ UAT อีกครั้งก่อนใช้จริง
+
 **ทำไม Claude รันให้ไม่ได้:**
 - ล้าง **ข้อมูลปฏิบัติการทั้งหมด** (พนักงาน/เวลา/ลา/OT/เบิกเงิน/บิล/เงินเดือน) — เหลือแค่บัญชีแอดมิน + ตั้งค่าบริษัท/โลโก้ · **กู้ไม่ได้**
 - ต้องใช้ **รหัสผ่าน Owner จริง** ซึ่ง Claude ไม่มีและห้ามรับผ่านแชต
-- ยืนยัน live แล้วว่าโค้ดแก้บั๊ก (`factoryResetWhereFix: true`) ขึ้น deploy — เหลือแค่ทดสอบการทำงานจริง
+- ต้องให้ Owner รัน SQL patch ที่แก้ Foreign Key และทดสอบการทำงานจริง
 
 **ขั้นตอน UAT (ทำบน UAT project หรือช่วงที่ล้างข้อมูลได้):**
 1. (แนะนำ) Backup DB ก่อน / ใช้ Supabase project ที่เป็น UAT
 2. หน้า **ตั้งค่า → ส่วน "ล้างข้อมูล/Factory reset"**
 3. ยืนยันชั้นที่ 1: พิมพ์ `RESET BVN` + รหัสผ่าน Owner → ได้ challenge (อายุ 10 นาที)
 4. ยืนยันชั้นที่ 2: รหัสผ่าน Owner อีกครั้ง + `RESET BVN` → กด "ล้างข้อมูลถาวร"
-5. **คาดหวัง:** สำเร็จ (ไม่ขึ้น error "DELETE requires a WHERE clause" อีก), ข้อมูลปฏิบัติการถูกล้าง, บัญชีแอดมิน + ตั้งค่าบริษัท/โลโก้ยังอยู่, แอดมินอื่นถูก sign out
-6. เช็กว่า factory-reset ต้อง **re-run `patch_factory_reset.sql`** มาก่อน (ตัวที่แก้ `WHERE true`) — ยืนยันแล้วว่า deploy/patch ขึ้น live (capability `factoryResetWhereFix: true`)
+5. **คาดหวัง:** สำเร็จ (ไม่ขึ้นทั้ง `DELETE requires a WHERE clause` และ `payroll_rules_employee_id_fkey`), ข้อมูลปฏิบัติการถูกล้าง, บัญชีแอดมิน + ตั้งค่าบริษัท/โลโก้ยังอยู่, แอดมินอื่นถูก sign out
+6. ก่อนทดสอบ ต้อง **re-run `patch_factory_reset.sql`** ใน SQL Editor ให้เป็นลำดับล่าสุด (`payroll_rules → employees`) แล้วจึงกด Factory reset
 
 ---
 

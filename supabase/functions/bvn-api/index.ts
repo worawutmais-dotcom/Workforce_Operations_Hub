@@ -94,11 +94,21 @@ async function verify(adminToken: string, roles?: string[]) {
 }
 const OPS = ["owner", "manager", "operations"];
 const FIN = ["owner", "manager", "finance"];
-// Minimal-data mode: operational records are the source of truth; an extra
-// audit row for every click is intentionally not retained.  This is a product
-// decision to keep the small Supabase project lean, at the cost of not being
-// able to answer "which Admin changed this" after the fact.
-async function audit(_actor: string, _action: string, _target: string, _detail = "") { /* intentionally no-op */ }
+// Retain evidence only for money, approval and configuration decisions. We do
+// not retain page views or ordinary clicks, keeping the database small while
+// preserving enough history to investigate a payroll result.
+const FINANCIAL_AUDIT_ACTIONS = new Set([
+  "pay_rule_saved", "payroll_locked", "payroll_paid",
+  "advance_approved", "advance_rejected", "advance_paid",
+  "time_request_approved", "time_request_rejected",
+  "invoice_created", "invoice_issued", "invoice_paid", "invoice_void",
+  "settings_saved",
+]);
+async function audit(actor: string, action: string, target: string, detail = "") {
+  if (!FINANCIAL_AUDIT_ACTIONS.has(action)) return;
+  // Evidence must never turn an otherwise complete financial transaction into a failure.
+  await db.from("audit_log").insert({ ts: nowISO(), actor, action, target, detail }).then(() => undefined).catch(() => undefined);
+}
 
 // ---------- mobile (employee app) helpers ----------
 const MAX_ACCURACY_M = 100;
@@ -234,7 +244,7 @@ async function attendanceBefore(cutoff: string) {
   const rows: any[] = [];
   const pageSize = 1000;
   for (let start = 0; start < 50000; start += pageSize) {
-    const { data, error } = await db.from("attendance_log").select("employee_id,event_type,event_time,latitude,longitude,accuracy_m,source,validity,review_status,reviewer,reviewed_at,note")
+    const { data, error } = await db.from("attendance_log").select("employee_id,event_type,event_time,latitude,longitude,accuracy,source,validity,review_status,reviewer,reviewed_at,note")
       .lt("event_time", cutoff).order("event_time", { ascending: true }).range(start, start + pageSize - 1);
     if (error) throw error;
     rows.push(...(data || []));
@@ -245,7 +255,7 @@ async function attendanceBefore(cutoff: string) {
 
 // ---------- payroll preview (ported from adminPreviewPayroll_) ----------
 async function previewPayroll(start: string, end: string) {
-  const [rulesRes, logsRes, otRes, settings, holMult] = await Promise.all([
+  const [rulesRes, logsRes, otRes, settings, holMult, draftRes] = await Promise.all([
     db.from("payroll_rules").select("*"),
     db.from("attendance_log").select("employee_id,event_type,event_time").eq("validity", "accepted")
       .gte("event_time", start + "T00:00:00+07:00").lte("event_time", end + "T23:59:59+07:00"),
@@ -253,6 +263,9 @@ async function previewPayroll(start: string, end: string) {
       .eq("status", "approved").gte("work_date", start).lte("work_date", end),
     settingsMap(),
     holidayMultMap(start, end),
+    // Optional until patch_payroll_draft_review.sql is applied.  Preview remains
+    // usable during rollout; save will clearly report the missing migration.
+    db.from("payroll_draft_adjustments").select("*").eq("period_start", start).eq("period_end", end),
   ]);
   const holidayDays = new Set(Object.keys(holMult));
   const ruleBy: Record<string, any> = {};
@@ -260,7 +273,7 @@ async function previewPayroll(start: string, end: string) {
   const byDay: Record<string, any> = {};
   (logsRes.data || []).forEach((r: any) => {
     const day = dayOf(r.event_time), key = r.employee_id + "|" + day, t = new Date(r.event_time).getTime();
-    const it = byDay[key] || { employeeId: r.employee_id, inTs: null, outTs: null };
+    const it = byDay[key] || { employeeId: r.employee_id, date: day, inTs: null, outTs: null };
     if (r.event_type === "check_in") it.inTs = it.inTs ? Math.min(it.inTs, t) : t;
     if (r.event_type === "check_out") it.outTs = it.outTs ? Math.max(it.outTs, t) : t;
     byDay[key] = it;
@@ -291,19 +304,31 @@ async function previewPayroll(start: string, end: string) {
   });
   const outstanding = await outstandingAdvances();
   const ssoEnabled = settings.sso_enabled === "true", ssoRate = num(settings.sso_rate) || 5, ssoCap = num(settings.sso_cap) || 750;
+  const draftByEmployee: Record<string, any> = {};
+  (draftRes.data || []).forEach((r: any) => (draftByEmployee[r.employee_id] = r));
+  const incompleteDays = Object.values(byDay).filter((it: any) => !it.inTs || !it.outTs || it.outTs <= it.inTs).map((it: any) => ({
+    employeeId: it.employeeId, date: it.date,
+    issue: !it.inTs ? "no_checkin" : !it.outTs ? "no_checkout" : "invalid_time",
+  }));
   const lines = Object.values(result).map((line: any) => {
     const gross = round(line.baseGross + line.otGross), rule = ruleBy[line.employeeId] || {};
-    const sso = ssoEnabled ? round(Math.min((gross * ssoRate) / 100, ssoCap)) : 0;
-    const other = round(num(rule.other_deduction));
-    const adv = advanceFit(outstanding[line.employeeId], Math.max(0, gross - sso - other));
+    const draft = draftByEmployee[line.employeeId] || {};
+    const calculatedSso = ssoEnabled ? round(Math.min((gross * ssoRate) / 100, ssoCap)) : 0;
+    // This is a company-wide Settings policy, not a per-payslip option.
+    const sso = calculatedSso;
+    const other = draft.other_deduction != null ? round(num(draft.other_deduction)) : round(num(rule.other_deduction));
+    const calculatedAdv = advanceFit(outstanding[line.employeeId], Math.max(0, gross - sso - other));
+    // Paid advances are a receivable, not an editable payroll deduction. This
+    // exact oldest-first calculation is also used by the lock operation.
+    const adv = calculatedAdv;
     const net = round(Math.max(0, gross - adv - sso - other));
-    return { ...line, baseGross: round(line.baseGross), otGross: round(line.otGross), grossPay: gross, advanceDeduction: adv, sso, otherDeduction: other, netPay: net };
+    return { ...line, baseGross: round(line.baseGross), otGross: round(line.otGross), grossPay: gross, advanceDeduction: adv, sso, otherDeduction: other, netPay: net, draftReview: !!draftByEmployee[line.employeeId], ssoEnabled, draftNote: String(draft.note || "") };
   });
   const sum = (k: string) => round(lines.reduce((s: number, l: any) => s + (l[k] || 0), 0));
   return {
     startDate: start, endDate: end, status: "preview",
     disclaimer: "ประมาณการ: หัก = เบิกล่วงหน้า + ประกันสังคม + หักอื่นๆ",
-    lines, incompleteDays: [],
+    lines, incompleteDays,
     totalGross: sum("grossPay"), totalAdvance: sum("advanceDeduction"), totalSso: sum("sso"), totalOther: sum("otherDeduction"), totalNet: sum("netPay"),
   };
 }
@@ -312,7 +337,7 @@ async function previewPayroll(start: string, end: string) {
 const H: Record<string, (p: any) => Promise<Response>> = {
   async version() {
     const s = await settingsMap();
-    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-17-delete-attendance", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: true, otCalendar: true, timesheetReview: true, employeeDeleteRemovesAttendance: true, factoryResetWhereFix: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
+    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-17-financial-production-controls", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: false, otCalendar: true, timesheetReview: true, payrollReview: true, payrollPaymentControl: true, employeeDeleteRemovesAttendance: true, factoryResetWhereFix: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
   },
   async public_branding() {
     const s = await settingsMap();
@@ -430,7 +455,7 @@ const H: Record<string, (p: any) => Promise<Response>> = {
       db.from("time_requests").select("request_id", { count: "exact", head: true }).eq("employee_id", id),
       db.from("advances").select("advance_id", { count: "exact", head: true }).eq("employee_id", id),
     ]);
-    const labels = ["รายการเงินเดือน", "คำขอลา", "คำขอแก้ไขเวลา/OT", "คำขอเบิกเงิน"];
+    const labels = ["รายการเงินเดือน", "คำขอลา", "รายการ OT", "คำขอเบิกเงิน"];
     const history = checks.map((r, i) => ({ label: labels[i], count: r.count || 0, error: r.error })).filter((r) => r.count > 0 || r.error);
     if (history.length) {
       if (history.some((r) => r.error)) return reply(false, "ตรวจสอบประวัติพนักงานไม่สำเร็จ จึงไม่อนุญาตให้ลบถาวร");
@@ -674,28 +699,8 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     return reply(true, eventType === "check_in" ? "ลงเวลาเข้าแล้ว" : "ลงเวลาออกแล้ว");
   },
   async admin_record_attendance_correction(p) {
-    const a = await verify(p.adminToken, OPS);
-    const employeeId = String(p.employeeId || "").trim().toUpperCase();
-    const eventType = String(p.eventType || "");
-    const eventAt = String(p.eventAt || "").trim();
-    const reason = String(p.reason || "").trim();
-    if (!employeeId || !["check_in", "check_out"].includes(eventType)) return reply(false, "ข้อมูลพนักงานหรือประเภทรายการไม่ครบ");
-    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(eventAt)) return reply(false, "รูปแบบวันเวลาไม่ถูกต้อง");
-    if (reason.length < 5 || reason.length > 400) return reply(false, "เหตุผลต้องมี 5–400 ตัวอักษร");
-    const at = new Date(eventAt + ":00+07:00");
-    if (Number.isNaN(at.getTime()) || at.getTime() > Date.now() + 5 * 60 * 1000) return reply(false, "ไม่สามารถบันทึกเวลาในอนาคตได้");
-    const { data: employee } = await db.from("employees").select("employee_id").eq("employee_id", employeeId).maybeSingle();
-    if (!employee) return reply(false, "ไม่พบพนักงาน");
-    const date = eventAt.slice(0, 10);
-    const { data: existing } = await db.from("attendance_log").select("event_type").eq("employee_id", employeeId).eq("validity", "accepted")
-      .gte("event_time", date + "T00:00:00+07:00").lte("event_time", date + "T23:59:59+07:00");
-    const seen = new Set((existing || []).map((r: any) => r.event_type));
-    if (seen.has(eventType)) return reply(false, eventType === "check_in" ? "วันนี้มี Check in อยู่แล้ว — หากข้อมูลผิด ให้ยกเลิกวันนั้นก่อน" : "วันนี้มี Check out อยู่แล้ว — หากข้อมูลผิด ให้ยกเลิกวันนั้นก่อน");
-    if (eventType === "check_out" && !seen.has("check_in")) return reply(false, "ต้องมี Check in ของวันเดียวกันก่อนจึงจะเพิ่ม Check out ได้");
-    const { error } = await db.from("attendance_log").insert({ employee_id: employeeId, site_id: "", event_type: eventType, event_time: at.toISOString(), validity: "accepted", source: "admin_correction:" + a.display_name, review_status: "accepted", note: reason });
-    if (error) return reply(false, error.message);
-    audit(a.display_name, "attendance_corrected", employeeId, `${eventType} ${eventAt} · ${reason}`);
-    return reply(true, "บันทึกการแก้ไขเวลาแล้ว", { employeeId, eventType, eventAt: at.toISOString() });
+    await verify(p.adminToken, OPS);
+    return reply(false, "ระบบปิดการแก้ไขเวลาย้อนหลังแล้ว ใช้การลงเวลาเข้า/ออกจริงและตั้งกติกา OT จากหลังบ้านแทน");
   },
   async admin_attendance_days(p) {
     await verify(p.adminToken);
@@ -769,14 +774,14 @@ const H: Record<string, (p: any) => Promise<Response>> = {
 
   async admin_list_time_requests(p) {
     await verify(p.adminToken, OPS);
-    const { data } = await db.from("time_requests").select("*").order("submitted_at", { ascending: false });
+    const { data } = await db.from("time_requests").select("*").eq("request_type", "overtime").order("submitted_at", { ascending: false });
     return reply(true, "ok", { requests: (data || []).map((r: any) => ({ requestId: r.request_id, employeeId: r.employee_id, requestType: r.request_type, workDate: r.work_date, requestedMinutes: r.requested_minutes, reason: r.reason, status: r.status, submittedAt: r.submitted_at, reviewedBy: r.reviewed_by, reviewedAt: r.reviewed_at, reviewerNote: r.reviewer_note })) });
   },
   async admin_review_time_request(p) {
     const a = await verify(p.adminToken, OPS);
     const id = String(p.requestId || ""), decision = lc(p.decision), note = String(p.reviewerNote || "").trim();
     if (!id || !["approved", "rejected"].includes(decision)) return reply(false, "คำสั่งไม่ถูกต้อง");
-    const { data } = await db.from("time_requests").update({ status: decision, reviewed_by: a.display_name, reviewed_at: nowISO(), reviewer_note: note }).eq("request_id", id).eq("status", "pending").select();
+    const { data } = await db.from("time_requests").update({ status: decision, reviewed_by: a.display_name, reviewed_at: nowISO(), reviewer_note: note }).eq("request_id", id).eq("request_type", "overtime").eq("status", "pending").select();
     if (!data || !data.length) return reply(false, "ไม่พบคำขอที่รออนุมัติ");
     audit(a.display_name, "time_request_" + decision, id, note); return reply(true, "บันทึกการตัดสินใจแล้ว");
   },
@@ -785,9 +790,9 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     const employeeId = String(p.employeeId || "").trim().toUpperCase(), workDate = String(p.workDate || "");
     const minutes = Math.round(num(p.requestedMinutes));
     if (!/^\d{4}-\d{2}-\d{2}$/.test(workDate) || minutes <= 0 || minutes > 1440) return reply(false, "ข้อมูล OT ไม่ถูกต้อง");
-    await db.from("time_requests").insert({ request_id: crypto.randomUUID(), employee_id: employeeId, request_type: "overtime", work_date: workDate, requested_minutes: minutes, reason: String(p.reason || "OT (บันทึกโดยแอดมิน)"), status: "approved", submitted_at: nowISO(), reviewed_by: a.display_name, reviewed_at: nowISO(), reviewer_note: "บันทึกโดยแอดมินโดยตรง" });
-    audit(a.display_name, "overtime_added", employeeId, workDate + " · " + minutes + " นาที");
-    return reply(true, "บันทึก OT แล้ว", { employeeId, workDate, requestedMinutes: minutes });
+    await db.from("time_requests").insert({ request_id: crypto.randomUUID(), employee_id: employeeId, request_type: "overtime", work_date: workDate, requested_minutes: minutes, reason: String(p.reason || "OT (บันทึกโดยแอดมิน)"), status: "pending", submitted_at: nowISO() });
+    audit(a.display_name, "overtime_requested", employeeId, workDate + " · " + minutes + " นาที");
+    return reply(true, "ส่ง OT รออนุมัติแล้ว", { employeeId, workDate, requestedMinutes: minutes, status: "pending" });
   },
 
   async admin_list_pay_rules(p) {
@@ -808,6 +813,7 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     const a = await verify(p.adminToken, FIN);
     const id = String(p.employeeId || "").trim().toUpperCase(), basis = lc(p.payBasis);
     if (!["daily", "hourly", "monthly"].includes(basis)) return reply(false, "รูปแบบค่าจ้างไม่ถูกต้อง");
+    if (num(p.baseRate) < 0 || num(p.standardHours) <= 0 || num(p.standardHours) > 24 || num(p.otMultiplier) < 0 || num(p.premiumMultiplier) < 0) return reply(false, "ตั้งค่าอัตราค่าจ้างไม่ถูกต้อง");
     const row = { employee_id: id, pay_basis: basis, base_rate: num(p.baseRate), standard_hours: num(p.standardHours) || 8, ot_enabled: p.otEnabled === true, ot_multiplier: num(p.otMultiplier) || 1.5, premium_date: String(p.premiumDate || ""), premium_multiplier: num(p.premiumMultiplier) || 1, other_deduction: num(p.otherDeduction), days_per_month: num(p.daysPerMonth) || 30, updated_at: nowISO(), updated_by: a.display_name };
     const { error } = await db.from("payroll_rules").upsert(row, { onConflict: "employee_id" });
     if (error) return reply(false, error.message);
@@ -820,6 +826,27 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     const data = await previewPayroll(String(p.startDate), String(p.endDate));
     return reply(true, "ok", data);
   },
+  async admin_save_payroll_draft(p) {
+    const a = await verify(p.adminToken, FIN);
+    const employeeId = String(p.employeeId || "").trim();
+    const start = String(p.startDate || ""), end = String(p.endDate || "");
+    if (!employeeId || !/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || end < start) return reply(false, "ข้อมูลรายการสลิปไม่ครบ");
+    const { data: locked } = await db.from("payroll_periods").select("payroll_id").eq("start_date", start).eq("end_date", end).maybeSingle();
+    if (locked) return reply(false, "งวดนี้ถูกล็อกแล้ว จึงแก้ไขรายการสลิปไม่ได้");
+    const otherDeduction = Math.max(0, round(num(p.otherDeduction)));
+    const note = String(p.note || "").trim().slice(0, 500);
+    if (otherDeduction > 0 && !note) return reply(false, "กรุณาระบุเหตุผลสำหรับรายการหักอื่น");
+    const row = {
+      employee_id: employeeId, period_start: start, period_end: end,
+      sso_enabled: null, sso_amount: null,
+      // Recovery always follows actual paid advances. It is not an editable amount.
+      advance_deduction: null, other_deduction: otherDeduction,
+      note, updated_by: a.display_name, updated_at: nowISO(),
+    };
+    const { error } = await db.from("payroll_draft_adjustments").upsert(row, { onConflict: "employee_id,period_start,period_end" });
+    if (error) return reply(false, /payroll_draft_adjustments/.test(error.message || "") ? "ยังไม่ได้ติดตั้งตารางรายการสลิป กรุณารัน patch_payroll_draft_review.sql" : error.message);
+    return reply(true, "บันทึกรายการสลิปแล้ว");
+  },
   async admin_owner_overview(p) {
     await verify(p.adminToken, FIN);
     const start = String(p.startDate || todayISO().slice(0, 8) + "01"), end = String(p.endDate || todayISO());
@@ -827,12 +854,16 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     const lines = prev.lines.map((l: any) => ({ ...l, name: names[l.employeeId]?.name || l.employeeId, role: names[l.employeeId]?.role || "" })).sort((a: any, b: any) => b.netPay - a.netPay);
     const activeCount = Object.values(names).filter((e) => e.status === "active").length;
     const grp = (st: string) => { const a = (advRes.data || []).filter((x: any) => x.status === st); return { count: a.length, total: round(a.reduce((t: number, x: any) => t + num(x.amount), 0)) }; };
-    return reply(true, "ok", { settings: s, period: { start, end, label: "" }, nextPayday: "", lines, incompleteDays: [], totalGross: prev.totalGross, totalAdvance: prev.totalAdvance, totalSso: prev.totalSso, totalOther: prev.totalOther, totalNet: prev.totalNet, paidCount: lines.length, activeEmployees: activeCount, advancesPending: grp("pending"), advancesApprovedUnpaid: grp("approved"), advancesPaidUnsettled: grp("paid") });
+    return reply(true, "ok", { settings: s, period: { start, end, label: "" }, nextPayday: "", lines, incompleteDays: prev.incompleteDays, totalGross: prev.totalGross, totalAdvance: prev.totalAdvance, totalSso: prev.totalSso, totalOther: prev.totalOther, totalNet: prev.totalNet, paidCount: lines.length, activeEmployees: activeCount, advancesPending: grp("pending"), advancesApprovedUnpaid: grp("approved"), advancesPaidUnsettled: grp("paid") });
   },
   async admin_lock_payroll(p) {
     const a = await verify(p.adminToken, FIN);
     const data = await previewPayroll(String(p.startDate), String(p.endDate));
+    if (data.incompleteDays.length) return reply(false, "ยังล็อกงวดไม่ได้: มีเวลาเข้า-ออกไม่ครบ " + data.incompleteDays.length + " รายการ");
     const payrollId = "PAY-" + data.startDate.replace(/-/g, "") + "-" + data.endDate.replace(/-/g, "");
+    const { data: periods } = await db.from("payroll_periods").select("payroll_id,start_date,end_date");
+    const overlap = (periods || []).find((x: any) => String(x.start_date) <= data.endDate && String(x.end_date) >= data.startDate);
+    if (overlap) return reply(false, "ช่วงงวดทับกับ " + overlap.payroll_id + " กรุณาเลือกช่วงที่ไม่ซ้ำกัน");
     // Decide which paid advances this run settles (oldest-first, within net-after-statutory).
     const outstanding = await outstandingAdvancesFull();
     const settleIds: string[] = [];
@@ -847,9 +878,11 @@ const H: Record<string, (p: any) => Promise<Response>> = {
       p_payroll_id: payrollId, p_start: data.startDate, p_end: data.endDate, p_locked_by: a.display_name,
       p_lines: data.lines.map((l: any) => ({ employee_id: l.employeeId, regular_minutes: l.regularMinutes, ot_minutes: l.otMinutes, base_gross: l.baseGross, ot_gross: l.otGross, gross_pay: l.grossPay, advance_deduction: l.advanceDeduction, net_pay: l.netPay, sso: l.sso, other_deduction: l.otherDeduction })),
       p_settle_ids: settleIds,
+      p_issuer_snapshot: await settingsMap(),
     });
     if (error) {
       if (/PERIOD_EXISTS/.test(error.message || "")) return reply(false, "งวดนี้ถูกล็อกไปแล้ว");
+      if (/PERIOD_OVERLAP/.test(error.message || "")) return reply(false, "ช่วงงวดนี้ทับกับงวดที่ล็อกแล้ว");
       return reply(false, error.message || "ล็อกงวดไม่สำเร็จ");
     }
     audit(a.display_name, "payroll_locked", payrollId, "net " + data.totalNet + " · settled " + settleIds.length);
@@ -858,7 +891,7 @@ const H: Record<string, (p: any) => Promise<Response>> = {
   async admin_list_payrolls(p) {
     await verify(p.adminToken, FIN);
     const { data } = await db.from("payroll_periods").select("*").order("start_date", { ascending: false });
-    return reply(true, "ok", { periods: (data || []).map((r: any) => ({ payrollId: r.payroll_id, startDate: r.start_date, endDate: r.end_date, status: r.status, lockedAt: r.locked_at, lockedBy: r.locked_by })) });
+    return reply(true, "ok", { periods: (data || []).map((r: any) => ({ payrollId: r.payroll_id, startDate: r.start_date, endDate: r.end_date, status: r.status, lockedAt: r.locked_at, lockedBy: r.locked_by, paymentStatus: r.payment_status || "unpaid", paidAt: r.paid_at || "", paymentReference: r.payment_reference || "" })) });
   },
   async admin_get_payroll(p) {
     await verify(p.adminToken, FIN);
@@ -868,7 +901,16 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     const [{ data: lineRows }, names] = await Promise.all([db.from("payroll_lines").select("*").eq("payroll_id", id), nameMap()]);
     const lines = (lineRows || []).map((r: any) => ({ employeeId: r.employee_id, name: names[r.employee_id]?.name || r.employee_id, role: names[r.employee_id]?.role || "", regularMinutes: r.regular_minutes, otMinutes: r.ot_minutes, baseGross: num(r.base_gross), otGross: num(r.ot_gross), grossPay: num(r.gross_pay), advanceDeduction: num(r.advance_deduction), sso: num(r.sso), otherDeduction: num(r.other_deduction), netPay: num(r.net_pay) }));
     const sum = (k: string) => round(lines.reduce((s: number, l: any) => s + (l[k] || 0), 0));
-    return reply(true, "ok", { payrollId: id, startDate: period.start_date, endDate: period.end_date, status: period.status, lines, totalGross: sum("grossPay"), totalAdvance: sum("advanceDeduction"), totalSso: sum("sso"), totalOther: sum("otherDeduction"), totalNet: sum("netPay") });
+    return reply(true, "ok", { payrollId: id, startDate: period.start_date, endDate: period.end_date, status: period.status, lockedAt: period.locked_at, lockedBy: period.locked_by, paymentStatus: period.payment_status || "unpaid", paidAt: period.paid_at || "", paymentReference: period.payment_reference || "", issuerSettings: period.issuer_snapshot || {}, lines, totalGross: sum("grossPay"), totalAdvance: sum("advanceDeduction"), totalSso: sum("sso"), totalOther: sum("otherDeduction"), totalNet: sum("netPay") });
+  },
+  async admin_mark_payroll_paid(p) {
+    const a = await verify(p.adminToken, FIN);
+    const payrollId = String(p.payrollId || "").trim(), reference = String(p.paymentReference || "").trim().slice(0, 160);
+    if (!payrollId || !reference) return reply(false, "กรอกเลขอ้างอิงการจ่ายเงินก่อน");
+    const { data } = await db.from("payroll_periods").update({ payment_status: "paid", paid_at: nowISO(), payment_reference: reference }).eq("payroll_id", payrollId).eq("status", "locked").eq("payment_status", "unpaid").select("payroll_id");
+    if (!data || !data.length) return reply(false, "งวดนี้ถูกบันทึกว่าจ่ายแล้ว หรือไม่พบงวดที่ล็อก");
+    await audit(a.display_name, "payroll_paid", payrollId, reference);
+    return reply(true, "บันทึกการจ่ายเงินแล้ว");
   },
 
   async admin_list_invoices(p) {
@@ -1137,14 +1179,11 @@ const H: Record<string, (p: any) => Promise<Response>> = {
   },
   async time_request(p) {
     const e = await authMobile(p.mobileToken); if (!e) return reply(false, "Mobile authentication failed");
-    const requestType = lc(p.requestType), workDate = String(p.workDate || ""), minutes = Math.round(num(p.requestedMinutes)), reason = String(p.reason || "").trim();
-    if (!["overtime", "attendance_correction"].includes(requestType) || !/^\d{4}-\d{2}-\d{2}$/.test(workDate) || !reason || minutes <= 0 || minutes > 1440) return reply(false, "Invalid time request");
-    await db.from("time_requests").insert({ request_id: crypto.randomUUID(), employee_id: e.employee_id, request_type: requestType, work_date: workDate, requested_minutes: minutes, reason, status: "pending", submitted_at: nowISO() });
-    return reply(true, "ส่งคำขอแล้ว", { status: "pending", requestType });
+    return reply(false, "แอปไม่รับคำขอแก้ไขเวลาแล้ว เวลาทำงานจะบันทึกจากการเช็กอินและเช็กเอาต์");
   },
   async employee_time_requests(p) {
     const e = await authMobile(p.mobileToken); if (!e) return reply(false, "Mobile authentication failed");
-    const { data } = await db.from("time_requests").select("*").eq("employee_id", e.employee_id).order("submitted_at", { ascending: false });
+    const { data } = await db.from("time_requests").select("*").eq("employee_id", e.employee_id).eq("request_type", "overtime").order("submitted_at", { ascending: false });
     return reply(true, "ok", { employeeId: e.employee_id, requests: (data || []).map((r: any) => ({ requestId: r.request_id, requestType: r.request_type, workDate: r.work_date, requestedMinutes: r.requested_minutes, reason: r.reason, status: r.status, submittedAt: r.submitted_at, reviewerNote: r.reviewer_note })) });
   },
   async employee_submit_advance(p) {

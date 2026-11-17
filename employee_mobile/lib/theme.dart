@@ -1,10 +1,8 @@
 // BVN Package — mobile design system.
 //
-// One brand language shared with the Admin Codex console: a light-first,
-// enterprise green identity. Brand green is the single accent; amber means
-// "attention / late" and red means "checked-out / danger". Surfaces are white
-// cards on a soft green-tinted canvas, with a gentle resting shadow, 16px
-// radius and hairline borders — large touch targets for Thai shop staff.
+// One brand language shared with the Admin Codex console: quiet navy, white
+// surfaces and one purposeful accent. Status colours are reserved for status,
+// not decoration, so the next attendance action stays obvious.
 //
 // Import this everywhere instead of hard-coding colours so the whole app stays
 // on one system.
@@ -57,31 +55,26 @@ const kInfoSoft = Color(0xFFE4EDFF);
 const double kRadius = 16;
 const double kRadiusSm = 12;
 
-/// The hero gradient used on the signature surfaces (home shift card, account
-/// header, login crown). Deep green → brand green, top-left to bottom-right.
+/// Solid signature surface. Existing widgets use a [Gradient] decoration, but
+/// there is deliberately no hue transition.
 const kHeroGradient = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
-  colors: [kBrandDeep, Color(0xFF27496D)],
+  colors: [kBrandDeep, kBrandDeep],
 );
 
 /// A deeper variant used behind content that needs more contrast.
 const kHeroGradientDeep = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
-  colors: [Color(0xFF1E3A5F), kBrandDarker],
+  colors: [kBrandDarker, kBrandDarker],
 );
 
-/// Resting soft shadow for raised cards — low, wide and quiet.
-List<BoxShadow> get kSoftShadow => const [
-  BoxShadow(color: Color(0x0F15233A), blurRadius: 16, offset: Offset(0, 6)),
-  BoxShadow(color: Color(0x0A000000), blurRadius: 2, offset: Offset(0, 1)),
-];
+/// Surfaces separate with hairlines, not floating shadows.
+List<BoxShadow> get kSoftShadow => const [];
 
 /// A slightly stronger shadow for the hero / floating action surfaces.
-List<BoxShadow> get kHeroShadow => const [
-  BoxShadow(color: Color(0x331E3A5F), blurRadius: 22, offset: Offset(0, 10)),
-];
+List<BoxShadow> get kHeroShadow => const [];
 
 ThemeData bvnTheme(Brightness brightness) {
   final scheme = ColorScheme.fromSeed(

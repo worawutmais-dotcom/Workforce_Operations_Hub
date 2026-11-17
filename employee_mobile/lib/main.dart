@@ -424,6 +424,7 @@ class _EmployeeShellState extends State<EmployeeShell>
   String _shiftStart = '—', _shiftEnd = '—';
   String? _in, _out;
   bool _locationRequired = true, _busy = false;
+  bool _profileNeedsUpdate = false, _profilePromptShown = false;
   @override
   void initState() {
     super.initState();
@@ -526,6 +527,26 @@ class _EmployeeShellState extends State<EmployeeShell>
             checkedIn: _in != null,
           );
         }
+      }
+      // Contact/identity information is optional at account creation. Ask the
+      // employee once, after the operational home has loaded, instead of
+      // blocking their first check-in.
+      try {
+        final identity = await api.identityProfile(widget.token);
+        final needsUpdate = identity['identityComplete'] != true ||
+            '${identity['phone'] ?? ''}'.trim().isEmpty;
+        if (mounted) {
+          setState(() => _profileNeedsUpdate = needsUpdate);
+          if (needsUpdate && !_profilePromptShown) {
+            _profilePromptShown = true;
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => _offerProfileUpdate(),
+            );
+          }
+        }
+      } catch (_) {
+        // A stale deployed backend may not have the optional profile action.
+        // The app stays usable and the account page offers a manual retry.
       }
     } catch (_) {
       if (mounted) setState(() => _status = 'ดึงสถานะจากระบบไม่สำเร็จ');
@@ -632,6 +653,7 @@ class _EmployeeShellState extends State<EmployeeShell>
         id: widget.employeeId,
         role: _role,
         locationRequired: _locationRequired,
+        profileNeedsUpdate: _profileNeedsUpdate,
         onLogout: widget.onLogout,
       ),
     ];
@@ -672,6 +694,31 @@ class _EmployeeShellState extends State<EmployeeShell>
         ],
       ),
     );
+  }
+
+  Future<void> _offerProfileUpdate() async {
+    if (!mounted) return;
+    final open = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('อัปเดตโปรไฟล์'),
+        content: const Text(
+          'เพิ่มเลขบัตรประชาชนและเบอร์โทรเพื่อให้ฝ่ายดูแลยืนยันข้อมูลได้ คุณยังใช้งานเช็กอินต่อได้ตามปกติ',
+          style: TextStyle(fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('ไว้ภายหลัง'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('อัปเดตตอนนี้'),
+          ),
+        ],
+      ),
+    );
+    if (open == true && mounted) setState(() => _tab = 4);
   }
 }
 
@@ -828,9 +875,9 @@ class _Today extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
-              gradient: kHeroGradient,
+              color: kBrandDeep,
               borderRadius: BorderRadius.circular(kRadius),
-              boxShadow: kHeroShadow,
+              border: Border.all(color: const Color(0xFF203B57)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -874,18 +921,11 @@ class _Today extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    Icon(
-                      Icons.schedule_rounded,
-                      size: 14,
-                      color: Colors.white.withValues(alpha: .85),
-                    ),
-                    const SizedBox(width: 4),
                     Text(
                       nowStr,
                       style: TextStyle(
-                        fontSize: 12.5,
-                        color: Colors.white.withValues(alpha: .92),
-                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: .78),
                       ),
                     ),
                   ],
@@ -903,7 +943,7 @@ class _Today extends StatelessWidget {
                 Text(
                   hasSchedule ? '$shiftStart – $shiftEnd' : 'ยังไม่มีข้อมูล',
                   style: const TextStyle(
-                    fontSize: 26,
+                      fontSize: 24,
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -.3,
@@ -1003,7 +1043,7 @@ class _Today extends StatelessWidget {
                 : FilledButton.icon(
                     onPressed: busy ? null : onOut,
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFC23636),
+                      backgroundColor: _greenDeep,
                     ),
                     icon: busy
                         ? const SizedBox(
@@ -1282,7 +1322,7 @@ class _CheckInMapState extends State<_CheckInMap> {
               ));
     final siteLabel = focus == null
         ? 'ยังไม่มีจุดเช็กอินที่ตั้งค่า'
-        : '${focus['name'] ?? focus['id']} · ${focusDistance == null ? 'อนุญาต ${_sites.length} จุด' : 'ห่าง ${focusDistance.round()} ม.'}';
+        : '${focus['name'] ?? focus['id']} · รัศมี ${(focus['radius'] as num).round()} ม.';
     final statusColor = _inside ? _greenDeep : _orange;
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -1424,32 +1464,6 @@ class _CheckInMapState extends State<_CheckInMap> {
                     ],
                   ),
                 ),
-                if (focus != null)
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: statusColor.withValues(alpha: .5),
-                        ),
-                      ),
-                      child: Text(
-                        'รัศมี ${((focus['radius'] as num).round())} ม.',
-                        style: const TextStyle(
-                          color: _ink,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
                 Positioned(
                   left: 12,
                   right: 12,
@@ -1462,13 +1476,7 @@ class _CheckInMapState extends State<_CheckInMap> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x24000000),
-                          blurRadius: 12,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
+                      border: Border.all(color: kHair),
                     ),
                     child: Row(
                       children: [
@@ -1493,12 +1501,6 @@ class _CheckInMapState extends State<_CheckInMap> {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(
-                          Icons.zoom_in_map_rounded,
-                          size: 14,
-                          color: Color(0xFF60717A),
                         ),
                       ],
                     ),
@@ -2211,7 +2213,7 @@ class _RequestsPage extends StatefulWidget {
 }
 
 class _RequestsPageState extends State<_RequestsPage> {
-  List<Map<String, dynamic>> _leaves = [], _times = [], _advances = [];
+  List<Map<String, dynamic>> _leaves = [], _advances = [];
   bool _loading = true;
   String? _error;
   String _filter = 'all';
@@ -2230,14 +2232,12 @@ class _RequestsPageState extends State<_RequestsPage> {
     try {
       final result = await Future.wait([
         BvnApi().leaveCalendar(widget.token),
-        BvnApi().timeRequests(widget.token),
         BvnApi().advances(widget.token),
       ]);
       if (mounted) {
         setState(() {
           _leaves = result[0];
-          _times = result[1];
-          _advances = result[2];
+          _advances = result[1];
           _loading = false;
         });
       }
@@ -2343,64 +2343,6 @@ class _RequestsPageState extends State<_RequestsPage> {
     ),
   );
 
-  Widget _timeCard(BuildContext context, Map<String, dynamic> item) {
-    // Employee-request UI is intentionally limited to attendance correction.
-    // Overtime is derived from an actual check-out and reviewed by Admin.
-    const kind = 'ขอแก้ไขเวลา';
-    final min = (item['requestedMinutes'] as num?)?.round() ?? 0;
-    final duration = min >= 60
-        ? '${min ~/ 60} ชม.${min % 60 == 0 ? '' : ' ${min % 60} นาที'}'
-        : '$min นาที';
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _requestIcon(context, Icons.more_time_rounded),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    kind,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '${item['workDate'] ?? '—'} · $duration',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  if ('${item['reason'] ?? ''}'.trim().isNotEmpty) ...[
-                    const SizedBox(height: 5),
-                    Text(
-                      '${item['reason']}',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            _badge('${item['status'] ?? 'pending'}'),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _advanceCard(BuildContext context, Map<String, dynamic> item) => Card(
     child: Padding(
       padding: const EdgeInsets.all(14),
@@ -2461,144 +2403,10 @@ class _RequestsPageState extends State<_RequestsPage> {
     ),
   );
 
-  Future<void> _newTimeRequest() async {
-    // OT is granted automatically from check-out overtime, never requested by
-    // the employee. This form only asks to correct a recorded time.
-    const type = 'attendance_correction';
-    var workDate = DateTime.now();
-    final minutes = TextEditingController(text: '60');
-    final reason = TextEditingController();
-    final sent = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('ขอแก้ไขเวลา'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(11),
-                  decoration: BoxDecoration(
-                    color: kBrandSoft,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Text(
-                    'เวลาทำงานเกินกะจะคำนวณตามกติกาบริษัทโดยอัตโนมัติ',
-                    style: TextStyle(fontSize: 12.5, color: kBrandInk),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('วันที่เกี่ยวข้อง'),
-                  subtitle: Text(
-                    '${workDate.day} ${_thMonths[workDate.month - 1].substring(0, 3)} ${workDate.year + 543}',
-                  ),
-                  trailing: const Icon(Icons.calendar_today_outlined),
-                  onTap: () async {
-                    final selected = await showDatePicker(
-                      context: dialogContext,
-                      initialDate: workDate,
-                      firstDate: DateTime.now().subtract(
-                        const Duration(days: 90),
-                      ),
-                      lastDate: DateTime.now().add(const Duration(days: 30)),
-                    );
-                    if (selected != null) {
-                      setDialogState(() => workDate = selected);
-                    }
-                  },
-                ),
-                TextField(
-                  controller: minutes,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'เวลาที่ขอแก้ไข (นาที)',
-                    helperText: 'เช่น 60 = 1 ชั่วโมง',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: reason,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'เหตุผล',
-                    alignLabelWithHint: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('ยกเลิก'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('ส่งคำขอ'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (sent != true) {
-      minutes.dispose();
-      reason.dispose();
-      return;
-    }
-    final requested = int.tryParse(minutes.text.trim()) ?? 0;
-    if (requested <= 0 || requested > 1440 || reason.text.trim().isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('ระบุจำนวนเวลา 1–1,440 นาที และเหตุผลก่อนส่ง'),
-          ),
-        );
-      }
-      minutes.dispose();
-      reason.dispose();
-      return;
-    }
-    try {
-      await BvnApi().submitTimeRequest(
-        token: widget.token,
-        requestType: type,
-        workDate: workDate,
-        requestedMinutes: requested,
-        reason: reason.text.trim(),
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ส่งคำขอให้ผู้ดูแลตรวจแล้ว')),
-        );
-        _load();
-      }
-    } on BvnApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
-      }
-    } finally {
-      minutes.dispose();
-      reason.dispose();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final leaves = _filter == 'time' ? <Map<String, dynamic>>[] : _leaves;
-    // Do not expose automatic overtime approvals as employee-submitted
-    // requests. They remain visible to Admin in the payroll/approval flows.
-    final corrections = _times
-        .where((item) => '${item['requestType']}' != 'overtime')
-        .toList(growable: false);
-    final times = _filter == 'leave'
-        ? <Map<String, dynamic>>[]
-        : corrections;
-    final advances = _filter == 'all' ? _advances : <Map<String, dynamic>>[];
+    final leaves = _filter == 'advance' ? <Map<String, dynamic>>[] : _leaves;
+    final advances = _filter == 'leave' ? <Map<String, dynamic>>[] : _advances;
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
@@ -2619,16 +2427,11 @@ class _RequestsPageState extends State<_RequestsPage> {
                     ),
                     SizedBox(height: 3),
                     Text(
-                      'ติดตามสถานะลาและคำขอแก้ไขเวลา',
+                      'ติดตามสถานะลาและเงินล่วงหน้า',
                       style: TextStyle(fontSize: 12),
                     ),
                   ],
                 ),
-              ),
-              IconButton(
-                tooltip: 'ขอแก้ไขเวลา',
-                onPressed: _loading ? null : _newTimeRequest,
-                icon: const Icon(Icons.add_circle_outline_rounded),
               ),
               IconButton(
                 onPressed: _loading ? null : _load,
@@ -2641,7 +2444,7 @@ class _RequestsPageState extends State<_RequestsPage> {
             segments: const [
               ButtonSegment(value: 'all', label: Text('ทั้งหมด')),
               ButtonSegment(value: 'leave', label: Text('ลา')),
-              ButtonSegment(value: 'time', label: Text('แก้ไขเวลา')),
+              ButtonSegment(value: 'advance', label: Text('เงินล่วงหน้า')),
             ],
             selected: {_filter},
             onSelectionChanged: (v) => setState(() => _filter = v.first),
@@ -2669,7 +2472,7 @@ class _RequestsPageState extends State<_RequestsPage> {
                 ),
               ),
             )
-          else if (leaves.isEmpty && times.isEmpty && advances.isEmpty)
+          else if (leaves.isEmpty && advances.isEmpty)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -2687,7 +2490,7 @@ class _RequestsPageState extends State<_RequestsPage> {
                     ),
                     const SizedBox(height: 3),
                     const Text(
-                      'เมื่อส่งคำขอลาหรือขอแก้ไขเวลา สถานะจะแสดงที่นี่',
+                      'เมื่อส่งคำขอลาหรือเบิกเงินล่วงหน้า สถานะจะแสดงที่นี่',
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -2709,24 +2512,6 @@ class _RequestsPageState extends State<_RequestsPage> {
                 (e) => Padding(
                   padding: const EdgeInsets.only(bottom: 9),
                   child: _leaveCard(context, e),
-                ),
-              ),
-            ],
-            if (times.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                'คำขอแก้ไขเวลา',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 8),
-              ...times.map(
-                (e) => Padding(
-                  padding: const EdgeInsets.only(bottom: 9),
-                  child: _timeCard(context, e),
                 ),
               ),
             ],
@@ -3107,10 +2892,12 @@ class _Account extends StatelessWidget {
     required this.id,
     required this.role,
     required this.locationRequired,
+    required this.profileNeedsUpdate,
     required this.onLogout,
   });
   final String token, name, id, role;
   final bool locationRequired;
+  final bool profileNeedsUpdate;
   final Future<void> Function() onLogout;
   @override
   Widget build(BuildContext context) => ListView(
@@ -3204,7 +2991,7 @@ class _Account extends StatelessWidget {
       const SizedBox(height: 16),
       const _NotifStatusCard(),
       const SizedBox(height: 18),
-      const SectionLabel('บัญชีและคำขอ'),
+      const SectionLabel('บัญชี'),
       SoftCard(
         padding: EdgeInsets.zero,
         child: Column(
@@ -3212,8 +2999,10 @@ class _Account extends StatelessWidget {
             _accountTile(
               context,
               Icons.badge_outlined,
-              'ยืนยันข้อมูลส่วนตัว',
-              'เลขบัตรประชาชนและเบอร์โทร ส่งให้ผู้ดูแลอนุมัติ',
+              'โปรไฟล์ของฉัน',
+              profileNeedsUpdate
+                  ? 'เพิ่มเลขบัตรประชาชนและเบอร์โทรเพื่อให้ผู้ดูแลยืนยัน'
+                  : 'ข้อมูลส่วนตัวได้รับการบันทึกแล้ว',
               () => _identityDialog(context),
             ),
             const Divider(height: 1, indent: 58),

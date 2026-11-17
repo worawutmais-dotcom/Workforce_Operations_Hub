@@ -35,7 +35,7 @@
 
 ### Deploy ก่อนทดสอบ
 
-1. รัน `supabase/patch_employee_identity.sql`, `supabase/patch_attendance_corrections.sql` และ patch ที่ค้างอยู่ในฐาน UAT
+1. รัน `supabase/patch_employee_identity.sql`, `supabase/patch_payroll_draft_review.sql`, `supabase/patch_financial_production_controls.sql` และ patch ที่ค้างอยู่ในฐาน UAT
 2. Deploy `supabase/functions/bvn-api/index.ts` เป็น Edge Function ชื่อ `swift-handler`
 3. Publish `admin_codex/index.html` ไปยัง URL UAT แล้ว hard-refresh หนึ่งครั้ง
 4. ติดตั้ง APK release ล่าสุดบนอุปกรณ์ทดสอบ
@@ -50,10 +50,13 @@
 | SIT-04 | Admin อนุมัติข้อมูล | Employee record อัปเดต, request เป็น approved, audit มีผู้อนุมัติ |
 | SIT-05 | เช็กอินใน/นอกพื้นที่ | ในรัศมีบันทึกได้; นอกรัศมีถูกปฏิเสธพร้อมข้อความระยะห่าง |
 | SIT-06 | วันหยุด/×N | APK calendar และ payroll Timesheet แสดงตัวคูณเดียวกัน |
-| SIT-07 | Timesheet → payroll lock | เวลาไม่ครบ/คำขอค้าง lock ไม่ได้; เมื่อพร้อม lock ได้ครั้งเดียว |
+| SIT-07 | Timesheet → payroll lock | เวลาไม่ครบ lock ไม่ได้จาก Backend; OT pending/rejected ไม่คิดเงิน; OT approved จึงคิดเงิน; เมื่อพร้อม lock ได้ครั้งเดียว |
 | SIT-08 | Upload logo → Payslip/Invoice preview | เอกสาร preview และ PDF แสดงโลโก้จริง |
-| SIT-09 | Admin แก้ไข Check in/out ย้อนหลัง | ต้องมีเหตุผล, ห้ามเวลาอนาคต/ชนิดซ้ำ, เหตุผลถูกเก็บกับ log และปฏิทินแสดงผลถูกต้อง |
-| SIT-10 | Console ต่อกับ backend รุ่นเก่า | ปุ่มลบถาวร/แก้เวลา/คิวข้อมูล APK ต้องแสดงสถานะรออัปเดต ไม่เกิด raw `Unsupported action` |
+| SIT-09 | เงินล่วงหน้า → payroll | รายการที่จ่ายแล้วถูกหักตามลำดับเก่าไปใหม่; ยอดบน preview, snapshot และสถานะ advance ตรงกัน |
+| SIT-10 | เอกสารก่อน/หลังปิดงวด | ก่อนล็อกพิมพ์ได้เฉพาะใบตรวจสอบภายใน; สลิปจริงออกได้หลังบันทึกเลขอ้างอิงการจ่าย |
+| SIT-11 | Snapshot และช่วงงวด | เปลี่ยนหัวบิล/โลโก้หลังล็อกแล้วสลิปเดิมยังเหมือนเดิม; สร้างงวดวันที่ทับซ้อนไม่ได้ |
+| SIT-12 | การหักอื่นและ Audit | รายการหักอื่นที่มีจำนวนเงินต้องมีเหตุผล; ตรวจ audit ของ OT/advance/lock/pay/invoice ได้ |
+| SIT-13 | Console ต่อกับ backend รุ่นเก่า | ปุ่มลบถาวร/คิวข้อมูล APK/ขั้นจ่ายเงินต้องแสดงสถานะรออัปเดต ไม่เกิด raw `Unsupported action` |
 
 ## 3. UAT — เจ้าของระบบรับรองการใช้งาน
 

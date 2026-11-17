@@ -38,9 +38,12 @@ begin
 
   -- `where true` is required: Supabase runs with sql_safe_updates on, which
   -- rejects an unqualified DELETE ("DELETE requires a WHERE clause").
+  -- payroll_rules has a mandatory foreign key to employees.  It must be
+  -- deleted before the employee register; deleting employees first causes
+  -- PostgreSQL error 23503 (payroll_rules_employee_id_fkey).
+  delete from payroll_rules where true;
   delete from employees where true;
   delete from work_sites where true;
-  delete from payroll_rules where true;
   delete from holidays where true;
 
   return jsonb_build_object('employeesRemoved', employee_count);
