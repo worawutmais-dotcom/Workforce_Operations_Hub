@@ -46,6 +46,8 @@ employee_mobile/.flutter-plugins*
 .playwright-cli/
 .openai/
 .agents/
+.worktrees/
+.superpowers/
 
 # ───────── Scratch / generated output ─────────
 tmp/
