@@ -1188,7 +1188,10 @@ function enterApp(dashboardData, preloaded={}){
   // warm the employee cache (used by many pages)
   if(!preloaded.employees) loadEmployees().catch(()=>{});
   // Restore the deep-linked page on refresh / shared link; otherwise anchor at dashboard.
-  const start=(location.hash||"").replace(/^#/,"");
+  const requestedStart=(location.hash||"").replace(/^#/,"");
+  // Old bookmarks remain useful after consolidating employee work into one
+  // workspace. Do not strand a manager on an obsolete, duplicate page.
+  const start=LEGACY_ROUTE_REDIRECT[requestedStart]||requestedStart;
   if(start && start!=="dashboard" && PAGES[start] && allowedPages().includes(start)) go(start);
   else { try{ history.replaceState(null,"","#dashboard"); }catch(_){} }
 }
@@ -1206,6 +1209,10 @@ async function logout(){
 /* =================================================================
    NAVIGATION
    ================================================================= */
+// Employee master data and approval decisions used to be exposed as three
+// separate screens. They are one operational workflow, so old URLs now lead
+// to the combined workspace instead of creating competing sources of truth.
+const LEGACY_ROUTE_REDIRECT={employees:"people",approvals:"people"};
 const PAGES = {
   dashboard:{title:"วันนี้", sub:"เริ่มจากงานที่ต้องตัดสินใจในวันนี้", load:()=>renderDashboard()},
   owner:{title:"บันทึกเวลา", sub:"ลงเวลาแทนพนักงานและจัดการจุดเช็กอิน", load:()=>renderOwner()},
@@ -1221,9 +1228,9 @@ const PAGES = {
 };
 const ROLE_LABEL={owner:"เจ้าของระบบ",manager:"ผู้จัดการ",operations:"ฝ่ายปฏิบัติการ",finance:"ฝ่ายการเงิน"};
 const ROLE_PAGES={
-  owner:["dashboard","owner","people","employees","approvals","payroll","advances","payrules","invoices","settings"],
-  manager:["dashboard","owner","people","employees","approvals","payroll","advances","payrules","invoices"],
-  operations:["dashboard","people","employees","approvals","advances"],
+  owner:["dashboard","owner","people","payroll","advances","payrules","invoices","settings"],
+  manager:["dashboard","owner","people","payroll","advances","payrules","invoices"],
+  operations:["dashboard","people","advances"],
   finance:["dashboard","payroll","payrules","invoices"],
 };
 function allowedPages(){ return ROLE_PAGES[state.role]||ROLE_PAGES.owner; }
@@ -1254,6 +1261,7 @@ function groupTabsHtml(active){
 function wireGroupTabs(node){ node.querySelectorAll("[data-grp]").forEach(b=>b.onclick=()=>go(b.dataset.grp)); }
 let _navFromPop=false;
 function go(page){
+  page=LEGACY_ROUTE_REDIRECT[page]||page;
   if(!PAGES[page]||!allowedPages().includes(page)){ toast("บัญชีนี้ไม่มีสิทธิ์เปิดหน้านี้","bad"); return; }
   state.page=page;
   // Keep the URL hash in sync so Back/Forward, refresh and shared deep-links work.
@@ -1277,7 +1285,7 @@ function go(page){
 $("#nav").querySelectorAll("button[data-page]").forEach(b=>b.setAttribute("aria-controls","page-"+b.dataset.page));
 $("#nav").addEventListener("click", e=>{ const b=e.target.closest("button[data-page]"); if(b) go(b.dataset.page); });
 document.addEventListener("click", e=>{ const b=e.target.closest("[data-grp]"); if(b){ e.preventDefault(); go(b.dataset.grp); } });
-window.addEventListener("popstate", ()=>{ if(!state.token) return; const p=(location.hash||"").replace(/^#/,""); if(p && PAGES[p] && allowedPages().includes(p) && p!==state.page){ _navFromPop=true; try{ go(p); } finally { _navFromPop=false; } } });
+window.addEventListener("popstate", ()=>{ if(!state.token) return; const requested=(location.hash||"").replace(/^#/,""); const p=LEGACY_ROUTE_REDIRECT[requested]||requested; if(p && PAGES[p] && allowedPages().includes(p) && p!==state.page){ _navFromPop=true; try{ go(p); } finally { _navFromPop=false; } } });
 $("#refreshBtn").addEventListener("click", ()=>{ clearApiReadCache(); withBtn($("#refreshBtn"), async()=>{ await PAGES[state.page].load(); refreshApprovalBadge(); }); });
 $("#menuBtn").addEventListener("click", ()=>{
   const opened=$("#side").classList.toggle("open");
@@ -1290,7 +1298,9 @@ $("#logoutLink").addEventListener("click", e=>{e.preventDefault();logout();});
    is open or the tab is hidden, and it refreshes immediately when the tab is
    refocused. Apps Script has no push, so this is a gentle poll of the active
    page only; the per-read cache is cleared each tick so data is fresh. ===== */
-const AUTO_REFRESH_MS={dashboard:6000, owner:10000};
+// Only the dashboard is a live monitoring surface. Manual entry must stay
+// stable while an administrator is selecting an employee or typing a time.
+const AUTO_REFRESH_MS={dashboard:6000};
 var silentRefresh=false, _arTimer=null;
 function modalOpen(){ const s=$("#scrim"); return !!(s && s.classList.contains("show")); }
 function syncLiveBadge(){ const b=$("#liveBadge"); if(b) b.style.display=(state.token && AUTO_REFRESH_MS[state.page])?"":"none"; }
@@ -1317,11 +1327,6 @@ async function runAutoRefresh(){
       const d=await api("dashboard");
       const sig=[d.present,d.totalEmployees,d.pendingApprovals,d.exceptions,d.overdueInvoices].join("|");
       if(sig!==_dashSig){ _dashSig=sig; await renderDashboard(d); }
-    } else if(page==="owner"){
-      // Only the per-person month pane, and only while it is the visible subtab,
-      // so we never yank the user off บันทึกเวลา/จุดเช็กอิน or reset a selection.
-      const pp=document.querySelector('.subpane[data-pane="person"]');
-      if(pp && pp.style.display!=="none" && typeof loadPersonMonth==="function") await loadPersonMonth();
     }
   }catch(_){ /* keep current view; next tick retries */ }
   finally{ silentRefresh=false; document.body.classList.remove("ar-busy"); }

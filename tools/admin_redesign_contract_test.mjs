@@ -12,6 +12,8 @@ const required = [
   'owner-time-workspace',
   'peoplePulse',
   'renderPeoplePulse(dashboardTeam',
+  'LEGACY_ROUTE_REDIRECT',
+  'const AUTO_REFRESH_MS={dashboard:6000}',
 ];
 
 const missing = required.filter((token) => !html.includes(token));
