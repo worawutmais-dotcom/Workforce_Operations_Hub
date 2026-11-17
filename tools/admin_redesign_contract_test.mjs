@@ -31,6 +31,9 @@ const required = [
   'ออกเอกสารจ่าย',
   'บันทึกและตรวจเวลาเข้า–ออกแทนพนักงาน',
   'ทะเบียนพนักงานและคิวอนุมัติ',
+  'ทะเบียนเงินล่วงหน้า',
+  'data-adv-filter',
+  'เปิดเอกสารได้',
 ];
 
 const missing = required.filter((token) => !html.includes(token));
