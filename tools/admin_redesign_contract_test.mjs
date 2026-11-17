@@ -22,6 +22,8 @@ const required = [
   'hr-command-center',
   'hr-attendance-hero',
   'hr-workspace',
+  'const employeeName=',
+  '<span class="k">พนักงาน</span> <strong>${esc(employeeName)}</strong>',
 ];
 
 const missing = required.filter((token) => !html.includes(token));

@@ -3745,6 +3745,9 @@ function openPayslipDraftEditor(line,period){
 
 async function printPayslip(l, period, isInternal=false, issuerSnapshot=null){
   if(!l){ toast("ไม่พบข้อมูลพนักงาน","bad"); return; }
+  // Payroll preview may be opened directly after login, before the people
+  // cache is warm. Load the register once so the document has a real name.
+  if(!state.empById[l.employeeId]){ try{ await loadEmployees(true); }catch(_){} }
   const money=(n)=>Number(n||0).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2});
   const hrs=(m)=>{ m=Number(m||0); return (Math.floor(m/60))+" ชม. "+(m%60)+" นาที"; };
   const dateTh=(iso)=>{ if(!iso) return "—"; const d=new Date(iso.length<=10?iso+"T00:00:00+07:00":iso); return isNaN(d)?esc(iso):d.toLocaleDateString("th-TH",{dateStyle:"long"}); };
@@ -3755,10 +3758,15 @@ async function printPayslip(l, period, isInternal=false, issuerSnapshot=null){
   const documentTitle=isInternal?"ใบแสดงรายละเอียดค่าจ้าง":"ใบแสดงรายละเอียดการจ่ายค่าจ้าง";
   const documentSub="PAYROLL STATEMENT";
   const periodText=(period&&period.start)?(dateTh(period.start)+" – "+dateTh(period.end)):(period&&period.label?esc(period.label):"—");
+  // Payroll lines carry the immutable rate data, while the employee register is
+  // the source of the display name. Never let an internal BVN code take the
+  // place of the employee's name on a document sent to that employee.
+  const payloadName=(l.employeeName||l.name)&&String(l.employeeName||l.name)!==String(l.employeeId)?(l.employeeName||l.name):"";
+  const employeeName=String(state.empById[l.employeeId]?.name||payloadName||"ไม่พบชื่อพนักงาน").trim();
   const gross=Number(l.grossPay||0), adv=Number(l.advanceDeduction||0), sso=Number(l.sso||0), other=Number(l.otherDeduction||0);
   const net=l.netPay!=null?Number(l.netPay):Math.max(0,gross-adv-sso-other);
   const html=`<!doctype html><html lang="th"><head><meta charset="utf-8">
-    <title>${documentTitle} ${esc(l.name||l.employeeId)}</title>
+    <title>${documentTitle} ${esc(employeeName)}</title>
     <style>
       *{box-sizing:border-box} body{font-family:"Sarabun","TH Sarabun New","Tahoma",sans-serif;color:#152235;margin:0;padding:24px;background:#eef1f5}
       .sheet{max-width:720px;min-height:960px;margin:0 auto;background:#fff;padding:44px 48px;box-shadow:0 3px 14px rgba(21,44,71,.12)}
@@ -3784,7 +3792,7 @@ async function printPayslip(l, period, isInternal=false, issuerSnapshot=null){
         <div class="doc-title"><h1>${documentTitle}</h1><div class="sub">${documentSub}</div><div class="document-id">เลขที่เอกสาร PAY-${esc(l.employeeId)}-${esc(String(period?.start||"").replaceAll("-",""))}</div></div>
       </div>
       <div class="meta">
-        <div><div><span class="k">พนักงาน</span> <strong>${esc(l.name||l.employeeId)}</strong></div><div><span class="k">รหัส</span> ${esc(l.employeeId)}${l.role?" · "+esc(l.role):""}</div></div>
+        <div><div><span class="k">พนักงาน</span> <strong>${esc(employeeName)}</strong></div><div><span class="k">รหัส</span> ${esc(l.employeeId)}${l.role?" · "+esc(l.role):""}</div></div>
         <div style="text-align:right"><div><span class="k">งวดค่าจ้าง</span> <strong>${periodText}</strong></div><div><span class="k">${isInternal?"จัดทำเมื่อ":"วันที่จ่าย"}</span> ${isInternal?today:dateTh(period.paidAt||period.lockedAt)}</div></div>
       </div>
       <table><thead><tr><th>รายการ</th><th class="num">จำนวน</th><th class="num">เงิน (บาท)</th></tr></thead>
