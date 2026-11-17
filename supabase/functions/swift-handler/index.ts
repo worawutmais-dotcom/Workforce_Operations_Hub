@@ -46,6 +46,10 @@ const hhmm = (ms: number) => new Date(ms + ICT * 60000).toISOString().slice(11, 
 const round = (n: number) => Math.round(Number(n || 0) * 100) / 100;
 const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const lc = (v: unknown) => String(v ?? "").trim().toLowerCase();
+const shortfallPolicyOf = (v: unknown) => {
+  const policy = lc(v);
+  return ["none", "deduct_wage", "trim_ot"].includes(policy) ? policy : "none";
+};
 
 // ---------- password hashing (PBKDF2-SHA256) ----------
 const b64 = (buf: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(buf)));
@@ -280,21 +284,49 @@ async function previewPayroll(start: string, end: string) {
   });
   const result: Record<string, any> = {};
   const incompleteByEmp: Record<string, number> = {};
+  // Short-day policy for days worked under the standard shift (e.g. < 8h):
+  //   "none"        — pay the day as before (default; no behaviour change)
+  //   "deduct_wage" — prorate the day's base pay by hours actually worked
+  //   "trim_ot"     — keep full base pay, but cancel OT up to the shortfall so
+  //                   overtime cannot offset an unfinished regular day
+  // Set company-wide in Settings (key payroll_shortfall_policy). Per-day
+  // shortfall is tracked on every line for the Timesheet review, regardless of
+  // the chosen policy.
+  const shortfallPolicy = shortfallPolicyOf(settings.payroll_shortfall_policy);
   Object.values(byDay).forEach((it: any) => {
     if (!it.inTs || !it.outTs || it.outTs <= it.inTs) { incompleteByEmp[it.employeeId] = (incompleteByEmp[it.employeeId] || 0) + 1; return; }
     const rule = ruleBy[it.employeeId]; if (!rule) return;
-    const line = result[it.employeeId] || { employeeId: it.employeeId, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0 };
+    const line = result[it.employeeId] || { employeeId: it.employeeId, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0, shortfallMinutes: 0, shortDays: 0, shortfallDeduction: 0, otTrimmedMinutes: 0 };
     const basis = lc(rule.pay_basis), rate = num(rule.base_rate), std = (num(rule.standard_hours) || 8) * 60;
     const minutes = Math.round((it.outTs - it.inTs) / 60000);
-    line.workDays += 1; line.regularMinutes += Math.min(minutes, std);
-    if (basis === "daily") line.baseGross += rate;
-    else if (basis === "hourly") line.baseGross += (Math.min(minutes, std) / 60) * rate;
+    const workedReg = Math.min(minutes, std);
+    const shortfall = Math.max(0, std - minutes);
+    line.workDays += 1; line.regularMinutes += workedReg;
+    if (shortfall > 0) { line.shortfallMinutes += shortfall; line.shortDays += 1; }
+    if (basis === "daily") {
+      const full = rate;
+      const dayPay = (shortfallPolicy === "deduct_wage" && shortfall > 0 && std > 0) ? rate * (workedReg / std) : rate;
+      line.baseGross += dayPay;
+      if (dayPay < full) line.shortfallDeduction += (full - dayPay);
+    } else if (basis === "hourly") {
+      line.baseGross += (workedReg / 60) * rate; // hourly already pays only worked time
+    }
     result[it.employeeId] = line;
   });
-  Object.values(result).forEach((line: any) => { const r = ruleBy[line.employeeId]; if (r && lc(r.pay_basis) === "monthly") line.baseGross = num(r.base_rate); });
+  Object.values(result).forEach((line: any) => {
+    const r = ruleBy[line.employeeId]; if (!(r && lc(r.pay_basis) === "monthly")) return;
+    line.baseGross = num(r.base_rate);
+    if (shortfallPolicy === "deduct_wage" && line.shortfallMinutes > 0) {
+      const dpm = num(r.days_per_month) || 30, std = (num(r.standard_hours) || 8) * 60;
+      const dailyRate = dpm > 0 ? num(r.base_rate) / dpm : 0;
+      const ded = std > 0 ? dailyRate * (line.shortfallMinutes / std) : 0;
+      line.baseGross = Math.max(0, line.baseGross - ded);
+      line.shortfallDeduction += ded;
+    }
+  });
   (otRes.data || []).forEach((r: any) => {
     const rule = ruleBy[r.employee_id]; if (!rule) return;
-    const line = result[r.employee_id] || { employeeId: r.employee_id, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0 };
+    const line = result[r.employee_id] || { employeeId: r.employee_id, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0, shortfallMinutes: 0, shortDays: 0, shortfallDeduction: 0, otTrimmedMinutes: 0 };
     const mult = rule.ot_enabled
       ? resolveOtMultiplier(r.work_date, holMult, holidayDays.has(r.work_date), settings, rule)
       : 0;
@@ -302,6 +334,19 @@ async function previewPayroll(start: string, end: string) {
     line.otMinutes += m; line.otGross += (m / 60) * otHourly(rule) * mult;
     result[r.employee_id] = line;
   });
+  // trim_ot: cancel OT up to each employee's total shortfall for the period.
+  if (shortfallPolicy === "trim_ot") {
+    Object.values(result).forEach((line: any) => {
+      const sf = line.shortfallMinutes || 0;
+      if (sf > 0 && line.otMinutes > 0) {
+        const keep = Math.max(0, line.otMinutes - sf);
+        const ratio = line.otMinutes > 0 ? keep / line.otMinutes : 0;
+        line.otTrimmedMinutes = line.otMinutes - keep;
+        line.otGross = line.otGross * ratio;
+        line.otMinutes = keep;
+      }
+    });
+  }
   const outstanding = await outstandingAdvances();
   const ssoEnabled = settings.sso_enabled === "true", ssoRate = num(settings.sso_rate) || 5, ssoCap = num(settings.sso_cap) || 750;
   const draftByEmployee: Record<string, any> = {};
@@ -322,14 +367,16 @@ async function previewPayroll(start: string, end: string) {
     // exact oldest-first calculation is also used by the lock operation.
     const adv = calculatedAdv;
     const net = round(Math.max(0, gross - adv - sso - other));
-    return { ...line, baseGross: round(line.baseGross), otGross: round(line.otGross), grossPay: gross, advanceDeduction: adv, sso, otherDeduction: other, netPay: net, draftReview: !!draftByEmployee[line.employeeId], ssoEnabled, draftNote: String(draft.note || "") };
+    return { ...line, baseGross: round(line.baseGross), otGross: round(line.otGross), grossPay: gross, advanceDeduction: adv, sso, otherDeduction: other, netPay: net, draftReview: !!draftByEmployee[line.employeeId], ssoEnabled, draftNote: String(draft.note || ""), shortfallMinutes: Math.round(line.shortfallMinutes || 0), shortDays: line.shortDays || 0, shortfallDeduction: round(line.shortfallDeduction || 0), otTrimmedMinutes: Math.round(line.otTrimmedMinutes || 0) };
   });
   const sum = (k: string) => round(lines.reduce((s: number, l: any) => s + (l[k] || 0), 0));
   return {
     startDate: start, endDate: end, status: "preview",
     disclaimer: "ประมาณการ: หัก = เบิกล่วงหน้า + ประกันสังคม + หักอื่นๆ",
     lines, incompleteDays,
+    shortfallPolicy,
     totalGross: sum("grossPay"), totalAdvance: sum("advanceDeduction"), totalSso: sum("sso"), totalOther: sum("otherDeduction"), totalNet: sum("netPay"),
+    totalShortfallDeduction: sum("shortfallDeduction"), shortDaysCount: lines.reduce((s: number, l: any) => s + (l.shortDays || 0), 0),
   };
 }
 
@@ -337,7 +384,7 @@ async function previewPayroll(start: string, end: string) {
 const H: Record<string, (p: any) => Promise<Response>> = {
   async version() {
     const s = await settingsMap();
-    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-17-financial-production-controls", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: false, otCalendar: true, timesheetReview: true, payrollReview: true, payrollPaymentControl: true, employeeDeleteRemovesAttendance: true, factoryResetWhereFix: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
+    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-17-shortfall-policy", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: false, otCalendar: true, timesheetReview: true, payrollReview: true, payrollPaymentControl: true, employeeDeleteRemovesAttendance: true, factoryResetWhereFix: true, payrollShortfallPolicy: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
   },
   async public_branding() {
     const s = await settingsMap();
@@ -519,6 +566,9 @@ const H: Record<string, (p: any) => Promise<Response>> = {
   async admin_save_settings(p) {
     await verify(p.adminToken, ["owner"]);
     const inc = p.settings && typeof p.settings === "object" ? p.settings : p;
+    if (Object.prototype.hasOwnProperty.call(inc, "payroll_shortfall_policy") &&
+      !["none", "deduct_wage", "trim_ot"].includes(lc(inc.payroll_shortfall_policy)))
+      return reply(false, "นโยบายเวลาทำงานไม่ครบไม่ถูกต้อง");
     const rows = Object.keys(inc).filter((k) => !["action", "adminToken", "settings"].includes(k)).map((k) => ({ key: k, value: String(inc[k] ?? "") }));
     if (rows.length) { const { error } = await db.from("settings").upsert(rows, { onConflict: "key" }); if (error) return reply(false, error.message); }
     return reply(true, "บันทึกการตั้งค่าแล้ว");
