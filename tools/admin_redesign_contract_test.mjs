@@ -16,6 +16,9 @@ const required = [
   'const AUTO_REFRESH_MS={dashboard:6000}',
   'dashboard-checkin-sites',
   'id="siteRows"',
+  'dashboard-team-calendar',
+  'openTeamDayDialog',
+  'data-team-day',
 ];
 
 const missing = required.filter((token) => !html.includes(token));
