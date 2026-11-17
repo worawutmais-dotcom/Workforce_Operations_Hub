@@ -775,6 +775,8 @@
   .route-eyebrow{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase}.route-eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green)}
   .directory-page-head{display:flex;align-items:end;justify-content:space-between;gap:16px;margin:0 0 14px;padding:0 0 14px;border-bottom:1px solid var(--line)}.directory-page-head h2{margin-top:4px;font-size:22px;letter-spacing:-.03em}.directory-page-head p{margin:3px 0 0;color:var(--muted);font-size:12px}.directory-page-head .directory-count{font-size:12px;color:var(--muted);white-space:nowrap}.directory-page-head .directory-count b{font-size:22px;color:var(--ink);margin-right:4px}
   .setting-group-label{display:flex;align-items:center;gap:9px;margin:10px 0 -4px;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}.setting-group-label::after{content:"";height:1px;flex:1;background:var(--line)}.settings-workspace .advanced-settings{margin:0}.settings-workspace .panel[style*="fecaca"]{margin-top:10px}
+  #page-dashboard .dashboard-personal-time{margin:16px 0 0;border-top:3px solid var(--blue)}#page-dashboard .dashboard-personal-time .head{padding:14px 18px}#page-dashboard .dashboard-personal-time .body{padding:14px 18px}#page-dashboard #peoplePulse.people-pulse-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.dashboard-personal-time .pulse-legend{padding:0 0 4px}.dashboard-personal-time .pulse-card{min-height:68px;padding:10px 12px;border-radius:10px;box-shadow:none}.dashboard-personal-time .pulse-card:hover{box-shadow:var(--shadow);transform:none}@media(max-width:980px){#page-dashboard #peoplePulse.people-pulse-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){#page-dashboard #peoplePulse.people-pulse-grid{grid-template-columns:1fr}.dashboard-personal-time .head{align-items:flex-start}.dashboard-personal-time .head .sub{display:none}}
+  #page-owner .owner-time-workspace{display:grid;gap:16px}#page-owner .owner-time-workspace>.subpane{display:block!important}#page-owner .owner-time-workspace .site-policy{margin-top:0!important}
   @keyframes bvnRouteIn{from{opacity:.5;transform:translateY(3px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.bvn-route{animation:none}.bvn-route *,.bvn-route *::before,.bvn-route *::after{transition-duration:.01ms!important;animation-duration:.01ms!important}}@media(max-width:1080px){.employee-workspace{grid-template-columns:1fr}.bvn-route{max-width:none}}
 </style>
 </head>
@@ -1206,7 +1208,7 @@ async function logout(){
    ================================================================= */
 const PAGES = {
   dashboard:{title:"วันนี้", sub:"เริ่มจากงานที่ต้องตัดสินใจในวันนี้", load:()=>renderDashboard()},
-  owner:{title:"เวลาทำงาน", sub:"ตรวจเวลา จัดการจุดเช็กอิน และลงเวลาแทน", load:()=>renderOwner()},
+  owner:{title:"บันทึกเวลา", sub:"ลงเวลาแทนพนักงานและจัดการจุดเช็กอิน", load:()=>renderOwner()},
   people:{title:"บุคคล & อนุมัติ", sub:"พนักงาน · อนุมัติ OT ลา และเบิกเงิน · ปฏิทินรายคน", load:()=>renderPeople()},
   employees:{title:"พนักงาน", sub:"สร้าง แก้ไข ปิดใช้งาน และตั้งรหัสผ่าน", load:()=>renderEmployees()},
   approvals:{title:"งานรออนุมัติ", sub:"คำขอลา OT และรายการที่ต้องตัดสินใจ", load:()=>renderApprovals()},
@@ -1400,6 +1402,7 @@ async function renderDashboard(data, preloaded={}){
     const leaves=(leaveD.requests||[]), times=(timeD.requests||[]);
     if(canOperations) await (preloaded.employees || loadEmployees()).catch(()=>{});
     const attendanceDays=attendanceD.days||[];
+    const dashboardTeam=(state.employees||[]).filter(e=>String(e.status||"").toLowerCase()==="active");
     const attendanceByEmployee={};
     attendanceDays.forEach(d=>{ const x=attendanceByEmployee[d.employeeId]||{complete:0,incomplete:0}; x[d.status==="complete"?"complete":"incomplete"]++; attendanceByEmployee[d.employeeId]=x; });
     const todayAtt=todayISO(), todayByEmp={};
@@ -1438,7 +1441,7 @@ async function renderDashboard(data, preloaded={}){
       // "วันนี้" v2: a team-at-a-glance donut, a clickable team grid that reopens
       // the per-person calendar, and the decisions queue. Deep per-person history
       // lives on เวลาทำงาน → รายคน; this stays a fast operational home.
-      const team=(state.employees||[]).filter(e=>String(e.status||"").toLowerCase()==="active");
+      const team=dashboardTeam;
       const tstat=(e)=>{ const t=todayByEmp[e.id]; if(!t||!t.checkIn) return "out"; if(t.checkOut) return "done"; return pmHM(t.checkIn)>dashShiftMin?"late":"in"; };
       let cOn=0,cLate=0,cDone=0;
       team.forEach(e=>{ const s=tstat(e); if(s==="in") cOn++; else if(s==="late") cLate++; else if(s==="done") cDone++; });
@@ -1502,8 +1505,12 @@ async function renderDashboard(data, preloaded={}){
         </div>
         <div class="dash-main ops-action-ledger">
           <div class="panel dash-priority"><div class="head"><b>ต้องจัดการก่อน</b><div class="spacer"></div><button class="btn sub sm" data-nav="approvals">เปิดคิวอนุมัติ</button></div><div class="body flush dash-list">${decideHtml}</div></div>
-          <div class="panel team-register"><div class="head"><b>รายชื่อทีมวันนี้</b><span class="sub" style="margin-left:8px">กดชื่อเพื่อดูเวลาทำงานรายคน</span><div class="spacer"></div><button class="btn sub sm" data-nav="owner">เปิดเวลาทำงาน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เวลาเข้า</span><span>สถานะ</span></div><div class="team-grid">${teamHtml}</div></div></div>
+          <div class="panel team-register"><div class="head"><b>รายชื่อทีมวันนี้</b><span class="sub" style="margin-left:8px">กดชื่อเพื่อดูเวลาเข้า–ออกของพนักงาน</span><div class="spacer"></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เวลาเข้า</span><span>สถานะ</span></div><div class="team-grid">${teamHtml}</div></div></div>
         </div>
+        <section class="panel dashboard-personal-time" aria-label="เวลาทำงานรายบุคคล">
+          <div class="head"><div><b>เวลาทำงานรายบุคคล</b><span class="sub" style="margin-left:8px">สรุปเดือนนี้ · กดชื่อเพื่อเปิดปฏิทินและเวลาเข้า–ออก</span></div><div class="spacer"></div><button class="btn sub sm" data-nav="owner">จัดการเวลาและจุดเช็กอิน</button></div>
+          <div class="body"><div id="peoplePulse"><div class="empty">กำลังโหลดสรุปรายบุคคล…</div></div></div>
+        </section>
         <div class="toolbar dash-short" style="margin-top:14px">
           <button class="btn ghost" data-act="emp">+ เพิ่มพนักงาน</button>
           <button class="btn ghost" data-act="ot">บันทึก OT</button>
@@ -1543,6 +1550,7 @@ async function renderDashboard(data, preloaded={}){
     node.querySelectorAll('[data-act="emp"]').forEach(b=>b.onclick=()=>employeeDialog(null));
     node.querySelectorAll('[data-act="ot"]').forEach(b=>b.onclick=()=>addOvertimeDialog());
     node.querySelectorAll('[data-act="inv"]').forEach(b=>b.onclick=()=>newInvoiceDialog());
+    if(canOperations && node.querySelector("#peoplePulse")) renderPeoplePulse(dashboardTeam, dashShiftMin, dashSettings.workdays);
   }catch(err){ dashboardFallback(node, err); }
 }
 function dashboardFallback(node, err){
@@ -3079,17 +3087,13 @@ async function renderOwner(){
     node.querySelector(".cards")?.remove();
     node.querySelector('.subpane[data-pane="pay"]')?.remove();
     node.querySelector('#ownerTabs [data-pane="pay"]')?.remove();
-    const personTab=node.querySelector('#ownerTabs [data-pane="person"]');
     const personPane=node.querySelector('.subpane[data-pane="person"]');
-    if(personTab && personPane){ personTab.classList.add("active"); personPane.style.display="block"; ownerState.pmLoaded=true; }
-    const ownerTabs=$("#ownerTabs");
-    ownerTabs.querySelectorAll("button").forEach(b=>b.onclick=()=>{
-      ownerTabs.querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));
-      node.querySelectorAll(".subpane").forEach(pane=>pane.style.display=pane.dataset.pane===b.dataset.pane?"block":"none");
-      if(b.dataset.pane==="person" && !ownerState.pmLoaded){ ownerState.pmLoaded=true; loadPersonMonth(); }
-    });
-    $("#pmPrev") && ($("#pmPrev").onclick=()=>shiftPersonMonth(-1));
-    $("#pmNext") && ($("#pmNext").onclick=()=>shiftPersonMonth(1));
+    const timePane=node.querySelector('.subpane[data-pane="time"]');
+    const sitePolicy=personPane?.querySelector('.site-policy');
+    if(sitePolicy && timePane) timePane.after(sitePolicy);
+    personPane?.remove();
+    node.querySelector('#ownerTabs')?.remove();
+    if(timePane){ timePane.style.display="block"; timePane.classList.add("owner-time-workspace"); }
     const rows=data.lines||[];
     const payrollRows=$("#ownRows");
     if(payrollRows) payrollRows.innerHTML = rows.length? rows.map((l,idx)=>`<tr>
@@ -3138,7 +3142,6 @@ async function renderOwner(){
     $("#ownOut").onclick=()=>adminClock("check_out", null, null, $("#ownOut"));
     $("#expAttBtn").onclick=()=>attendanceExportDialog();
     loadAtt();
-    loadPersonMonth();
   }catch(err){ errorBox(node, err, renderOwner); }
 }
 

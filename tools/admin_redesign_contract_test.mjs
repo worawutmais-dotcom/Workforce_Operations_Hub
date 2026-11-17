@@ -8,6 +8,10 @@ const required = [
   'employee-workspace',
   'finance-workbench',
   'settings-workspace',
+  'dashboard-personal-time',
+  'owner-time-workspace',
+  'peoplePulse',
+  'renderPeoplePulse(dashboardTeam',
 ];
 
 const missing = required.filter((token) => !html.includes(token));
