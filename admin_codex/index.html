@@ -2067,7 +2067,7 @@ async function deactivate(emp){
 async function deleteEmployee(emp){
   if(state.role!=="owner"){ toast("เฉพาะ Owner เท่านั้นที่ลบพนักงานถาวรได้", "bad"); return; }
   if(!hasBackendCapability("employeeDelete")){ toast("ลบถาวรรอ deploy Backend รุ่นปัจจุบัน — ตอนนี้ใช้ “ปิดใช้งาน” ได้ตามปกติ", "bad"); return; }
-  const body=el(`<div><div class="notice bad"><b>ลบถาวร</b> ใช้ได้เฉพาะพนักงานที่ยังไม่มีประวัติเวลางาน เงินเดือน การลา OT หรือเบิกเงินเท่านั้น<br>หากมีประวัติ ระบบจะปฏิเสธและให้ใช้ “ปิดใช้งาน” แทน</div><p style="line-height:1.6;margin:14px 0 8px">พิมพ์รหัส <b>${esc(emp.id)}</b> เพื่อยืนยันการลบ <b>${esc(emp.name)}</b></p></div>`);
+  const body=el(`<div><div class="notice bad"><b>ลบถาวร</b> จะลบพนักงาน<b>พร้อม log เข้า-ออกงานทั้งหมด</b>ของคนนี้<br>ใช้ได้เฉพาะคนที่ยังไม่มีประวัติ<b>เงินเดือน การลา OT หรือเบิกเงิน</b> — ถ้ามี ระบบจะปฏิเสธ ให้ใช้ “ปิดใช้งาน” แทน</div><p style="line-height:1.6;margin:14px 0 8px">พิมพ์รหัส <b>${esc(emp.id)}</b> เพื่อยืนยันการลบ <b>${esc(emp.name)}</b></p></div>`);
   body.append(field("ยืนยันรหัสพนักงาน", `<input id="deleteEmployeeId" type="text" autocomplete="off" placeholder="${esc(emp.id)}">`));
   const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
   const confirm=el(`<button class="btn danger" disabled>ลบถาวร</button>`);

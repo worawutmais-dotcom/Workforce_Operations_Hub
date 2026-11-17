@@ -421,14 +421,16 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     const { data: employee } = await db.from("employees").select("employee_id,name").eq("employee_id", id).maybeSingle();
     if (!employee) return reply(false, "ไม่พบพนักงานที่ต้องการลบ");
 
+    // Attendance (check-in/out) is NOT a blocker: a permanent delete also removes
+    // the person's attendance log (see cleanup below). Payroll/leave/OT/advance
+    // stay as blockers because they are financial/approval records.
     const checks = await Promise.all([
-      db.from("attendance_log").select("id", { count: "exact", head: true }).eq("employee_id", id),
       db.from("payroll_lines").select("employee_id", { count: "exact", head: true }).eq("employee_id", id),
       db.from("leave_requests").select("request_id", { count: "exact", head: true }).eq("employee_id", id),
       db.from("time_requests").select("request_id", { count: "exact", head: true }).eq("employee_id", id),
       db.from("advances").select("advance_id", { count: "exact", head: true }).eq("employee_id", id),
     ]);
-    const labels = ["เวลางาน", "รายการเงินเดือน", "คำขอลา", "คำขอแก้ไขเวลา/OT", "คำขอเบิกเงิน"];
+    const labels = ["รายการเงินเดือน", "คำขอลา", "คำขอแก้ไขเวลา/OT", "คำขอเบิกเงิน"];
     const history = checks.map((r, i) => ({ label: labels[i], count: r.count || 0, error: r.error })).filter((r) => r.count > 0 || r.error);
     if (history.length) {
       if (history.some((r) => r.error)) return reply(false, "ตรวจสอบประวัติพนักงานไม่สำเร็จ จึงไม่อนุญาตให้ลบถาวร");
@@ -439,6 +441,7 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     // never entered an operational workflow. Delete children first because the
     // database deliberately does not cascade employee deletion.
     const cleanup = await Promise.all([
+      db.from("attendance_log").delete().eq("employee_id", id),
       db.from("mobile_access").delete().eq("employee_id", id),
       db.from("password_requests").delete().eq("employee_id", id),
       db.from("payroll_rules").delete().eq("employee_id", id),
