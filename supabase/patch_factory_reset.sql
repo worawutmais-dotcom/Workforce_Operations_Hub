@@ -36,10 +36,12 @@ begin
     truncate table login_attempts restart identity;
   end if;
 
-  delete from employees;
-  delete from work_sites;
-  delete from payroll_rules;
-  delete from holidays;
+  -- `where true` is required: Supabase runs with sql_safe_updates on, which
+  -- rejects an unqualified DELETE ("DELETE requires a WHERE clause").
+  delete from employees where true;
+  delete from work_sites where true;
+  delete from payroll_rules where true;
+  delete from holidays where true;
 
   return jsonb_build_object('employeesRemoved', employee_count);
 end;
