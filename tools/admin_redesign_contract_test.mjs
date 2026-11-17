@@ -19,6 +19,9 @@ const required = [
   'dashboard-team-calendar',
   'openTeamDayDialog',
   'data-team-day',
+  'hr-command-center',
+  'hr-attendance-hero',
+  'hr-workspace',
 ];
 
 const missing = required.filter((token) => !html.includes(token));
