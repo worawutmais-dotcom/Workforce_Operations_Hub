@@ -22,6 +22,9 @@ const required = [
   'hr-command-center',
   'hr-attendance-hero',
   'hr-workspace',
+  'hr-payroll-bridge',
+  'เปิดตรวจเงินเดือน',
+  'เอกสารจ่ายเงิน',
   'const employeeName=',
   '<span class="k">พนักงาน</span> <strong>${esc(employeeName)}</strong>',
 ];
