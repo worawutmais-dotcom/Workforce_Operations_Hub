@@ -50,4 +50,7 @@ begin
 end;
 $$;
 
-revoke all on function app_factory_reset_operational() from public;
+-- Supabase grants EXECUTE to anon/authenticated on new public functions, and
+-- `revoke ... from public` does NOT remove those role grants. Revoke all three
+-- so this destructive RPC is callable only via the service_role (Edge Function).
+revoke execute on function app_factory_reset_operational() from public, anon, authenticated;
