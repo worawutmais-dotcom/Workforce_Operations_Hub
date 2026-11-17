@@ -1220,15 +1220,15 @@ async function logout(){
 const LEGACY_ROUTE_REDIRECT={employees:"people",approvals:"people"};
 const PAGES = {
   dashboard:{title:"Dashboard", sub:"ภาพรวมทีมและงานที่ต้องตัดสินใจ", load:()=>renderDashboard()},
-  owner:{title:"บันทึกเวลา", sub:"ลงเวลาแทนพนักงานและจัดการจุดเช็กอิน", load:()=>renderOwner()},
-  people:{title:"บุคคล & อนุมัติ", sub:"พนักงาน · อนุมัติ OT ลา และเบิกเงิน · ปฏิทินรายคน", load:()=>renderPeople()},
+  owner:{title:"บันทึกเวลา", sub:"บันทึกและตรวจเวลาเข้า–ออกแทนพนักงาน", load:()=>renderOwner()},
+  people:{title:"บุคคล & อนุมัติ", sub:"ทะเบียนพนักงานและคิวอนุมัติ", load:()=>renderPeople()},
   employees:{title:"พนักงาน", sub:"สร้าง แก้ไข ปิดใช้งาน และตั้งรหัสผ่าน", load:()=>renderEmployees()},
   approvals:{title:"งานรออนุมัติ", sub:"คำขอลา OT และรายการที่ต้องตัดสินใจ", load:()=>renderApprovals()},
-  payroll:{title:"เงินเดือน", sub:"พรีวิวค่าแรง (gross) · ล็อกงวด · ประวัติ", load:()=>renderPayroll()},
-  advances:{title:"เงินล่วงหน้า", sub:"อนุมัติคำขอและบันทึกการจ่ายให้พนักงาน", load:()=>renderAdvances()},
-  payrules:{title:"ค่าจ้างและ OT", sub:"ตั้งค่าฐานค่าจ้าง OT และวันพิเศษรายพนักงาน", load:()=>renderPayrules()},
-  invoices:{title:"ใบแจ้งหนี้ลูกค้า", sub:"ออกบิล ติดตามสถานะ และบันทึกการชำระ", load:()=>renderInvoices()},
-  settings:{title:"ตั้งค่าระบบ", sub:"บัญชีผู้ดูแล การเชื่อมต่อ และกติกาการทำงาน", load:()=>renderSettings()},
+  payroll:{title:"เงินเดือน", sub:"ตรวจข้อมูล ล็อกงวด บันทึกจ่าย และออกเอกสาร", load:()=>renderPayroll()},
+  advances:{title:"เงินล่วงหน้า", sub:"รายการค้างอนุมัติ จ่าย และหักคืน", load:()=>renderAdvances()},
+  payrules:{title:"ค่าจ้างและ OT", sub:"นโยบายบริษัทและอัตราค่าจ้างรายบุคคล", load:()=>renderPayrules()},
+  invoices:{title:"ใบแจ้งหนี้ลูกค้า", sub:"ออกเอกสาร ติดตามยอด และบันทึกการรับชำระ", load:()=>renderInvoices()},
+  settings:{title:"ตั้งค่าระบบ", sub:"บริษัท เอกสาร นโยบาย ความปลอดภัย และข้อมูล", load:()=>renderSettings()},
   audit:{title:"บันทึกการใช้งาน", sub:"ใครทำอะไรเมื่อไหร่ (audit trail)", load:()=>renderAudit()},
 };
 const ROLE_LABEL={owner:"เจ้าของระบบ",manager:"ผู้จัดการ",operations:"ฝ่ายปฏิบัติการ",finance:"ฝ่ายการเงิน"};
@@ -2657,26 +2657,25 @@ async function viewSnapshot(payrollId){
     const data=await api("admin_get_payroll",{payrollId});
     const body=el(`<div></div>`);
     body.append(el(`<div class="notice blue">${esc(data.payrollId)} · ${fmtDate(data.startDate)} – ${fmtDate(data.endDate)} · <b>${fmtBaht(data.totalGross)}</b><br><span class="sub">${data.paymentStatus==="paid"?`จ่ายแล้ว ${fmtDateTime(data.paidAt)} · อ้างอิง ${esc(data.paymentReference)}`:"ล็อกยอดแล้ว — รอบันทึกการจ่ายเงินจริงก่อนออกสลิป"}</span></div>`));
+    const isPaid=data.paymentStatus==="paid";
     const tbl=el(`<div style="max-height:50vh;overflow:auto;border:1px solid var(--line);border-radius:10px">
-      <table><thead><tr><th>พนักงาน</th><th class="num">ปกติ</th><th class="num">OT</th><th class="num">รวม</th></tr></thead>
+      <table><thead><tr><th>พนักงาน</th><th class="num">ปกติ</th><th class="num">OT</th><th class="num">รวม</th>${isPaid?'<th>เอกสาร</th>':''}</tr></thead>
       <tbody>${(data.lines||[]).map(l=>`<tr><td class="person">${esc(empName(l.employeeId))}<span class="sub">${esc(l.employeeId)}</span></td>
         <td class="num">${fmtHours(l.regularMinutes)}</td><td class="num">${fmtHours(l.otMinutes)}</td>
-        <td class="num"><b>${fmtBaht(l.grossPay)}</b></td></tr>`).join("")}</tbody></table></div>`);
+        <td class="num"><b>${fmtBaht(l.grossPay)}</b></td>${isPaid?`<td><button class="btn sub sm" data-payslip="${esc(l.employeeId)}">ออกเอกสารจ่าย</button></td>`:''}</tr>`).join("")}</tbody></table></div>`);
     body.append(tbl);
     const exp=el(`<button class="btn sub">ส่งออก CSV</button>`); exp.onclick=()=>exportCSV(data,"locked");
-    const pay=el(`<button class="btn">${data.paymentStatus==="paid"?"พิมพ์สลิป":"บันทึกการจ่ายเงิน"}</button>`);
+    const pay=el(`<button class="btn">บันทึกการจ่ายเงิน</button>`);
     pay.onclick=async()=>{
-      if(data.paymentStatus==="paid"){
-        const choice=prompt("ระบุรหัสพนักงานเพื่อพิมพ์สลิป", (data.lines[0]||{}).employeeId||"");
-        const line=(data.lines||[]).find(x=>x.employeeId===choice);
-        if(!line){ toast("ไม่พบพนักงานในงวดนี้","bad"); return; }
-        return printPayslip(line,data,false,data.issuerSettings||{});
-      }
       const ref=prompt("เลขอ้างอิงการโอน/จ่ายเงิน"); if(!ref||!ref.trim()) return;
       try{ await api("admin_mark_payroll_paid",{payrollId:data.payrollId,paymentReference:ref.trim()}); toast("บันทึกการจ่ายเงินแล้ว","good"); closeModal(); loadPayrollHistory(); }catch(err){toast(err.message,"bad");}
     };
     const close=el(`<button class="btn">ปิด</button>`); close.onclick=closeModal;
-    openModal("Snapshot "+payrollId, body, [exp, pay, close]);
+    if(isPaid) tbl.querySelectorAll("[data-payslip]").forEach(b=>b.onclick=()=>{
+      const line=(data.lines||[]).find(x=>x.employeeId===b.dataset.payslip);
+      if(line) printPayslip(line,data,false,data.issuerSettings||{});
+    });
+    openModal(isPaid?"เอกสารจ่ายเงิน "+payrollId:"ตรวจสอบงวด "+payrollId, body, isPaid?[exp, close]:[exp, pay, close]);
   }catch(err){ toast(err.message,"bad"); }
 }
 

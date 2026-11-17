@@ -27,6 +27,10 @@ const required = [
   'เอกสารจ่ายเงิน',
   'const employeeName=',
   '<span class="k">พนักงาน</span> <strong>${esc(employeeName)}</strong>',
+  'data-payslip',
+  'ออกเอกสารจ่าย',
+  'บันทึกและตรวจเวลาเข้า–ออกแทนพนักงาน',
+  'ทะเบียนพนักงานและคิวอนุมัติ',
 ];
 
 const missing = required.filter((token) => !html.includes(token));
