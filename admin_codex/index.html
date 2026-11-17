@@ -763,7 +763,7 @@
   #page-owner .time-key{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 14px;color:var(--muted);font-size:11px}.time-key span{display:inline-flex;align-items:center;gap:5px}.time-key i{width:7px;height:7px;border-radius:50%;display:inline-block}.time-key .k-present{background:#1f9d61}.time-key .k-late{background:#d57b1d}.time-key .k-absent{background:#c24c44}.time-key .k-off{background:#aab5c2}
   #page-owner .attendance-workspace{grid-template-columns:330px minmax(0,1fr);gap:16px}.time-roster .head{padding:15px 16px}.time-roster .body{max-height:690px;overflow:auto}.time-roster .pm-col-head{display:none}#page-owner .time-roster .pm-row{display:block;min-height:0;padding:12px 14px;border-left:3px solid transparent;box-shadow:none}#page-owner .time-roster .pm-row.active{border-left-color:var(--blue-ink);box-shadow:none;background:#f1f6fb}.pm-list-top{display:flex;align-items:center;gap:9px}.pm-list-name{min-width:0;flex:1;font-size:12px;font-weight:600}.pm-list-name .sub{display:block;margin-top:1px;font-weight:400}.pm-list-meta{display:flex;justify-content:space-between;gap:8px;margin:7px 0 6px;color:var(--muted);font-size:10px}.pm-list-meta b{color:var(--ink);font-weight:600}.time-roster .pm-strip{gap:2px}.time-roster .pm-cell{width:8px;height:12px;border-radius:2px}
   #page-owner .pm-detail{min-width:0}.pm-detail .panel{height:100%;margin:0!important;border-radius:12px;box-shadow:none}.pm-detail .body{padding:20px}.pm-detail .cards{gap:8px;margin-bottom:16px!important}.pm-detail .cards .card{padding:10px 12px!important;border-radius:8px}.pm-detail .calm{gap:5px}.pm-detail .cd{min-height:76px;padding:8px;border-radius:7px}.pm-detail .notice{margin-top:14px!important}
-  #page-owner .site-policy{margin-top:16px!important}.site-policy .head{padding:14px 16px}.site-policy-note{padding:10px 16px}
+  #page-dashboard .dashboard-checkin-sites{margin:16px 0 0;border-top:3px solid var(--blue)}.site-policy .head{padding:14px 16px}.site-policy-note{padding:10px 16px}
   @media(max-width:980px){#page-dashboard .ops-board{grid-template-columns:1fr}.ops-figures{max-width:none}#page-dashboard .dash-main{grid-template-columns:1fr}#page-owner .attendance-workspace{grid-template-columns:1fr}.time-roster .body{max-height:none}.pm-detail .panel{height:auto}}@media(max-width:700px){#page-dashboard .ops-board{padding:20px}.ops-figures{grid-template-columns:1fr 1fr}.ops-figure{min-height:92px;padding:14px}.ops-figure b{font-size:25px}.ops-figure:last-child{grid-column:1/-1}.team-register .head .sub{display:none}#page-owner .time-page-head{display:block}.time-month-nav{margin-top:12px}.pm-detail .cards{grid-template-columns:1fr 1fr!important}.pm-detail .cd{min-height:64px;padding:6px}.time-key{gap:9px}}
 
   /* Total redesign foundation: each route gets a compact decision surface while
@@ -819,7 +819,7 @@
     <div class="brand">BVN PACKAGE<small>OPERATIONS CONSOLE</small></div>
     <nav class="nav" id="nav" aria-label="เมนูผู้ดูแลระบบ">
       <div class="nav-section">การปฏิบัติงาน</div>
-      <button data-page="dashboard" class="active" aria-current="page"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span> วันนี้</button>
+      <button data-page="dashboard" class="active" aria-current="page"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span> Dashboard</button>
       <button data-page="owner"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V5l7-3 7 3v16M9 9h.01M15 9h.01M9 13h.01M15 13h.01M10 21v-4h4v4"/></svg></span> เวลาทำงาน</button>
       <button data-page="people"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5.5a3 3 0 0 1 0 5M18 21v-2a6 6 0 0 0-2.7-5"/></svg></span> บุคคล &amp; อนุมัติ <span class="pill" id="navApprovals" style="display:none">0</span></button>
       <div class="nav-section">การเงินและเอกสาร</div>
@@ -841,8 +841,8 @@
     <div class="topbar">
       <button class="menu-btn" id="menuBtn" aria-label="เปิดหรือปิดเมนู" aria-expanded="false">☰</button>
       <div>
-        <div class="page-title" id="pageTitle">วันนี้</div>
-        <div class="page-sub" id="pageSub">เริ่มจากงานที่ต้องตัดสินใจในวันนี้</div>
+        <div class="page-title" id="pageTitle">Dashboard</div>
+        <div class="page-sub" id="pageSub">ภาพรวมทีมและงานที่ต้องตัดสินใจ</div>
       </div>
       <div class="spacer"></div>
       <span id="beBadge" class="be-badge" title="หลังบ้านที่กำลังเชื่อมต่อ"></span>
@@ -1214,7 +1214,7 @@ async function logout(){
 // to the combined workspace instead of creating competing sources of truth.
 const LEGACY_ROUTE_REDIRECT={employees:"people",approvals:"people"};
 const PAGES = {
-  dashboard:{title:"วันนี้", sub:"เริ่มจากงานที่ต้องตัดสินใจในวันนี้", load:()=>renderDashboard()},
+  dashboard:{title:"Dashboard", sub:"ภาพรวมทีมและงานที่ต้องตัดสินใจ", load:()=>renderDashboard()},
   owner:{title:"บันทึกเวลา", sub:"ลงเวลาแทนพนักงานและจัดการจุดเช็กอิน", load:()=>renderOwner()},
   people:{title:"บุคคล & อนุมัติ", sub:"พนักงาน · อนุมัติ OT ลา และเบิกเงิน · ปฏิทินรายคน", load:()=>renderPeople()},
   employees:{title:"พนักงาน", sub:"สร้าง แก้ไข ปิดใช้งาน และตั้งรหัสผ่าน", load:()=>renderEmployees()},
@@ -1513,8 +1513,14 @@ async function renderDashboard(data, preloaded={}){
           <div class="panel team-register"><div class="head"><b>รายชื่อทีมวันนี้</b><span class="sub" style="margin-left:8px">กดชื่อเพื่อดูเวลาเข้า–ออกของพนักงาน</span><div class="spacer"></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เวลาเข้า</span><span>สถานะ</span></div><div class="team-grid">${teamHtml}</div></div></div>
         </div>
         <section class="panel dashboard-personal-time" aria-label="เวลาทำงานรายบุคคล">
-          <div class="head"><div><b>เวลาทำงานรายบุคคล</b><span class="sub" style="margin-left:8px">สรุปเดือนนี้ · กดชื่อเพื่อเปิดปฏิทินและเวลาเข้า–ออก</span></div><div class="spacer"></div><button class="btn sub sm" data-nav="owner">จัดการเวลาและจุดเช็กอิน</button></div>
+          <div class="head"><div><b>เวลาทำงานรายบุคคล</b><span class="sub" style="margin-left:8px">สรุปเดือนนี้ · กดชื่อเพื่อเปิดปฏิทินและเวลาเข้า–ออก</span></div><div class="spacer"></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div>
           <div class="body"><div id="peoplePulse"><div class="empty">กำลังโหลดสรุปรายบุคคล…</div></div></div>
+        </section>
+        <section class="panel site-policy dashboard-checkin-sites" aria-label="จุดเช็กอินที่อนุญาต">
+          <div class="head"><div><b>จุดเช็กอินที่อนุญาต</b><span class="sub" style="margin-left:8px">นโยบายพื้นที่สำหรับการเช็กอิน</span></div><div class="spacer"></div><button class="btn sm" id="siteAddBtn">เพิ่มจุดเช็กอิน</button></div>
+          <div class="site-policy-note">พนักงานเช็กอินได้เมื่ออยู่ในรัศมีของจุดที่เปิดใช้งาน · เช็กเอาต์ได้ทุกพื้นที่</div>
+          <div class="body flush"><table id="siteTable"><thead><tr><th>พื้นที่</th><th class="num">รัศมี</th><th>สถานะ</th><th data-nosort></th></tr></thead>
+          <tbody id="siteRows"><tr><td colspan="4"><div class="empty">กำลังโหลดจุดเช็กอิน…</div></td></tr></tbody></table></div>
         </section>
         <div class="toolbar dash-short" style="margin-top:14px">
           <button class="btn ghost" data-act="emp">+ เพิ่มพนักงาน</button>
@@ -1556,6 +1562,10 @@ async function renderDashboard(data, preloaded={}){
     node.querySelectorAll('[data-act="ot"]').forEach(b=>b.onclick=()=>addOvertimeDialog());
     node.querySelectorAll('[data-act="inv"]').forEach(b=>b.onclick=()=>newInvoiceDialog());
     if(canOperations && node.querySelector("#peoplePulse")) renderPeoplePulse(dashboardTeam, dashShiftMin, dashSettings.workdays);
+    if(canOperations && node.querySelector("#siteRows")){
+      $("#siteAddBtn").onclick=()=>siteDialog(null);
+      loadSites();
+    }
   }catch(err){ dashboardFallback(node, err); }
 }
 function dashboardFallback(node, err){
@@ -3047,11 +3057,6 @@ async function renderOwner(){
           </div>
           <div id="pmDetail" class="pm-detail"></div>
         </div>
-        <div class="panel site-policy"><div class="head"><b>จุดเช็กอินที่อนุญาต</b><span class="sub" style="margin-left:8px">พนักงานเช็กอินได้เมื่ออยู่ในรัศมีของจุดที่เปิดใช้งาน</span><div class="spacer"></div><button class="btn sm" id="ownAddSite">เพิ่มจุดเช็กอิน</button></div>
-          <div class="site-policy-note">เช็กเอาต์ได้ทุกพื้นที่ · แก้ไขรัศมีหรือปิดใช้งานจุดเช็กอินได้จากตารางนี้</div>
-          <div class="body flush"><table id="siteTable"><thead><tr><th>พื้นที่</th><th class="num">รัศมี</th><th>สถานะ</th><th data-nosort></th></tr></thead>
-          <tbody id="ownSiteRows"><tr><td colspan="4"><div class="empty">กำลังโหลด…</div></td></tr></tbody></table></div>
-        </div>
       </div>
 
       <div class="subpane" data-pane="pay">
@@ -3092,11 +3097,8 @@ async function renderOwner(){
     node.querySelector(".cards")?.remove();
     node.querySelector('.subpane[data-pane="pay"]')?.remove();
     node.querySelector('#ownerTabs [data-pane="pay"]')?.remove();
-    const personPane=node.querySelector('.subpane[data-pane="person"]');
     const timePane=node.querySelector('.subpane[data-pane="time"]');
-    const sitePolicy=personPane?.querySelector('.site-policy');
-    if(sitePolicy && timePane) timePane.after(sitePolicy);
-    personPane?.remove();
+    node.querySelector('.subpane[data-pane="person"]')?.remove();
     node.querySelector('#ownerTabs')?.remove();
     if(timePane){ timePane.style.display="block"; timePane.classList.add("owner-time-workspace"); }
     const rows=data.lines||[];
@@ -3113,9 +3115,7 @@ async function renderOwner(){
     payrollRows?.querySelectorAll("[data-slip]").forEach(b=>b.onclick=()=>printPayslip(rows[+b.dataset.slip], p, true));
     $("#ownSettings") && ($("#ownSettings").onclick=()=>settingsDialog(s));
     $("#ownLock") && ($("#ownLock").onclick=()=>lockFromOwner(p));
-    $("#ownAddSite") && ($("#ownAddSite").onclick=()=>siteDialog(null));
     $("#ownGoAdv") && ($("#ownGoAdv").onclick=()=>go("advances"));
-    loadSites();
     const sel=$("#ownEmp");
     const fillSel=()=>{ sel.innerHTML=`<option value="">ทุกคน</option>`+(state.employees||[]).map(e=>`<option value="${esc(e.id)}"${e.id===ownerState.emp?" selected":""}>${esc(e.name)} (${esc(e.id)})</option>`).join(""); };
     if(!state.employees||!state.employees.length){ try{ await loadEmployees(true); }catch(_){} }
@@ -3462,7 +3462,7 @@ async function lockFromOwner(p){
 }
 
 async function loadSites(){
-  const tb=$("#ownSiteRows"); if(!tb) return;
+  const tb=$("#siteRows"); if(!tb) return;
   try{
     const d=await api("admin_list_sites"); const sites=d.sites||[];
     tb.innerHTML = sites.length? sites.map((st,i)=>`<tr data-si="${i}">

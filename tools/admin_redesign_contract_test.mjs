@@ -14,6 +14,8 @@ const required = [
   'renderPeoplePulse(dashboardTeam',
   'LEGACY_ROUTE_REDIRECT',
   'const AUTO_REFRESH_MS={dashboard:6000}',
+  'dashboard-checkin-sites',
+  'id="siteRows"',
 ];
 
 const missing = required.filter((token) => !html.includes(token));
