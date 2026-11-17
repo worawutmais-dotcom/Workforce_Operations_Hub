@@ -36,8 +36,8 @@
 - Consumes: existing CSS variables, `lineIcon`, button and panel classes
 - Produces: route-scoped layout, focus, overflow, and mobile utility classes used by all route renderers
 
-- [ ] Add a documented BVN surface, spacing, status, list-row, and focus treatment without changing global action semantics
-- [ ] Add `prefers-reduced-motion` and visible keyboard focus coverage for new custom rows/buttons
+- [x] Add a documented BVN surface, spacing, status, list-row, and focus treatment without changing global action semantics
+- [x] Add `prefers-reduced-motion` and visible keyboard focus coverage for new custom rows/buttons
 - [ ] Run the inline JavaScript parse and visual checks at 1440px and 390px
 
 ### Task 2: Redesign operations routes
@@ -50,8 +50,8 @@
 - Consumes: `dashboard`, `admin_attendance_days`, `admin_get_settings`, `admin_preview_payroll`, `admin_list_holidays`
 - Produces: priority-first dashboard and selected-person work-time ledger
 
-- [ ] Keep live attendance classification and manual clock actions unchanged while simplifying the dashboard hierarchy
-- [ ] Keep employee-month calculations unchanged while presenting roster/detail/site policy as one ledger workspace
+- [x] Keep live attendance classification and manual clock actions unchanged while simplifying the dashboard hierarchy
+- [x] Keep employee-month calculations unchanged while presenting roster/detail/site policy as one ledger workspace
 - [ ] Verify empty team, late employee, selected employee, and narrow-width states
 
 ### Task 3: Redesign people and approvals routes
@@ -64,8 +64,8 @@
 - Consumes: employee, leave, time request, identity request, and approval helpers
 - Produces: master-data-first employee view and impact-aware approval queue
 
-- [ ] Make employee profile completeness, employment status, and primary edit path understandable without adding required fields
-- [ ] Keep request approve/reject behavior unchanged and expose payroll impact only from known status/date facts
+- [x] Make employee profile completeness, employment status, and primary edit path understandable without adding required fields
+- [x] Keep request approve/reject behavior unchanged and expose payroll impact only from known status/date facts
 - [ ] Verify role restrictions and long-name row handling
 
 ### Task 4: Redesign financial workflow routes
@@ -78,8 +78,8 @@
 - Consumes: existing financial preview, lock, payment, invoice, advance, and rule APIs
 - Produces: period-led financial workbench with clear preconditions and status
 
-- [ ] Preserve all payroll controls; make blockers, employee review, and next action visually ordered
-- [ ] Present advances as a deduction ledger, pay rules as personal/company layers, and invoices as receivables workflow
+- [x] Preserve all payroll controls; make blockers, employee review, and next action visually ordered
+- [x] Present advances as a deduction ledger, pay rules as personal/company layers, and invoices as receivables workflow
 - [ ] Verify finance-restricted, no-data, incomplete-time, and paid-period states
 
 ### Task 5: Redesign configuration and validate the complete console
@@ -94,6 +94,6 @@
 - Consumes: existing settings payloads and dialogs
 - Produces: grouped configuration experience and auditable release evidence
 
-- [ ] Group settings by operational purpose, consequence, and destructive risk without changing saved keys
+- [x] Group settings by operational purpose, consequence, and destructive risk without changing saved keys
 - [ ] Run static syntax/diff checks and browser checks for all ten Admin routes at desktop and narrow widths
-- [ ] Record passing evidence and remaining authenticated-UAT gaps in the brief/audit
+- [x] Record passing evidence and remaining authenticated-UAT gaps in the brief/audit

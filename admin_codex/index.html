@@ -765,6 +765,17 @@
   #page-owner .pm-detail{min-width:0}.pm-detail .panel{height:100%;margin:0!important;border-radius:12px;box-shadow:none}.pm-detail .body{padding:20px}.pm-detail .cards{gap:8px;margin-bottom:16px!important}.pm-detail .cards .card{padding:10px 12px!important;border-radius:8px}.pm-detail .calm{gap:5px}.pm-detail .cd{min-height:76px;padding:8px;border-radius:7px}.pm-detail .notice{margin-top:14px!important}
   #page-owner .site-policy{margin-top:16px!important}.site-policy .head{padding:14px 16px}.site-policy-note{padding:10px 16px}
   @media(max-width:980px){#page-dashboard .ops-board{grid-template-columns:1fr}.ops-figures{max-width:none}#page-dashboard .dash-main{grid-template-columns:1fr}#page-owner .attendance-workspace{grid-template-columns:1fr}.time-roster .body{max-height:none}.pm-detail .panel{height:auto}}@media(max-width:700px){#page-dashboard .ops-board{padding:20px}.ops-figures{grid-template-columns:1fr 1fr}.ops-figure{min-height:92px;padding:14px}.ops-figure b{font-size:25px}.ops-figure:last-child{grid-column:1/-1}.team-register .head .sub{display:none}#page-owner .time-page-head{display:block}.time-month-nav{margin-top:12px}.pm-detail .cards{grid-template-columns:1fr 1fr!important}.pm-detail .cd{min-height:64px;padding:6px}.time-key{gap:9px}}
+
+  /* Total redesign foundation: each route gets a compact decision surface while
+     retaining the existing API and calculation boundaries. */
+  .bvn-route{max-width:1560px;margin-inline:auto;animation:bvnRouteIn .16s ease-out}
+  .bvn-page-head{position:relative;isolation:isolate}.bvn-page-head::before{content:"";position:absolute;left:0;top:-7px;width:38px;height:3px;border-radius:999px;background:var(--blue);opacity:.9}
+  .bvn-route .panel{border-radius:14px}.bvn-route .panel>.head{min-height:52px;padding-inline:18px}.bvn-route .panel>.body{padding:16px 18px}.bvn-route .panel>.body.flush{padding:0}
+  .bvn-route .metric b,.bvn-route .value{letter-spacing:-.03em}.ops-action-ledger{border-top:3px solid var(--blue)}.employee-workspace{grid-template-columns:minmax(0,1fr) 344px}.finance-workbench{border-top:3px solid var(--blue)}.settings-workspace{display:grid;gap:14px}.settings-workspace>.panel{margin:0}
+  .route-eyebrow{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase}.route-eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green)}
+  .directory-page-head{display:flex;align-items:end;justify-content:space-between;gap:16px;margin:0 0 14px;padding:0 0 14px;border-bottom:1px solid var(--line)}.directory-page-head h2{margin-top:4px;font-size:22px;letter-spacing:-.03em}.directory-page-head p{margin:3px 0 0;color:var(--muted);font-size:12px}.directory-page-head .directory-count{font-size:12px;color:var(--muted);white-space:nowrap}.directory-page-head .directory-count b{font-size:22px;color:var(--ink);margin-right:4px}
+  .setting-group-label{display:flex;align-items:center;gap:9px;margin:10px 0 -4px;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}.setting-group-label::after{content:"";height:1px;flex:1;background:var(--line)}.settings-workspace .advanced-settings{margin:0}.settings-workspace .panel[style*="fecaca"]{margin-top:10px}
+  @keyframes bvnRouteIn{from{opacity:.5;transform:translateY(3px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.bvn-route{animation:none}.bvn-route *,.bvn-route *::before,.bvn-route *::after{transition-duration:.01ms!important;animation-duration:.01ms!important}}@media(max-width:1080px){.employee-workspace{grid-template-columns:1fr}.bvn-route{max-width:none}}
 </style>
 </head>
 <body>
@@ -1327,6 +1338,7 @@ function errorBox(node, err, retry){
   box.querySelector(".body").appendChild(btn);
   node.appendChild(box);
 }
+function setRouteShell(node, kind){ node.classList.add("bvn-route",`bvn-route--${kind}`); }
 
 /* shared employee cache */
 async function loadEmployees(force){
@@ -1357,6 +1369,7 @@ function lineIcon(kind){
 }
 async function renderDashboard(data, preloaded={}){
   const node=$("#page-dashboard");
+  setRouteShell(node,"dashboard");
   try{
     skeleton(node);
     // Pull the headline stats plus richer context in parallel (frontend-only).
@@ -1474,8 +1487,8 @@ async function renderDashboard(data, preloaded={}){
           pendingList.map(r=>`<div class="dash-row" data-nav="approvals" style="cursor:pointer"><span class="badge ${r.type==="ลา"?"blue":"amber"}">${esc(r.type)}</span><div style="flex:1;min-width:0"><div style="font-size:13px">${esc(r.name)}</div><div class="sub">${esc(r.detail)}</div></div><span class="sub">›</span></div>`).join("")
         :`<div class="empty">ไม่มีงานค้างให้ตัดสินใจ</div>`;
       node.innerHTML=`
-        <div class="dash-top">
-          <div class="dash-title-wrap"><div class="dash-kicker">วันนี้ · ${fmtDate(todayISO())}</div><h2 class="dash-h">การเข้างานและงานที่ต้องตัดสินใจ</h2><div class="dash-page-note">ข้อมูลจากการเช็กอินจริง · กะงาน <b>${esc(dashShiftStart)} น.</b>${dashGrace?` · ผ่อนผัน ${dashGrace} นาที`:""}</div></div>
+        <div class="dash-top bvn-page-head">
+          <div class="dash-title-wrap"><div class="dash-kicker route-eyebrow">ศูนย์ปฏิบัติการ · ${fmtDate(todayISO())}</div><h2 class="dash-h">การเข้างานและงานที่ต้องตัดสินใจ</h2><div class="dash-page-note">ข้อมูลจากการเช็กอินจริง · กะงาน <b>${esc(dashShiftStart)} น.</b>${dashGrace?` · ผ่อนผัน ${dashGrace} นาที`:""}</div></div>
           <button class="btn dash-clock-cta" data-act="clock">${lineIcon("clock")} ลงเวลาแทนพนักงาน</button>
         </div>
         <section class="ops-board" aria-label="สถานะการเข้างานวันนี้">
@@ -1487,7 +1500,7 @@ async function renderDashboard(data, preloaded={}){
           <div class="card ${mPend>0?"k-warn":"k-ok"}" data-nav="approvals" style="cursor:pointer"><div class="label">รายการรออนุมัติ</div><div class="value" style="color:${mPend>0?"#8a560f":"var(--ink)"}">${fmtInt(mPend)}</div><div class="note">ลา ${fmtInt(mLeave)} · OT ${fmtInt(mOt)} · เดือน ${_thMon}</div></div>
           <div class="card ${Number(data.exceptions)>0?"k-bad":"k-ok"}" data-nav="owner" style="cursor:pointer"><div class="label">รายการที่ต้องตรวจ</div><div class="value" style="color:${Number(data.exceptions)>0?"#b4453f":"var(--ink)"}">${fmtInt(data.exceptions)}</div><div class="note">${canFinance&&Number(data.overdueInvoices)>0?`Invoice เกินกำหนด ${fmtBaht(data.overdueInvoices)}`:"ตรวจสอบเวลาก่อนปิดรอบ"}</div></div>
         </div>
-        <div class="dash-main">
+        <div class="dash-main ops-action-ledger">
           <div class="panel dash-priority"><div class="head"><b>ต้องจัดการก่อน</b><div class="spacer"></div><button class="btn sub sm" data-nav="approvals">เปิดคิวอนุมัติ</button></div><div class="body flush dash-list">${decideHtml}</div></div>
           <div class="panel team-register"><div class="head"><b>รายชื่อทีมวันนี้</b><span class="sub" style="margin-left:8px">กดชื่อเพื่อดูเวลาทำงานรายคน</span><div class="spacer"></div><button class="btn sub sm" data-nav="owner">เปิดเวลาทำงาน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เวลาเข้า</span><span>สถานะ</span></div><div class="team-grid">${teamHtml}</div></div></div>
         </div>
@@ -1736,6 +1749,7 @@ function peopleRow(i,idx,kind){
 }
 async function renderPeople(){
   const node=$("#page-people"); skeleton(node);
+  setRouteShell(node,"people");
   try{
     await loadEmployees(true).catch(()=>{});
     const [leaveD,timeD,advD,usageD]=await Promise.all([
@@ -1763,7 +1777,7 @@ async function renderPeople(){
     node.innerHTML=`
       <div id="pwReqPanel"></div>
       <div id="identityReqPanel"></div>
-      <div class="people-workspace">
+      <div class="people-workspace employee-workspace">
         <section class="panel people-directory" style="margin:0">
           <div class="head">
             <div class="people-directory-title"><h2>ทะเบียนพนักงาน</h2><span class="sub">จัดการข้อมูลและสิทธิการใช้งาน</span></div>
@@ -1859,11 +1873,13 @@ async function renderPeople(){
    ================================================================= */
 async function renderEmployees(){
   const node=$("#page-employees");
+  setRouteShell(node,"employees");
   skeleton(node);
   try{
     await loadEmployees(true);
     node.innerHTML=`
       <div id="pwReqPanel"></div>
+      <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">ทะเบียนบุคลากร</div><h2>รายชื่อพนักงาน</h2><p>ค้นหา แก้ไขข้อมูล และจัดการสิทธิ์จากรายการเดียว</p></div><div class="directory-count"><b>${fmtInt(state.employees.length)}</b> รายการ</div></div>
       <div class="panel">
         <div class="head">
           <div class="toolbar"><input type="search" id="empSearch" placeholder="ค้นหา ชื่อ / รหัส / แผนก" style="width:260px"></div>
@@ -1895,7 +1911,7 @@ async function renderEmployees(){
       } else pager.style.display="none";
       tb.innerHTML=rows.map(e=>`
         <tr data-id="${esc(e.id)}">
-          <td class="person">${esc(e.name)}<span class="sub">${esc(e.id)}</span></td>
+          <td class="person">${esc(e.name)}<span class="sub">${esc(e.id)} · ${e.nationalId&&e.phone?"ข้อมูลติดต่อครบ":"รอยืนยันข้อมูลติดต่อ"}</span></td>
           <td>${(()=>{const pw=e.password;
             if(!pw) return '<span class="sub">•••• ซ่อนไว้</span>';
             if(/^(pbkdf2|scrypt|argon2|\$2[aby]\$)/i.test(pw)) return '<span class="badge"><span class="dot"></span>ตั้งรหัสแล้ว</span>';
@@ -2154,6 +2170,7 @@ function showSecret(title, rows, hint){
    ================================================================= */
 async function renderApprovals(){
   const node=$("#page-approvals");
+  setRouteShell(node,"approvals");
   skeleton(node);
   try{
     await loadEmployees().catch(()=>{});
@@ -2175,6 +2192,7 @@ async function renderApprovals(){
     ];
     const cnt=k=>items.filter(i=>i.status==='pending'&&(k==='all'||i.kind===k)).length;
     node.innerHTML=`
+      <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">ศูนย์ตัดสินใจ</div><h2>คำขอที่รอการพิจารณา</h2><p>อนุมัติ OT ก่อนจึงนำยอดเข้ารอบเงินเดือนได้</p></div><div class="directory-count"><b>${fmtInt(pendL.length+pendT.length)}</b> รายการ</div></div>
       <div class="notice blue">อนุมัติที่นี่เพื่อเก็บ audit trail — ระบบไม่แก้ยอดเวลาดิบ บันทึกการตัดสินใจแยกต่างหาก · ผู้อนุมัติ: <b>${esc(state.reviewer||"Admin")}</b></div>
       <div class="appr-stats">
         <div class="appr-stat${pendL.length?" warn":""}"><span class="n">${fmtInt(pendL.length)}</span><span class="l">คำขอลารออนุมัติ</span></div>
@@ -2324,11 +2342,13 @@ async function reviewTime(btn, requestId, decision){
 let lastPreview=null;
 async function renderPayroll(){
   const node=$("#page-payroll");
+  setRouteShell(node,"payroll");
   const t=todayISO(); const first=t.slice(0,8)+"01";
   node.innerHTML=`
     ${groupTabsHtml("payroll")}
+    <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">ศูนย์เงินเดือน</div><h2>ตรวจรอบจ่ายก่อนล็อกงวด</h2><p>OT จะคิดได้เฉพาะรายการที่อนุมัติแล้ว และทุกยอดตรวจย้อนกลับถึง Timesheet ได้</p></div><div class="directory-count">สถานะงวด<br><b>ตรวจสอบ</b></div></div>
     <div class="flow-steps" aria-label="ขั้นตอนทำเงินเดือน"><span class="step"><span class="n">1</span>เลือกงวด</span><span class="line"></span><span class="step"><span class="n">2</span>ตรวจเวลาและเรต</span><span class="line"></span><span class="step"><span class="n">3</span>ตรวจยอด</span><span class="line"></span><span class="step"><span class="n">4</span>ล็อกงวด</span></div>
-    <section class="payroll-workbench" aria-label="งวดเงินเดือนปัจจุบัน">
+    <section class="payroll-workbench finance-workbench" aria-label="งวดเงินเดือนปัจจุบัน">
       <div><div class="payroll-kicker"><i></i>งวดที่กำลังทำงาน</div><h2>เงินเดือน ${fmtDate(first)} – ${fmtDate(t)}</h2><p>คำนวณจากเวลาที่บันทึกไว้ทันทีเมื่อเปิดหน้านี้</p></div>
       <div class="payroll-period"><label>เริ่ม<input type="date" id="pStart" value="${first}"></label><label>สิ้นสุด<input type="date" id="pEnd" value="${t}"></label><button class="btn" id="previewBtn">คำนวณใหม่</button></div>
     </section>
@@ -2671,6 +2691,7 @@ async function exportFullBackup(){
 let payRulesCache=[];
 async function renderPayrules(){
   const node=$("#page-payrules");
+  setRouteShell(node,"payrules");
   skeleton(node);
   try{
     const data=await api("admin_list_pay_rules");
@@ -2679,6 +2700,7 @@ async function renderPayrules(){
     const missing=payRulesCache.filter(r=>r.status==="active"&&!r.hasRule).length;
     node.innerHTML=`
       ${groupTabsHtml("payrules")}
+      <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">นโยบายค่าจ้าง</div><h2>อัตราค่าจ้างและสิทธิ์ OT</h2><p>กำหนดอัตรารายบุคคลก่อน แล้วจึงใช้กติกาส่วนกลางสำหรับ OT ที่อนุมัติแล้ว</p></div><div class="directory-count"><b>${fmtInt(missing)}</b> คนยังไม่ตั้งเรต</div></div>
       <div class="notice blue"><b>ส่วนที่ 1 · อัตราค่าจ้างรายบุคคล</b> — กำหนด 1 เรต/คน เพื่อใช้คำนวณค่าแรงฐานและสิทธิ์ OT · ตั้งแล้ว <b>${fmtInt(withRule)}</b> คน${missing?` · <span style="color:#b45309">ยังไม่ตั้ง ${fmtInt(missing)} คน</span>`:""}</div>
       <div class="panel"><div class="head"><h2>อัตราค่าจ้างพนักงาน</h2><span class="sub" style="margin-left:8px">เลือกพนักงาน แล้วตั้งเรตหรือแก้ไขในหน้าต่างเดียว</span></div>
         <div class="body flush"><table id="ruleTable">
@@ -2973,6 +2995,7 @@ const payDayLabel=(v)=>String(v)==="end"?"สิ้นเดือน":("วั�
 
 async function renderOwner(){
   const node=$("#page-owner"); skeleton(node);
+  setRouteShell(node,"owner");
   try{
     // Attendance must remain usable even while a payroll calculation is slow.
     // Do not make this operational page wait for admin_owner_overview.
@@ -2997,7 +3020,7 @@ async function renderOwner(){
 
       <div class="subpane" data-pane="person" style="display:none">
         <div class="time-page-head">
-          <div><div class="dash-kicker">ทะเบียนเวลาทำงาน</div><h2>เวลาทำงานรายบุคคล</h2><div id="pmShiftNote" class="sub" style="margin-top:5px"></div></div>
+          <div><div class="dash-kicker route-eyebrow">ทะเบียนเวลาทำงาน</div><h2>เวลาทำงานรายบุคคล</h2><div id="pmShiftNote" class="sub" style="margin-top:5px"></div></div>
           <div class="time-month-nav">
             <button class="btn sub sm" id="pmPrev" aria-label="เดือนก่อน">‹</button>
             <b id="pmLabel" style="min-width:120px;text-align:center">—</b>
@@ -3480,6 +3503,7 @@ const ADV_BADGE={pending:"blue",approved:"",paid:"amber",settled:"grey",rejected
 const ADV_LABEL={pending:"รออนุมัติ",approved:"อนุมัติแล้ว · รอจ่ายเงิน",paid:"จ่ายแล้ว · รอหักเงินเดือน",settled:"หักจากเงินเดือนแล้ว",rejected:"ปฏิเสธ"};
 async function renderAdvances(){
   const node=$("#page-advances"); skeleton(node);
+  setRouteShell(node,"advances");
   try{
     const data=await api("admin_list_advances");
     const adv=data.advances||[];
@@ -3487,6 +3511,7 @@ async function renderAdvances(){
     const sum=(arr)=>arr.reduce((s,a)=>s+Number(a.amount||0),0);
     node.innerHTML=`
       ${groupTabsHtml("advances")}
+      <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">รายการหักเงิน</div><h2>เงินล่วงหน้า</h2><p>บันทึกการจ่ายก่อน แล้วระบบจะหักครั้งเดียวในงวดเงินเดือนที่ล็อก</p></div><div class="directory-count"><b>${fmtInt(pending.length)}</b> รออนุมัติ</div></div>
       <div class="notice blue">ขั้นตอน: <b>อนุมัติ</b> → <b>บันทึกจ่ายแล้ว</b> (ยื่นเงินให้ลูกน้อง) → ระบบจะ<b>หักจากเงินเดือน</b>อัตโนมัติเมื่อล็อกงวด แล้วเปลี่ยนเป็น “หักแล้ว” (หักครั้งเดียว ไม่ซ้ำ)</div>
       <div class="cards">
         <div class="card"><div class="label">รออนุมัติ</div><div class="value">${fmtInt(pending.length)}</div><div class="note ${pending.length?"bad":""}">${fmtBaht(sum(pending))}</div></div>
@@ -3528,6 +3553,7 @@ async function markAdvancePaid(id){
 
 async function renderInvoices(){
   const node=$("#page-invoices");
+  setRouteShell(node,"invoices");
   skeleton(node);
   try{
     const [data, invoiceConfig]=await Promise.all([
@@ -3540,9 +3566,10 @@ async function renderInvoices(){
     const badge=(s)=>({draft:"grey",issued:"blue",paid:"",overdue:"red",void:"grey"}[s]||"grey");
     const label=(s)=>({draft:"ร่าง",issued:"ออกบิลแล้ว",paid:"ชำระแล้ว",overdue:"เกินกำหนด","void":"ยกเลิก"}[s]||s);
     node.innerHTML=`
+      <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">ลูกหนี้การค้า</div><h2>ใบแจ้งหนี้ลูกค้า</h2><p>ติดตามสถานะเอกสารและการชำระเงินจากตารางเดียว</p></div><div class="directory-count"><b>${fmtInt(inv.filter(i=>i.status==="overdue").length)}</b> ใบเกินกำหนด</div></div>
       <div class="cards">
-        <div class="card"><div class="label">ร่าง (draft)</div><div class="value">${fmtBaht(sum(i=>i.status==="draft"))}</div><div class="note">${inv.filter(i=>i.status==="draft").length} ใบ</div></div>
-        <div class="card"><div class="label">รอชำระ (issued)</div><div class="value">${fmtBaht(sum(i=>i.status==="issued"))}</div><div class="note">${inv.filter(i=>i.status==="issued").length} ใบ</div></div>
+        <div class="card"><div class="label">เอกสารร่าง</div><div class="value">${fmtBaht(sum(i=>i.status==="draft"))}</div><div class="note">${inv.filter(i=>i.status==="draft").length} ใบ</div></div>
+        <div class="card"><div class="label">รอรับชำระ</div><div class="value">${fmtBaht(sum(i=>i.status==="issued"))}</div><div class="note">${inv.filter(i=>i.status==="issued").length} ใบ</div></div>
         <div class="card"><div class="label">เกินกำหนด</div><div class="value">${fmtBaht(sum(i=>i.status==="overdue"))}</div><div class="note bad">${inv.filter(i=>i.status==="overdue").length} ใบต้องติดตาม</div></div>
         <div class="card"><div class="label">ชำระแล้ว</div><div class="value">${fmtBaht(sum(i=>i.status==="paid"))}</div><div class="note">${inv.filter(i=>i.status==="paid").length} ใบ</div></div>
       </div>
@@ -3937,8 +3964,12 @@ async function renderAudit(){
    ================================================================= */
 async function renderSettings(){
   const node=$("#page-settings");
+  setRouteShell(node,"settings");
   node.innerHTML=`
     ${groupTabsHtml("settings")}
+    <div class="settings-workspace">
+    <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">การควบคุมระบบ</div><h2>ตั้งค่าบริษัทและการดูแลข้อมูล</h2><p>แก้เฉพาะกติกาที่มีผลกับการเช็กอิน ค่าจ้าง และเอกสารทั้งระบบ</p></div><div class="directory-count">ระดับสิทธิ์<br><b>${esc(ROLE_LABEL[state.role]||"ผู้ดูแล")}</b></div></div>
+    <div class="setting-group-label">นโยบายบริษัท</div>
     <div class="panel"><div class="head"><h2>เงินสมทบกองทุนประกันสังคม</h2><span class="sub" style="margin-left:8px">นโยบายเดียว ใช้กับสลิปของพนักงานทุกคน</span>
       <div class="spacer"></div><button class="btn" id="editSocialSecurity">ตั้งค่าประกันสังคม</button></div>
       <div class="body" id="socialSecuritySummary"><div class="empty">กำลังโหลดนโยบายประกันสังคม…</div></div>
@@ -3959,6 +3990,7 @@ async function renderSettings(){
       <div class="body flush"><table id="holTable"><thead><tr><th>วันที่</th><th>ชื่อวันหยุด</th><th data-nosort></th></tr></thead>
       <tbody id="holRows"><tr><td colspan="3"><div class="empty">กำลังโหลด…</div></td></tr></tbody></table></div>
     </div>
+    <div class="setting-group-label">ระบบและการเผยแพร่</div>
     <div class="panel"><div class="head"><h2>เวอร์ชันแอปพนักงาน</h2><span class="sub" style="margin-left:8px">ปล่อยอัปเดต APK ให้พนักงาน (ไฟล์อยู่บน Google Drive)</span></div>
       <div class="body">
         <div class="grid2">
@@ -3983,6 +4015,7 @@ async function renderSettings(){
       <div class="body"><p class="sub" style="margin:0">ฐานข้อมูลเก็บเวลาเข้า–ออกย้อนหลัง 6 เดือนเท่านั้น ข้อมูลที่เก่ากว่านั้นต้องดาวน์โหลดเป็นไฟล์ JSON ลงเครื่องและเลือกไฟล์กลับมาเพื่อตรวจสอบก่อนระบบอนุญาตให้ล้าง</p>
       <input id="verifyAttendanceArchiveFile" type="file" accept="application/json,.json" style="display:none"><div class="notice blue" id="attendanceArchiveStatus" style="margin-top:12px">ยังไม่ได้สร้าง Archive ในรอบนี้</div><div class="toolbar" style="margin-top:12px"><button class="btn danger sm" id="purgeOldAttendance" disabled>ล้างเวลาเกิน 6 เดือน</button></div></div>
     </div>
+    <div class="setting-group-label">คำสั่งที่ย้อนกลับไม่ได้</div>
     <div class="panel" style="border-color:#fecaca"><div class="head"><h2 style="color:#b91c1c">เริ่มเก็บข้อมูลใหม่</h2><span class="sub" style="margin-left:8px">ล้างเฉพาะข้อมูลปฏิบัติการแบบถาวร</span>
       <div class="spacer"></div><button class="btn danger sm" id="factoryResetBtn">ล้างข้อมูล</button></div>
       <div class="body"><p class="sub" style="margin:0">ลบพนักงาน, ไซต์, เวลาเข้าออก, คำขอ, เงินล่วงหน้า, งวดเงินเดือน, ใบแจ้งหนี้, วันหยุด, token พนักงาน และบันทึกการใช้งานทั้งหมด แต่เก็บบัญชี Admin และข้อมูลบริษัท/หัวบิลไว้</p>
@@ -3995,7 +4028,7 @@ async function renderSettings(){
         <div class="notice blue">ค่าเชื่อมต่อนี้บันทึกในเครื่องนี้เท่านั้น · apikey จำเป็นเฉพาะ endpoint แบบ Supabase (public key ไม่ลับ)</div>
         <div class="toolbar"><button class="btn" id="saveEndpoint">บันทึก Endpoint</button></div>
       </div>
-    </details>`;
+    </details></div>`;
   $("#setEndpoint").value = state.endpoint || LS.getItem("bvn_endpoint") || DEFAULT_ENDPOINT;
   $("#saveEndpoint").onclick=(e)=>{ const v=$("#setEndpoint").value.trim(); if(!v){ toast("กรอก endpoint","bad"); return; }
     const k=(($("#setApikey")&&$("#setApikey").value)||"").trim();
