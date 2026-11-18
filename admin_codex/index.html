@@ -1113,10 +1113,10 @@
     <nav class="nav" id="nav" aria-label="เมนูผู้ดูแลระบบ">
       <div class="nav-section">การปฏิบัติงาน</div>
       <button data-page="dashboard" class="active" aria-current="page"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span> Dashboard</button>
-      <button data-page="owner"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V5l7-3 7 3v16M9 9h.01M15 9h.01M9 13h.01M15 13h.01M10 21v-4h4v4"/></svg></span> เวลาทำงาน</button>
-      <button data-page="people"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5.5a3 3 0 0 1 0 5M18 21v-2a6 6 0 0 0-2.7-5"/></svg></span> บุคคล &amp; อนุมัติ <span class="pill" id="navApprovals" style="display:none">0</span></button>
+      <button data-page="owner"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V5l7-3 7 3v16M9 9h.01M15 9h.01M9 13h.01M15 13h.01M10 21v-4h4v4"/></svg></span> Timesheet</button>
+      <button data-page="people"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5.5a3 3 0 0 1 0 5M18 21v-2a6 6 0 0 0-2.7-5"/></svg></span> ทีมและอนุมัติ <span class="pill" id="navApprovals" style="display:none">0</span></button>
       <div class="nav-section">การเงินและเอกสาร</div>
-      <button data-page="payroll"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 10h18M16 15h2"/><path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/></svg></span> เงินเดือน <span class="pill" id="navAdvances" style="display:none">0</span></button>
+      <button data-page="payroll"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 10h18M16 15h2"/><path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/></svg></span> Payroll run <span class="pill" id="navAdvances" style="display:none">0</span></button>
       <button data-page="advances" data-grp-child style="display:none"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2"/></svg></span> เงินล่วงหน้า</button>
       <button data-page="payrules" data-grp-child style="display:none"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/></svg></span> ค่าจ้างและ OT</button>
       <button data-page="invoices"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg></span> ใบแจ้งหนี้ลูกค้า</button>
@@ -1508,11 +1508,11 @@ async function logout(){
 const LEGACY_ROUTE_REDIRECT={employees:"people",approvals:"people"};
 const PAGES = {
   dashboard:{title:"Dashboard", sub:"ภาพรวมทีมและงานที่ต้องตัดสินใจ", load:()=>renderDashboard()},
-  owner:{title:"บันทึกเวลา", sub:"บันทึกและตรวจเวลาเข้า–ออกแทนพนักงาน", load:()=>renderOwner()},
-  people:{title:"บุคคล & อนุมัติ", sub:"ทะเบียนพนักงานและคิวอนุมัติ", load:()=>renderPeople()},
+  owner:{title:"Timesheet", sub:"ตรวจเวลาเข้า–ออกและแก้ไขเฉพาะรายการที่ได้รับอนุญาต", load:()=>renderOwner()},
+  people:{title:"ทีมและอนุมัติ", sub:"ทะเบียนพนักงาน ข้อมูลเอกสาร และคิวอนุมัติ", load:()=>renderPeople()},
   employees:{title:"พนักงาน", sub:"สร้าง แก้ไข ปิดใช้งาน และตั้งรหัสผ่าน", load:()=>renderEmployees()},
   approvals:{title:"งานรออนุมัติ", sub:"คำขอลา OT และรายการที่ต้องตัดสินใจ", load:()=>renderApprovals()},
-  payroll:{title:"เงินเดือน", sub:"ตรวจ Timesheet ปรับรายการ และออกสลิป", load:()=>renderPayroll()},
+  payroll:{title:"Payroll run", sub:"ตรวจ Timesheet ปรับรายการ และออกสลิป", load:()=>renderPayroll()},
   advances:{title:"เงินล่วงหน้า", sub:"รายการค้างอนุมัติ จ่าย และหักคืน", load:()=>renderAdvances()},
   payrules:{title:"ค่าจ้างและ OT", sub:"นโยบายบริษัทและอัตราค่าจ้างรายบุคคล", load:()=>renderPayrules()},
   invoices:{title:"ใบแจ้งหนี้ลูกค้า", sub:"ออกเอกสาร ติดตามยอด และบันทึกการรับชำระ", load:()=>renderInvoices()},
@@ -1880,9 +1880,9 @@ async function renderDashboard(data, preloaded={}){
           </section>
           <section class="cc-metrics" aria-label="ตัวชี้วัดวันนี้">
             <button class="cc-stat s-emerald" data-nav="owner"><span class="cc-stat-ic">${SVG.clock}</span><span class="cc-stat-l">เริ่มงานแล้ว</span><b>${fmtInt(cOn+cLate+cDone)}</b><small>ออนไลน์ ${fmtInt(cOn+cLate)} · ออกแล้ว ${fmtInt(cDone)}</small></button>
-            <button class="cc-stat s-amber" data-nav="owner"><span class="cc-stat-ic">${SVG.late}</span><span class="cc-stat-l">มาสาย</span><b>${fmtInt(cLate)}</b><small>${fmtInt(pLate)}% ของทีม</small></button>
-            <button class="cc-stat s-indigo" data-nav="approvals"><span class="cc-stat-ic">${SVG.inbox}</span><span class="cc-stat-l">รออนุมัติ</span><b>${fmtInt(mPend)}</b><small>ลา ${fmtInt(mLeave)} · OT ${fmtInt(mOt)} · ${_thMon}</small></button>
-            <button class="cc-stat s-rose" data-nav="owner"><span class="cc-stat-ic">${SVG.search}</span><span class="cc-stat-l">ต้องตรวจเวลา</span><b>${fmtInt(data.exceptions)}</b><small>${canFinance&&Number(data.overdueInvoices)>0?`Invoice เกิน ${fmtBaht(data.overdueInvoices)}`:"ตรวจให้ครบก่อนปิดรอบ"}</small></button>
+            ${cLate?`<button class="cc-stat s-amber" data-nav="owner"><span class="cc-stat-ic">${SVG.late}</span><span class="cc-stat-l">มาสาย</span><b>${fmtInt(cLate)}</b><small>${fmtInt(pLate)}% ของทีม</small></button>`:""}
+            ${mPend?`<button class="cc-stat s-indigo" data-nav="approvals"><span class="cc-stat-ic">${SVG.inbox}</span><span class="cc-stat-l">รออนุมัติ</span><b>${fmtInt(mPend)}</b><small>ลา ${fmtInt(mLeave)} · OT ${fmtInt(mOt)} · ${_thMon}</small></button>`:""}
+            ${Number(data.exceptions)?`<button class="cc-stat s-rose" data-nav="owner"><span class="cc-stat-ic">${SVG.search}</span><span class="cc-stat-l">ต้องตรวจเวลา</span><b>${fmtInt(data.exceptions)}</b><small>${canFinance&&Number(data.overdueInvoices)>0?`Invoice เกิน ${fmtBaht(data.overdueInvoices)}`:"ตรวจให้ครบก่อนปิดรอบ"}</small></button>`:""}
             ${canFinance?`<button class="cc-stat s-money" data-nav="payroll"><span class="cc-stat-ic">${SVG.wallet}</span><span class="cc-stat-l">รายจ่ายงวดนี้</span><b>${fmtBaht(totalNet)}</b><small>พร้อมจ่าย ${fmtInt(payrollEligible)} คน</small></button>`:""}
           </section>
           <section class="cc-split">
@@ -3597,6 +3597,8 @@ async function renderOwner(){
         tb.querySelectorAll("[data-attin]").forEach(b=>b.onclick=()=>adminClock("check_in", shown[+b.dataset.attin].employeeId, loadAtt, b));
         tb.querySelectorAll("[data-attout]").forEach(b=>b.onclick=()=>adminClock("check_out", shown[+b.dataset.attout].employeeId, loadAtt, b));
         tb.querySelectorAll("tr[data-att]").forEach(tr=>{ const d=shown[+tr.dataset.att];
+          tr.title="เปิดรายละเอียด Timesheet";
+          tr.onclick=(event)=>{ if(!event.target.closest("button")) openAttendanceRecordDialog(d,loadAtt); };
           attachRowMenu(tr, [{label:"ยกเลิกบันทึกวันนี้", danger:true, fn:()=>voidDay(d)}]); });
       }catch(err){ tb.innerHTML=`<tr><td colspan="7"><div class="empty">${esc(err.message)}</div></td></tr>`; } };
     sel.onchange=()=>{ ownerState.emp=sel.value; loadAtt(); };
@@ -3606,6 +3608,18 @@ async function renderOwner(){
     $("#expAttBtn").onclick=()=>attendanceExportDialog();
     loadAtt();
   }catch(err){ errorBox(node, err, renderOwner); }
+}
+
+function openAttendanceRecordDialog(day, refresh){
+  if(!day) return;
+  const today=todayISO(), isToday=day.date===today;
+  const status=day.status==="complete"?"เวลาครบ":day.checkIn?"รอเช็กเอาต์":"ไม่มีเวลาเข้า";
+  const body=el(`<div><section class="employee-review-summary"><div class="employee-review-identity"><div class="profile-line"><div class="pm-av">${esc((day.name||day.employeeId||"?").trim().slice(0,2))}</div><div><h4>${esc(day.name||empName(day.employeeId)||day.employeeId)}</h4><p>${esc(day.employeeId||"")} · ${fmtDate(day.date)}</p></div></div></div><div class="employee-review-history"><h4>สถานะ Timesheet</h4><div><span>${esc(status)}</span><b>${day.status==="complete"?"ครบ":"ต้องตรวจ"}</b></div></div></section><section class="employee-review-calendar"><div class="employee-review-today"><div><span>เวลาเข้า</span><b>${esc(day.checkIn||"—")}</b></div><div><span>เวลาออก</span><b>${esc(day.checkOut||"—")}</b></div><div><span>ชั่วโมงทำงาน</span><b>${day.workedMinutes?fmtHours(day.workedMinutes):"—"}</b></div><div><span>แหล่งข้อมูล</span><b>บันทึกเวลา</b></div></div><div class="notice blue" style="margin-top:12px"><div><b>การแก้ไขต้องทำจากรายการที่จำเป็นเท่านั้น</b><br><span class="sub">ระบบจะไม่แก้ยอดเงินเดือนย้อนหลังจนกว่าจะคำนวณ Payroll run ใหม่</span></div></div></section></div>`);
+  const close=el(`<button class="btn sub">ปิด</button>`); close.onclick=closeModal;
+  const actions=[close];
+  if(isToday&&!day.checkIn){ const checkIn=el(`<button class="btn ok">ลงเวลาเข้า</button>`); checkIn.onclick=()=>adminClock("check_in",day.employeeId,()=>{closeModal(); refresh();},checkIn); actions.push(checkIn); }
+  else if(isToday&&!day.checkOut){ const checkOut=el(`<button class="btn danger">ลงเวลาออก</button>`); checkOut.onclick=()=>adminClock("check_out",day.employeeId,()=>{closeModal(); refresh();},checkOut); actions.push(checkOut); }
+  openModal("รายละเอียด Timesheet",body,actions);
 }
 
 async function adminClock(eventType, empId, after, btn){

@@ -29,8 +29,8 @@ const required = [
   '<span class="k">พนักงาน</span> <strong>${esc(employeeName)}</strong>',
   'data-payslip',
   'ออกสลิปเงินเดือน',
-  'บันทึกและตรวจเวลาเข้า–ออกแทนพนักงาน',
-  'ทะเบียนพนักงานและคิวอนุมัติ',
+  'ตรวจเวลาเข้า–ออกและแก้ไขเฉพาะรายการที่ได้รับอนุญาต',
+  'ทะเบียนพนักงาน ข้อมูลเอกสาร และคิวอนุมัติ',
   'ทะเบียนเงินล่วงหน้า',
   'data-adv-filter',
   'เปิดเอกสารได้',
@@ -53,6 +53,9 @@ const required = [
   'การเปลี่ยนแปลงจะใช้ในการคำนวณ Timesheet ครั้งถัดไป',
   'readyPayslipReviewDialog',
   'ตรวจสลิปที่พร้อม',
+  'openAttendanceRecordDialog',
+  'รายละเอียด Timesheet',
+  'ระบบจะไม่แก้ยอดเงินเดือนย้อนหลังจนกว่าจะคำนวณ Payroll run ใหม่',
 ];
 
 const missing = required.filter((token) => !html.includes(token));
