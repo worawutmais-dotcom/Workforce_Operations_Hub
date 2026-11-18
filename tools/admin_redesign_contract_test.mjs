@@ -72,6 +72,8 @@ const required = [
   'payroll-table-tools',
   'data-payroll-filter="action"',
   'payrollTableEmpty',
+  'approval-queue-note',
+  'pending-ot',
 ];
 
 const missing = required.filter((token) => !html.includes(token));

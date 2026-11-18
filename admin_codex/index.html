@@ -1165,6 +1165,11 @@
   .payroll-filter-set button.active{background:#e7f0f8;color:#24516f;box-shadow:inset 0 0 0 1px #c8ddeb}
   .payroll-table-empty{display:none;padding:24px;text-align:center;color:var(--ops-muted);font-size:12px;background:#fff}
   .payroll-table-empty.show{display:block}
+  /* Approvals: payroll-impacting OT sits first; leave remains visible but quieter. */
+  .appr-stats{gap:8px}.appr-stat{box-shadow:none;border-color:var(--ops-line);background:#fff;padding:10px 12px}.appr-stat::before{background:#a8c0d1}.appr-stat.warn{border-color:#efd9b3;background:#fffaf1}.appr-stat.accent{border-color:#c7e5dc;background:#f2faf7}.appr-stat.accent::before{background:var(--ops-teal)}
+  .approval-queue-note{display:flex;align-items:center;gap:8px;margin:12px 0;padding:8px 10px;border:1px solid #eadab6;border-radius:9px;background:#fffaf0;color:#7a5517;font-size:11px}.approval-queue-note i{width:7px;height:7px;border-radius:50%;background:var(--ops-amber);flex:none}.approval-queue-note b{color:#5d4316}
+  .approval-row{display:flex;align-items:center;gap:11px;padding:10px 14px;border-bottom:1px solid var(--ops-line);background:#fff}.approval-row:hover{background:#fbfdff}.approval-row.pending-ot{box-shadow:inset 3px 0 0 var(--ops-amber);background:#fffdf8}.approval-row.pending-leave{box-shadow:inset 3px 0 0 #4779a7}.approval-row .approval-actions{display:flex;gap:5px;flex:none}
+  @media(max-width:620px){.approval-row{align-items:flex-start;flex-wrap:wrap}.approval-row .approval-actions{margin-left:auto}.approval-queue-note{align-items:flex-start}}
   @media(max-width:1180px){.people-profile-filter{order:3;width:100%}.people-summary{display:none}}
   @media(max-width:820px){.people-profile-filter{order:initial;max-width:100%;overflow:auto}.people-profile-filter button{flex:none}.payroll-table-tools{align-items:flex-start;flex-wrap:wrap}.payroll-filter-set{overflow:auto;max-width:100%}}
   @media(max-width:900px){:root:not([data-theme="dark"]) .side{box-shadow:0 18px 42px rgba(12,34,54,.32)}}
@@ -2728,10 +2733,15 @@ async function renderApprovals(){
         impact:`เมื่ออนุมัติ จะรวมในค่าแรง OT ของงวดที่มีวันที่ ${fmtDate(r.workDate)}`,
         review:(b,d)=>reviewTime(b,r.requestId,d)})),
     ];
+    items.sort((a,b)=>{
+      const rank=i=>i.status!=="pending"?3:i.kind==="ot"?0:1;
+      return rank(a)-rank(b)||String(a.name).localeCompare(String(b.name),"th");
+    });
     const cnt=k=>items.filter(i=>i.status==='pending'&&(k==='all'||i.kind===k)).length;
     node.innerHTML=`
       <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">ศูนย์ตัดสินใจ</div><h2>คำขอที่รอการพิจารณา</h2><p>อนุมัติ OT ก่อนจึงนำยอดเข้ารอบเงินเดือนได้</p></div><div class="directory-count"><b>${fmtInt(pendL.length+pendT.length)}</b> รายการ</div></div>
-      <div class="notice blue">อนุมัติที่นี่เพื่อเก็บ audit trail — ระบบไม่แก้ยอดเวลาดิบ บันทึกการตัดสินใจแยกต่างหาก · ผู้อนุมัติ: <b>${esc(state.reviewer||"Admin")}</b></div>
+      <div class="notice blue">อนุมัติที่นี่เพื่อเก็บผลการตัดสินใจแยกจากเวลาเข้า–ออก · ผู้อนุมัติ: <b>${esc(state.reviewer||"Admin")}</b></div>
+      ${pendT.length?`<div class="approval-queue-note"><i></i><span><b>มี OT รออนุมัติ ${fmtInt(pendT.length)} รายการ</b> — ยอดเหล่านี้จะยังไม่ถูกรวมใน Payroll จนกว่าจะอนุมัติ</span></div>`:""}
       <div class="appr-stats">
         <div class="appr-stat${pendL.length?" warn":""}"><span class="n">${fmtInt(pendL.length)}</span><span class="l">คำขอลารออนุมัติ</span></div>
         <div class="appr-stat${pendT.length?" warn":""}"><span class="n">${fmtInt(pendT.length)}</span><span class="l">OT รออนุมัติ · ยังไม่คิดเงินเดือน</span></div>
@@ -2764,10 +2774,10 @@ async function renderApprovals(){
       const list=items.filter(i=>(filter==='all'||i.kind===filter)&&(decided||i.status==='pending'));
       const box=$("#apList");
       box.innerHTML=list.length? list.map((i,idx)=>`
-        <div style="display:flex;align-items:center;gap:11px;padding:10px 14px;border-bottom:1px solid var(--line-soft)">
+        <div class="approval-row ${i.status==='pending'?`pending-${i.kind}`:""}">
           <span class="badge ${kindBadge[i.kind]}" style="flex:none;min-width:50px;justify-content:center">${typeShort[i.kind]}</span>
           <div style="flex:1;min-width:0"><b style="font-weight:600">${esc(i.name)}</b> <span class="sub" style="font-weight:400">${esc(i.eid)}</span><div class="sub" style="margin-top:1px">${i.detail}</div>${i.status==='pending'?`<div class="approval-impact ${i.kind==='ot'?'ot':''}">${esc(i.impact)}</div>`:''}</div>
-          ${i.status==='pending'?`<button class="btn ok sm" data-ap="${idx}">อนุมัติ</button><button class="btn danger sm" data-rj="${idx}">ปฏิเสธ</button>`:statusBadge(i.status)}
+          ${i.status==='pending'?`<div class="approval-actions"><button class="btn ok sm" data-ap="${idx}">อนุมัติ</button><button class="btn danger sm" data-rj="${idx}">ปฏิเสธ</button></div>`:statusBadge(i.status)}
         </div>`).join("")
         : `<div class="empty">ไม่มีคำขอ${decided?'':'ที่รอตัดสินใจ'}</div>`;
       box.querySelectorAll("[data-ap]").forEach(b=>b.onclick=()=>list[+b.dataset.ap].review(b,"approved"));
