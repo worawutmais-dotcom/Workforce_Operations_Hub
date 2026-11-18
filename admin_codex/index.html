@@ -2884,6 +2884,7 @@ async function doPreview(btn){
       });
       const payrollReady=payrollRows.some(r=>r.state==="ready") && payrollRows.every(r=>r.state!=="blocked"&&r.state!=="waiting");
       const pendingOtCount=pendingOtByEmp.size;
+      const readyPayrollRows=payrollRows.filter(r=>r.target==="slip"&&r.line);
       if(summary) summary.innerHTML=`
         <div class="payroll-metric"><span>พนักงานที่คำนวณได้</span><b>${fmtInt((data.lines||[]).length)} คน</b><em>มีเรตค่าจ้างและเวลาเข้าครบ</em></div>
         <div class="payroll-metric"><span>รายได้รวม</span><b>${fmtBaht(data.totalGross)}</b><em>ก่อนหักรายการ</em></div>
@@ -2909,6 +2910,7 @@ async function doPreview(btn){
         <div class="body toolbar" style="border-top:1px solid var(--line)">
           <button class="btn sub sm" id="exportPrev">ส่งออก Excel (CSV)</button>
           <button class="btn sub sm" id="printSum">พิมพ์สรุป (PDF)</button>
+          ${readyPayrollRows.length?`<button class="btn sm" id="reviewReadyPayslips">ตรวจสลิปที่พร้อม ${fmtInt(readyPayrollRows.length)} คน</button>`:""}
           <div class="spacer"></div>
           ${payrollReady?`<span class="sub">เปิด Timesheet เพื่อแก้รายการและออกสลิปเป็นรายพนักงาน</span>`:`<button class="btn sub" disabled>แก้ Timesheet ก่อนออกสลิป</button>`}
         </div>`;
@@ -2917,11 +2919,19 @@ async function doPreview(btn){
         if(b.dataset.payrollNav==="owner") ownerState.filter="review";
         go(b.dataset.payrollNav);
       });
+      $("#reviewReadyPayslips") && ($("#reviewReadyPayslips").onclick=()=>readyPayslipReviewDialog(readyPayrollRows,lastPreview.period));
       $("#exportPrev").onclick=()=>exportCSV(lastPreview, "preview");
       $("#printSum").onclick=()=>printMonthlySummary(data);
       box.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>go(b.dataset.nav));
     }catch(err){ toast(err.message,"bad"); $("#previewResult").innerHTML=`<div class="empty">${esc(err.message)}</div>`; if(summary) summary.innerHTML=`<div class="payroll-loading">ยังคำนวณงวดนี้ไม่ได้: ${esc(err.message)}</div>`; }
   });
+}
+
+function readyPayslipReviewDialog(rows, period){
+  const body=el(`<div><div class="notice blue"><div><b>รายการที่พร้อมออกสลิป</b><br><span class="sub">แสดงเฉพาะผู้ที่มีเวลาเข้าครบ เรตค่าจ้างครบ และไม่มี OT รออนุมัติในงวดนี้ เลือกพนักงานเพื่อตรวจรายการหักและออกสลิป</span></div></div><div class="panel" style="margin:12px 0 0"><div class="body flush"><table><thead><tr><th>พนักงาน</th><th class="num">รายได้ก่อนหัก</th><th class="num">เงินได้สุทธิ</th><th data-nosort></th></tr></thead><tbody>${rows.map((row,index)=>`<tr><td class="person">${esc(row.emp.name||empName(row.emp.id))}<span class="sub">${esc(row.emp.id)}</span></td><td class="num">${fmtBaht(row.line.grossPay)}</td><td class="num"><b>${fmtBaht(row.line.netPay!=null?row.line.netPay:row.line.grossPay)}</b></td><td class="num"><button class="btn sub sm" data-ready-slip="${index}">ตรวจและออกสลิป</button></td></tr>`).join("")}</tbody></table></div></div></div>`);
+  const close=el(`<button class="btn sub">ปิด</button>`); close.onclick=closeModal;
+  openModal("ตรวจสลิปที่พร้อมออก",body,[close]);
+  body.querySelectorAll("[data-ready-slip]").forEach(b=>b.onclick=()=>{ const row=rows[+b.dataset.readySlip]; closeModal(); openPayslipDraftEditor(row.line,period); });
 }
 
 // Payroll review is deliberately a read-only, per-person timesheet.  It makes

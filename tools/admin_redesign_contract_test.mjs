@@ -51,6 +51,8 @@ const required = [
   'ยังไม่มีเลขบัตรประชาชน',
   'ผลกระทบก่อนบันทึก',
   'การเปลี่ยนแปลงจะใช้ในการคำนวณ Timesheet ครั้งถัดไป',
+  'readyPayslipReviewDialog',
+  'ตรวจสลิปที่พร้อม',
 ];
 
 const missing = required.filter((token) => !html.includes(token));
