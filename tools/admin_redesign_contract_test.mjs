@@ -69,6 +69,9 @@ const required = [
   'data-profile-filter="missing"',
   'profileReadyCount',
   'profileMissingCount',
+  'payroll-table-tools',
+  'data-payroll-filter="action"',
+  'payrollTableEmpty',
 ];
 
 const missing = required.filter((token) => !html.includes(token));
