@@ -40,6 +40,13 @@ const required = [
   'employee-review-summary',
   'employeeReviewHistory',
   'ตรวจสอบเวลาทำงาน',
+  'งานที่ต้องจัดการ',
+  'actionQueue',
+  'data-action-target',
+  'data-att-filter',
+  'ownerState={emp:"",filter:""',
+  'OT รออนุมัติ',
+  'data-payroll-nav',
 ];
 
 const missing = required.filter((token) => !html.includes(token));

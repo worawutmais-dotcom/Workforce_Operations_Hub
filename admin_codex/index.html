@@ -990,6 +990,9 @@
   #page-owner .time-ledger-row-actions .btn{min-height:22px;padding:2px 6px;font-size:9px;border-radius:4px}
   #page-owner .time-ledger-row-actions .btn+.btn{margin-left:3px!important}
   #page-owner .time-ledger .empty{padding:20px 10px;font-size:11px}
+  #page-owner .ledger-filter{display:flex;gap:3px;padding:2px;border:1px solid #d6dee8;border-radius:6px;background:#f8fafc}
+  #page-owner .ledger-filter .btn{min-height:22px;padding:2px 6px;border:0;background:transparent;color:#617085;font-size:9px}
+  #page-owner .ledger-filter .btn.active{background:#173b63;color:#fff;box-shadow:none}
   /* Premium dashboard, reorganized: decision and team evidence lead; decoration stays secondary. */
   #page-dashboard .cc{gap:13px;max-width:1440px;padding-bottom:28px}#page-dashboard .cc-head{padding:0 2px;align-items:center}#page-dashboard .cc-head h2{font-size:23px;letter-spacing:-.45px;margin-top:4px}.cc-head-r{gap:8px!important}.cc-clock{font-size:15px!important;padding:5px 9px!important;border-radius:7px!important}.cc-head-r .hr-primary{min-height:32px!important;padding:0 11px!important;font-size:12px!important}.cc-head-r .hr-primary svg{width:14px!important;height:14px!important}
   #page-dashboard .cc-hero{grid-template-columns:300px minmax(0,1fr);min-height:176px;border-radius:14px;background:#17324e;box-shadow:0 12px 28px -18px rgba(15,35,58,.7)}#page-dashboard .cc-hero:before{display:none}#page-dashboard .cc-ring-panel{gap:14px;padding:18px;border-right-color:rgba(255,255,255,.12)}#page-dashboard .cc-ring,#page-dashboard .cc-ring svg{width:104px;height:104px}#page-dashboard .cc-ring-center b{font-size:30px}.cc-ring-center span{font-size:10px!important}.cc-ring-center small{font-size:9px!important}.cc-legend{gap:7px!important;min-width:110px!important}.cc-legend .lg{font-size:10px!important}.cc-legend .lg b{font-size:13px!important}.cc-legend .lg i{width:8px!important;height:8px!important;border-radius:3px!important}#page-dashboard .cc-hero-main{padding:20px 24px}.cc-kicker{font-size:10px!important}.cc-hero-main h3{margin-top:6px!important;font-size:21px!important}.cc-hero-main p{margin-top:6px!important;font-size:12px!important}.cc-chips{margin-top:11px!important;gap:6px!important}.cc-chip{padding:4px 8px!important;font-size:10px!important}.cc-hero-foot{margin-top:12px!important;padding-top:11px!important;gap:20px!important}.cc-hero-foot span{font-size:9px!important}.cc-hero-foot b{font-size:12px!important}
@@ -1820,11 +1823,19 @@ async function renderDashboard(data, preloaded={}){
           <span class="tc-pill" style="background:${m.soft};color:${m.ink}"><i style="background:${m.ring}"></i>${m.label}</span>
         </button>`;
       }).join(""):`<div class="empty">ยังไม่มีพนักงานที่ใช้งานอยู่</div>`;
-      const decideHtml=(leaveD._loadError||timeD._loadError)?`<div class="empty">โหลดรายการไม่สำเร็จ</div>`
-        :(pendingList.length||Number(data.exceptions)>0)?
-          `${Number(data.exceptions)>0?`<div class="dash-row" data-nav="owner" style="cursor:pointer"><span class="badge red">ตรวจ</span><div style="flex:1;min-width:0"><div style="font-size:13px">เวลาผิดปกติ ${fmtInt(data.exceptions)} รายการ</div><div class="sub">ค้างเคลียร์ · กดเพื่อตรวจ</div></div><span class="sub">›</span></div>`:""}`+
-          pendingList.map(r=>`<div class="dash-row" data-nav="approvals" style="cursor:pointer"><span class="badge ${r.type==="ลา"?"blue":"amber"}">${esc(r.type)}</span><div style="flex:1;min-width:0"><div style="font-size:13px">${esc(r.name)}</div><div class="sub">${esc(r.detail)}</div></div><span class="sub">›</span></div>`).join("")
-        :`<div class="empty">ไม่มีงานค้างให้ตัดสินใจ</div>`;
+      // One queue, ordered by payroll risk.  A generic count made operators
+      // hunt for the affected employee before they could act.
+      const incompleteRows=attendanceDays.filter(d=>d.date<=todayAtt&&d.status!=="complete");
+      const actionQueue=[];
+      incompleteRows.forEach(d=>actionQueue.push({kind:"time",name:d.name||empName(d.employeeId)||d.employeeId,detail:`${fmtDate(d.date)} · ${d.checkIn?"ยังไม่ได้เช็กเอาต์":"เวลาเข้า–ออกไม่ครบ"}`,cta:"ตรวจเวลา",target:"owner",filter:"review",priority:0}));
+      pendT.filter(r=>String(r.requestType||"").toLowerCase()==="overtime").forEach(r=>actionQueue.push({kind:"ot",name:empName(r.employeeId),detail:`${fmtDate(r.workDate)} · ${fmtHours(r.requestedMinutes)} · รออนุมัติก่อนนำไปคำนวณเงินเดือน`,cta:"อนุมัติ OT",target:"approvals",priority:1}));
+      pendL.forEach(r=>actionQueue.push({kind:"leave",name:empName(r.employeeId),detail:`${fmtDate(r.startDate||r.leaveDate||r.workDate)} · คำขอลารออนุมัติ`,cta:"พิจารณา",target:"approvals",priority:2}));
+      if(canFinance&&actionQueue.length===0&&payrollEligible>0) actionQueue.push({kind:"payroll",name:"งวดเงินเดือนปัจจุบัน",detail:`คำนวณได้ ${fmtInt(payrollEligible)} คน · พร้อมตรวจและออกสลิป`,cta:"ออกสลิป",target:"payroll",priority:3});
+      actionQueue.sort((a,b)=>a.priority-b.priority);
+      const queueStyle={time:"red",ot:"amber",leave:"blue",payroll:"green"};
+      const decideHtml=(leaveD._loadError||timeD._loadError)?`<div class="empty">โหลดรายการคิวงานไม่สำเร็จ</div>`
+        :actionQueue.length?actionQueue.slice(0,5).map(item=>`<div class="dash-row action-queue-row" data-action-target="${esc(item.target)}" data-owner-filter="${esc(item.filter||"")}" style="cursor:pointer"><span class="badge ${queueStyle[item.kind]||"grey"}">${item.kind==="time"?"เวลา":item.kind==="ot"?"OT":item.kind==="leave"?"ลา":"เงินเดือน"}</span><div style="flex:1;min-width:0"><div class="aq-name">${esc(item.name)}</div><div class="sub">${esc(item.detail)}</div></div><button class="btn sub sm aq-action" type="button" data-action-target="${esc(item.target)}" data-owner-filter="${esc(item.filter||"")}">${esc(item.cta)}</button></div>`).join("")
+        :`<div class="empty">วันนี้ไม่มีรายการค้างตรวจ</div>`;
       // Payday reminder: when the pay cycle is near/at/overdue, nudge the owner to
       // review timesheets and issue payslips. Window = 3 days before → 2 days after.
       const payInfo = canFinance ? nextPaydayInfo(dashSettings) : null;
@@ -1878,7 +1889,7 @@ async function renderDashboard(data, preloaded={}){
             ${canFinance?`<div class="panel cc-payroll"><div class="head"><div><b>เงินเดือนงวดปัจจุบัน</b><span class="sub" style="margin-left:8px">${esc(payrollPeriodLabel)}</span></div><div class="spacer"></div><span class="cc-pay-badge ${payrollIncomplete?"wait":"ok"}">${payrollIncomplete?"ต้องตรวจ":"พร้อมออกสลิป"}</span></div><div class="body"><div class="cc-pay-metrics"><div><span>ยอดสุทธิตาม Timesheet</span><b class="money">${fmtBaht(totalNet)}</b><em>ก่อนหัก ${fmtBaht(payrollGross)} · หัก ${fmtBaht(payrollDed)}</em></div><div><span>คำนวณได้</span><b>${fmtInt(payrollEligible)} คน</b><em>มีเวลาและเรตครบ</em></div><div><span>เวลาค้างตรวจ</span><b class="${payrollIncomplete?"warn":""}">${fmtInt(payrollIncomplete)} รายการ</b><em>${payrollIncomplete?"ต้องตรวจให้ครบก่อนออกสลิป":"ไม่มีรายการค้าง"}</em></div></div><div class="cc-pay-actions"><button class="btn sub sm" data-nav="owner">ตรวจเวลาเข้า–ออก</button><button class="btn sm" data-nav="payroll">${payrollActionLabel}</button></div></div></div>`:""}
           </section>
           <section class="cc-work">
-            <div class="panel cc-decide"><div class="head"><b>คิวที่ต้องตัดสินใจ</b><div class="spacer"></div><button class="btn sub sm" data-nav="approvals">เปิดทั้งหมด</button></div><div class="body flush dash-list">${decideHtml}</div></div>
+            <div class="panel cc-decide"><div class="head"><b>งานที่ต้องจัดการ</b><span class="sub" style="margin-left:8px">เรียงตามผลกระทบต่อเงินเดือน</span><div class="spacer"></div><button class="btn sub sm" data-nav="approvals">เปิดคำขอทั้งหมด</button></div><div class="body flush dash-list">${decideHtml}</div></div>
             <div class="panel team-register hr-team"><div class="head"><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">เลือกชื่อเพื่อดูเวลาเข้า–ออกและประวัติ</span><div class="spacer"></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เวลาเข้า</span><span>สถานะ</span></div><div class="team-grid">${teamHtml}</div></div></div>
           </section>
           <section class="cc-lower"><section class="panel dashboard-personal-time" aria-label="เวลาทำงานรายบุคคล"><div class="head"><div><b>แนวโน้มเวลาทำงานรายบุคคล</b><span class="sub" style="margin-left:8px">สรุปเดือนนี้ · เลือกพนักงานเพื่อดูรายละเอียด</span></div></div><div class="body"><div id="peoplePulse"><div class="empty">กำลังโหลดสรุปรายบุคคล…</div></div></div></section><section class="panel site-policy dashboard-checkin-sites" aria-label="จุดเช็กอินที่อนุญาต"><div class="head"><div><b>จุดเช็กอินที่อนุญาต</b><span class="sub" style="margin-left:8px">นโยบายพื้นที่สำหรับการเช็กอิน</span></div><div class="spacer"></div><button class="btn sm" id="siteAddBtn">เพิ่มจุด</button></div><div class="site-policy-note">พนักงานเช็กอินได้เมื่ออยู่ในรัศมีของจุดที่เปิดใช้งาน · เช็กเอาต์ได้ทุกพื้นที่</div><div class="body flush"><table id="siteTable"><thead><tr><th>พื้นที่</th><th class="num">รัศมี</th><th>สถานะ</th><th data-nosort></th></tr></thead><tbody id="siteRows"><tr><td colspan="4"><div class="empty">กำลังโหลดจุดเช็กอิน…</div></td></tr></tbody></table></div></section></section>
@@ -1912,6 +1923,11 @@ async function renderDashboard(data, preloaded={}){
       node.prepend(hero); hero.after(priority);
     }
     node.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>go(b.dataset.nav));
+    node.querySelectorAll("[data-action-target]").forEach(b=>b.onclick=(ev)=>{
+      ev.stopPropagation();
+      if(b.dataset.ownerFilter) ownerState.filter=b.dataset.ownerFilter;
+      go(b.dataset.actionTarget);
+    });
     node.querySelectorAll("[data-calendar]").forEach(b=>b.onclick=()=>openAttendanceCalendar(b.dataset.calendar, attendanceDays, attendanceD, owner));
     node.querySelectorAll('[data-checkin]').forEach(b=>b.onclick=()=>quickClock(b.dataset.checkin,"check_in",b));
     node.querySelectorAll('[data-checkout]').forEach(b=>b.onclick=()=>quickClock(b.dataset.checkout,"check_out",b));
@@ -2841,37 +2857,50 @@ async function doPreview(btn){
   await loadEmployees().catch(()=>{});
   await withBtn(btn, async ()=>{
     try{
-      const data=await api("admin_preview_payroll",{startDate, endDate});
+      const [data, rulesData, timeData]=await Promise.all([
+        api("admin_preview_payroll",{startDate, endDate}),
+        api("admin_list_pay_rules").catch(()=>({rules:[]})),
+        api("admin_list_time_requests").catch(()=>({requests:[]})),
+      ]);
       lastPreview={startDate:data.startDate, endDate:data.endDate, lines:data.lines, totalGross:data.totalGross, totalAdvance:data.totalAdvance, totalNet:data.totalNet, period:{start:data.startDate, end:data.endDate, label:""}};
       const box=$("#previewResult");
       const incWarn=incompleteWarningHtml(data.incompleteDays);
       const incompleteCount=(data.incompleteDays||[]).length;
       const eligibleCount=(data.lines||[]).length;
-      const payrollReady=eligibleCount>0 && incompleteCount===0;
+      const incompleteByEmp=new Set((data.incompleteDays||[]).map(d=>d.employeeId));
+      const pendingOtByEmp=new Set((timeData.requests||[]).filter(r=>r.requestType==="overtime"&&r.status==="pending"&&r.workDate>=startDate&&r.workDate<=endDate).map(r=>r.employeeId));
+      const ruleByEmp={}; (rulesData.rules||[]).forEach(r=>ruleByEmp[r.employeeId]=r);
+      const activeEmployees=(state.employees||[]).filter(e=>String(e.status||"active").toLowerCase()==="active");
+      const lineByEmp={}; (data.lines||[]).forEach(l=>lineByEmp[l.employeeId]=l);
+      const payrollRows=(activeEmployees.length?activeEmployees:(data.lines||[]).map(l=>({id:l.employeeId,name:empName(l.employeeId)}))).map(emp=>{
+        const line=lineByEmp[emp.id];
+        let state="ready", label="พร้อมออกสลิป", action="ออกสลิป", target="slip";
+        if(incompleteByEmp.has(emp.id)){ state="blocked"; label="เวลาไม่ครบ"; action="ตรวจเวลา"; target="owner"; }
+        else if(pendingOtByEmp.has(emp.id)){ state="waiting"; label="OT รออนุมัติ"; action="อนุมัติ OT"; target="approvals"; }
+        else if(!ruleByEmp[emp.id]?.hasRule){ state="blocked"; label="ยังไม่ตั้งเรต"; action="ตั้งเรต"; target="payrules"; }
+        else if(!line){ state="waiting"; label="ไม่มีเวลาครบในงวด"; action="ตรวจเวลา"; target="owner"; }
+        return {emp,line,state,label,action,target};
+      });
+      const payrollReady=payrollRows.some(r=>r.state==="ready") && payrollRows.every(r=>r.state!=="blocked"&&r.state!=="waiting");
+      const pendingOtCount=pendingOtByEmp.size;
       if(summary) summary.innerHTML=`
         <div class="payroll-metric"><span>พนักงานที่คำนวณได้</span><b>${fmtInt((data.lines||[]).length)} คน</b><em>มีเรตค่าจ้างและเวลาเข้าครบ</em></div>
         <div class="payroll-metric"><span>รายได้รวม</span><b>${fmtBaht(data.totalGross)}</b><em>ก่อนหักรายการ</em></div>
         <div class="payroll-metric"><span>ยอดหักรวม</span><b>${fmtBaht((data.totalAdvance||0)+(data.totalSso||0)+(data.totalOther||0))}</b><em>เบิกล่วงหน้า / ปกส. / อื่นๆ</em></div>
-        <div class="payroll-metric"><span>ยอดจ่ายสุทธิ</span><b>${fmtBaht(data.totalNet!=null?data.totalNet:data.totalGross)}</b><em>${(data.incompleteDays||[]).length?`ต้องตรวจเวลา ${(data.incompleteDays||[]).length} รายการ`:`ไม่มีเวลาค้างตรวจ`}</em></div>`;
-      if(!data.lines.length){
-        box.innerHTML=incWarn+`<div class="empty"><b>ยังสร้างเงินเดือนไม่ได้</b><br><span class="sub">ต้องมีเช็กอิน/เช็กเอาต์ครบ และตั้งเรตค่าจ้างก่อน</span><div class="toolbar" style="justify-content:center;margin-top:14px"><button class="btn" data-nav="owner">ตรวจเวลาทำงาน</button><button class="btn ghost" data-nav="payrules">ตั้งเรตค่าจ้าง</button></div></div>`;
-        box.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>go(b.dataset.nav));
-        return;
-      }
-      box.innerHTML=`<div class="payroll-readiness ${payrollReady?"":"is-blocked"}"><div><span class="ready-dot"></span><b>${payrollReady?"พร้อมตรวจและออกสลิป":"ต้องตรวจ Timesheet ก่อนออกสลิป"}</b><span class="sub"> · ${payrollReady?"เปิด Timesheet รายคน แล้วออกสลิปจากรายการนั้น":`พบเวลาไม่ครบ ${fmtInt(incompleteCount)} รายการ`}</span></div>${payrollReady?"":`<div class="toolbar"><button class="btn ghost sm" data-nav="owner">ตรวจเวลา</button><button class="btn ghost sm" data-nav="payrules">ตั้งเรต</button></div>`}</div>`+((data.shortfallPolicy&&data.shortfallPolicy!=="none"&&(data.shortDaysCount||0)>0)?`<div class="notice" style="margin:0 0 12px;border-color:#f0d49a;background:#fff7ea"><div><b>นโยบายไม่ครบกะ:</b> ${data.shortfallPolicy==="deduct_wage"?"ตัดค่าแรงตามสัดส่วน":"หัก OT เท่าชั่วโมงที่ขาด"} · มี ${fmtInt(data.shortDaysCount)} วันที่ไม่ครบกะในงวดนี้${(data.totalShortfallDeduction||0)>0?` · ตัดค่าแรงรวม −${fmtBaht(data.totalShortfallDeduction)}`:""}</div></div>`:"")+incWarn+`
-        <table><thead><tr><th>พนักงาน</th><th class="num">วันทำงาน</th><th class="num">ชม.ปกติ</th><th class="num">OT</th>
+        <div class="payroll-metric"><span>ยอดจ่ายสุทธิ</span><b>${fmtBaht(data.totalNet!=null?data.totalNet:data.totalGross)}</b><em>${incompleteCount?`ต้องตรวจเวลา ${fmtInt(incompleteCount)} รายการ`:pendingOtCount?`OT รออนุมัติ ${fmtInt(pendingOtCount)} คน`:`ไม่มีเวลาค้างตรวจ`}</em></div>`;
+      box.innerHTML=`<div class="payroll-readiness ${payrollReady?"":"is-blocked"}"><div><span class="ready-dot"></span><b>${payrollReady?"พร้อมออกสลิป":"ยังมีรายการที่ต้องจัดการก่อนออกสลิป"}</b><span class="sub"> · ${incompleteCount?`เวลาไม่ครบ ${fmtInt(incompleteCount)} รายการ`:pendingOtCount?`OT รออนุมัติ ${fmtInt(pendingOtCount)} คน`:"ตรวจสถานะรายบุคคลด้านล่าง"}</span></div>${payrollReady?"":`<div class="toolbar"><button class="btn ghost sm" data-nav="owner">ตรวจเวลา</button><button class="btn ghost sm" data-nav="payrules">ตั้งเรต</button></div>`}</div>`+((data.shortfallPolicy&&data.shortfallPolicy!=="none"&&(data.shortDaysCount||0)>0)?`<div class="notice" style="margin:0 0 12px;border-color:#f0d49a;background:#fff7ea"><div><b>นโยบายไม่ครบกะ:</b> ${data.shortfallPolicy==="deduct_wage"?"ตัดค่าแรงตามสัดส่วน":"หัก OT เท่าชั่วโมงที่ขาด"} · มี ${fmtInt(data.shortDaysCount)} วันที่ไม่ครบกะในงวดนี้${(data.totalShortfallDeduction||0)>0?` · ตัดค่าแรงรวม −${fmtBaht(data.totalShortfallDeduction)}`:""}</div></div>`:"")+incWarn+`
+        <table><thead><tr><th>พนักงาน</th><th>ความพร้อม</th><th class="num">วันทำงาน</th><th class="num">ชม.ปกติ</th><th class="num">OT</th>
           <th class="num">ฐาน</th><th class="num">OT (เงิน)</th><th class="num">รวม gross</th><th class="num">หักเบิก</th><th class="num">ปกส./อื่นๆ</th><th class="num">สุทธิ</th><th data-nosort></th></tr></thead>
-        <tbody>${data.lines.map((l,idx)=>`
-          <tr><td class="person">${esc(empName(l.employeeId))}<span class="sub">${esc(l.employeeId)}</span></td>
-            <td class="num">${fmtInt(l.workDays)}</td><td class="num">${fmtHours(l.regularMinutes)}</td>
-            <td class="num">${fmtHours(l.otMinutes)}</td><td class="num">${fmtBaht(l.baseGross)}</td>
-            <td class="num">${fmtBaht(l.otGross)}</td><td class="num">${fmtBaht(l.grossPay)}</td>
-            <td class="num">${l.advanceDeduction?'-'+fmtBaht(l.advanceDeduction):"—"}</td>
-            <td class="num">${((l.sso||0)+(l.otherDeduction||0))?'-'+fmtBaht((l.sso||0)+(l.otherDeduction||0)):"—"}</td>
-            <td class="num"><b>${fmtBaht(l.netPay!=null?l.netPay:l.grossPay)}</b></td>
-            <td class="num"><button class="btn sub sm" data-timesheet="${idx}">ตรวจ Timesheet</button></td></tr>`).join("")}
+        <tbody>${payrollRows.map((row,idx)=>{ const l=row.line||{}; const badge=row.state==="ready"?"green":row.state==="waiting"?"amber":"red"; return `
+          <tr><td class="person">${esc(row.emp.name||empName(row.emp.id))}<span class="sub">${esc(row.emp.id)}</span></td>
+            <td><span class="badge ${badge}">${esc(row.label)}</span></td><td class="num">${l.workDays!=null?fmtInt(l.workDays):"—"}</td><td class="num">${l.regularMinutes!=null?fmtHours(l.regularMinutes):"—"}</td>
+            <td class="num">${l.otMinutes!=null?fmtHours(l.otMinutes):"—"}</td><td class="num">${l.baseGross!=null?fmtBaht(l.baseGross):"—"}</td>
+            <td class="num">${l.otGross!=null?fmtBaht(l.otGross):"—"}</td><td class="num">${l.grossPay!=null?fmtBaht(l.grossPay):"—"}</td>
+            <td class="num">${l.advanceDeduction?'-'+fmtBaht(l.advanceDeduction):"—"}</td><td class="num">${((l.sso||0)+(l.otherDeduction||0))?'-'+fmtBaht((l.sso||0)+(l.otherDeduction||0)):"—"}</td>
+            <td class="num"><b>${l.grossPay!=null?fmtBaht(l.netPay!=null?l.netPay:l.grossPay):"—"}</b></td>
+            <td class="num">${row.target==="slip"?`<button class="btn sub sm" data-timesheet="${idx}">ออกสลิป</button>`:`<button class="btn sub sm" data-payroll-nav="${esc(row.target)}">${esc(row.action)}</button>`}</td></tr>`; }).join("")}
         </tbody>
-        <tfoot><tr><td colspan="6" style="text-align:right;font-weight:700;padding:13px 14px">รวมทั้งงวด</td>
+        <tfoot><tr><td colspan="7" style="text-align:right;font-weight:700;padding:13px 14px">รวมทั้งงวด</td>
           <td class="num" style="padding:13px 14px">${fmtBaht(data.totalGross)}</td>
           <td class="num" style="padding:13px 14px">${(data.totalAdvance||0)?"-"+fmtBaht(data.totalAdvance):"—"}</td>
           <td class="num" style="padding:13px 14px">${((data.totalSso||0)+(data.totalOther||0))?"-"+fmtBaht((data.totalSso||0)+(data.totalOther||0)):"—"}</td>
@@ -2882,7 +2911,11 @@ async function doPreview(btn){
           <div class="spacer"></div>
           ${payrollReady?`<span class="sub">เปิด Timesheet เพื่อแก้รายการและออกสลิปเป็นรายพนักงาน</span>`:`<button class="btn sub" disabled>แก้ Timesheet ก่อนออกสลิป</button>`}
         </div>`;
-      box.querySelectorAll("[data-timesheet]").forEach(b=>b.onclick=()=>payrollTimesheetDialog(data.lines[+b.dataset.timesheet], lastPreview.period));
+      box.querySelectorAll("[data-timesheet]").forEach(b=>b.onclick=()=>payrollTimesheetDialog(payrollRows[+b.dataset.timesheet].line, lastPreview.period));
+      box.querySelectorAll("[data-payroll-nav]").forEach(b=>b.onclick=()=>{
+        if(b.dataset.payrollNav==="owner") ownerState.filter="review";
+        go(b.dataset.payrollNav);
+      });
       $("#exportPrev").onclick=()=>exportCSV(lastPreview, "preview");
       $("#printSum").onclick=()=>printMonthlySummary(data);
       box.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>go(b.dataset.nav));
@@ -3400,7 +3433,7 @@ function payRuleDialog(r){
    INVOICES
    ================================================================= */
 /* ======================= หน้าเจ้าของธุรกิจ (owner) ======================= */
-const ownerState={emp:"",pmMonth:null,pmSel:null,pmLoaded:false};
+const ownerState={emp:"",filter:"",pmMonth:null,pmSel:null,pmLoaded:false};
 const FREQ_LABEL={monthly:"รายเดือน",semimonthly:"เดือนละ 2 ครั้ง",weekly:"รายสัปดาห์"};
 const DOW_SHORT=["อา","จ","อ","พ","พฤ","ศ","ส"];
 const payDayLabel=(v)=>String(v)==="end"?"สิ้นเดือน":("วันที่ "+v);
@@ -3491,7 +3524,7 @@ async function renderOwner(){
           <div class="time-ledger-actions"><select id="ownEmp" aria-label="กรองพนักงาน"></select><button class="btn ok sm" id="ownIn">ลงเวลาเข้า</button><button class="btn danger sm" id="ownOut">ลงเวลาออก</button></div>
         </section>
         ${incompleteWarningHtml(data.incompleteDays)}
-        <section class="panel time-ledger"><div class="head"><div><b>รายการลงเวลา</b><span class="sub" style="margin-left:7px">ตารางข้อมูลรายวัน · เลือกพนักงานด้านบนเพื่อกรอง</span></div><div class="spacer"></div><button class="btn sub sm" id="expAttBtn">ส่งออก CSV</button></div>
+        <section class="panel time-ledger"><div class="head"><div><b>รายการลงเวลา</b><span class="sub" style="margin-left:7px">ตารางข้อมูลรายวัน · เลือกพนักงานด้านบนเพื่อกรอง</span></div><div class="spacer"></div><div class="ledger-filter" role="group" aria-label="กรองรายการลงเวลา"><button class="btn sub sm" data-att-filter="review">ต้องตรวจ</button><button class="btn sub sm" data-att-filter="today">วันนี้</button><button class="btn sub sm" data-att-filter="complete">ครบแล้ว</button><button class="btn sub sm" data-att-filter="all">ทั้งหมด</button></div><button class="btn sub sm" id="expAttBtn">ส่งออก CSV</button></div>
           <div class="body flush"><table>
             <thead><tr><th>วันที่</th><th>พนักงาน</th><th class="num">เข้า</th><th class="num">ออก</th><th class="num">ชั่วโมงทำงาน</th><th>สถานะ</th><th data-nosort></th></tr></thead>
             <tbody id="ownAtt"><tr><td colspan="7"><div class="empty">กำลังโหลด…</div></td></tr></tbody>
@@ -3532,7 +3565,12 @@ async function renderOwner(){
       try{ const a=await api("admin_attendance_days", ownerState.emp?{employeeId:ownerState.emp}:{});
         const days=a.days||[];
         const today=todayISO();
-        tb.innerHTML=days.length? days.map((d,i)=>{
+        const needsReview=d=>d.status!=="complete";
+        const reviewCount=days.filter(needsReview).length;
+        if(!ownerState.filter) ownerState.filter=reviewCount?"review":"all";
+        const shown=days.filter(d=>ownerState.filter==="review"?needsReview(d):ownerState.filter==="today"?d.date===today:ownerState.filter==="complete"?d.status==="complete":true);
+        node.querySelectorAll("[data-att-filter]").forEach(b=>b.classList.toggle("active",b.dataset.attFilter===ownerState.filter));
+        tb.innerHTML=shown.length? shown.map((d,i)=>{
           const isToday=d.date===today;
           let act="";
           if(isToday && !d.checkIn) act+=`<button class="btn ok sm" data-attin="${i}" style="margin-left:8px">ลงเวลาเข้า</button>`;
@@ -3542,16 +3580,16 @@ async function renderOwner(){
           return `<tr data-att="${i}">
           <td>${fmtDate(d.date)}</td><td class="person">${person}<span class="sub">${esc(d.employeeId||"")}</span></td><td class="num">${esc(d.checkIn||"—")}</td><td class="num">${esc(d.checkOut||"—")}</td>
           <td class="num">${d.workedMinutes?fmtHours(d.workedMinutes):"—"}</td><td>${status}</td>
-          <td class="num time-ledger-row-actions">${act}<button class="btn danger sm" data-attvoid="${i}" title="ยกเลิกบันทึกวันนี้">ยกเลิก</button></td></tr>`;}).join("")
-        : `<tr><td colspan="7"><div class="empty">ไม่มีบันทึกเวลาในงวดนี้</div></td></tr>`;
+          <td class="num time-ledger-row-actions">${act}</td></tr>`;}).join("")
+        : `<tr><td colspan="7"><div class="empty">${ownerState.filter==="review"?"ไม่มีรายการที่ต้องตรวจ":ownerState.filter==="today"?"ยังไม่มีบันทึกเวลาวันนี้":"ไม่มีบันทึกเวลา"}</div></td></tr>`;
         const voidDay=(d,btn)=>voidAttendanceDay(d, loadAtt, btn);
-        tb.querySelectorAll("[data-attvoid]").forEach(b=>b.onclick=()=>voidDay(days[+b.dataset.attvoid], b));
-        tb.querySelectorAll("[data-attin]").forEach(b=>b.onclick=()=>adminClock("check_in", days[+b.dataset.attin].employeeId, loadAtt, b));
-        tb.querySelectorAll("[data-attout]").forEach(b=>b.onclick=()=>adminClock("check_out", days[+b.dataset.attout].employeeId, loadAtt, b));
-        tb.querySelectorAll("tr[data-att]").forEach(tr=>{ const d=days[+tr.dataset.att];
+        tb.querySelectorAll("[data-attin]").forEach(b=>b.onclick=()=>adminClock("check_in", shown[+b.dataset.attin].employeeId, loadAtt, b));
+        tb.querySelectorAll("[data-attout]").forEach(b=>b.onclick=()=>adminClock("check_out", shown[+b.dataset.attout].employeeId, loadAtt, b));
+        tb.querySelectorAll("tr[data-att]").forEach(tr=>{ const d=shown[+tr.dataset.att];
           attachRowMenu(tr, [{label:"ยกเลิกบันทึกวันนี้", danger:true, fn:()=>voidDay(d)}]); });
       }catch(err){ tb.innerHTML=`<tr><td colspan="7"><div class="empty">${esc(err.message)}</div></td></tr>`; } };
     sel.onchange=()=>{ ownerState.emp=sel.value; loadAtt(); };
+    node.querySelectorAll("[data-att-filter]").forEach(b=>b.onclick=()=>{ ownerState.filter=b.dataset.attFilter; loadAtt(); });
     $("#ownIn").onclick=()=>adminClock("check_in", null, null, $("#ownIn"));
     $("#ownOut").onclick=()=>adminClock("check_out", null, null, $("#ownOut"));
     $("#expAttBtn").onclick=()=>attendanceExportDialog();
