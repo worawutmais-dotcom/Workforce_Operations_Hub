@@ -980,6 +980,32 @@
   .toast{min-width:0;max-width:360px;padding:10px 12px;border:1px solid rgba(255,255,255,.14);background:#17324e;color:#fff;border-radius:8px;font-size:12px;line-height:1.4;box-shadow:0 10px 24px rgba(20,49,63,.16)}
   .toast.good{background:#176b4b}.toast.bad{background:#8e3636}
   .bvn-route .empty{padding:24px 12px;color:#64748b;font-size:12px}
+  /* Dashboard surface hierarchy: the application canvas, work panels and
+     individual records must remain visibly separate at a glance. */
+  :root:not([data-theme="dark"]) .main{background:#f3f6fa}
+  :root:not([data-theme="dark"]) .topbar{background:#fff}
+  :root:not([data-theme="dark"]) #page-dashboard .panel{border-color:#dfe7ef;background:#fff}
+  :root:not([data-theme="dark"]) #page-dashboard .panel>.head{background:#f7f9fc;border-bottom-color:#dfe7ef}
+  :root:not([data-theme="dark"]) #page-dashboard .dashboard-team-calendar>.body{background:#fbfcfe}
+  #page-dashboard .dashboard-team-calendar{border-top:2px solid #365b7d!important}
+  #page-dashboard .team-cal-legend{padding:2px 0 10px;color:#52677d;font-size:10px}
+  #page-dashboard .team-cal-dow{padding:4px 0 6px;font-size:10px;font-weight:600;color:#52677d}
+  #page-dashboard .team-cal-grid{gap:5px}
+  #page-dashboard .team-cal-day{min-height:68px;padding:7px 8px;border-color:#e1e8f0;border-radius:8px;background:#fff;box-shadow:inset 3px 0 0 transparent}
+  #page-dashboard .team-cal-day:hover:not(:disabled){background:#f5f8fc;border-color:#9eb4c8}
+  #page-dashboard .team-cal-day.weekend{background:#f5f7fa;border-color:#e8edf3;box-shadow:inset 3px 0 0 #b8c4d0}
+  #page-dashboard .team-cal-day.future{opacity:1;background:#fafbfd;border-color:#edf1f5;color:#8290a0}
+  #page-dashboard .team-cal-day.today{background:#eff5fb;border-color:#7391af;box-shadow:inset 3px 0 0 #365b7d, inset 0 0 0 1px #365b7d}
+  #page-dashboard .team-cal-day.ok{background:#f3fbf6;border-color:#cde8d6;box-shadow:inset 3px 0 0 #27835a}
+  #page-dashboard .team-cal-day.warn{background:#fff9ee;border-color:#f0dfb6;box-shadow:inset 3px 0 0 #b7791f}
+  #page-dashboard .team-cal-day .tcd-date{font-size:12px;color:#172c42;font-variant-numeric:tabular-nums}
+  #page-dashboard .team-cal-day .tcd-state{margin-top:7px;font-size:10px;font-weight:600;line-height:1.3}
+  #page-dashboard .team-cal-day .tcd-meta{margin-top:2px;font-size:9px;color:#62748a;line-height:1.25}
+  #page-dashboard .team-cal-day.ok .tcd-state{color:#176b4b}
+  #page-dashboard .team-cal-day.warn .tcd-state{color:#8a5916}
+  #page-dashboard .team-cal-day.off .tcd-state{color:#62748a}
+  #page-dashboard .team-cal-day .badge{font-size:9px;padding:2px 5px;background:#dce9f5;color:#294866;border-radius:5px}
+  @media(max-width:700px){#page-dashboard .team-cal-day{min-height:58px;padding:6px}.team-cal-day .tcd-state{margin-top:5px}}
 </style>
 </head>
 <body>
