@@ -74,6 +74,9 @@ const required = [
   'payrollTableEmpty',
   'approval-queue-note',
   'pending-ot',
+  'cc-hero-rail',
+  'ยอดจ่ายสุทธิประมาณการ',
+  'ตัวชี้วัดที่ต้องติดตาม',
 ];
 
 const missing = required.filter((token) => !html.includes(token));

@@ -1170,6 +1170,16 @@
   .approval-queue-note{display:flex;align-items:center;gap:8px;margin:12px 0;padding:8px 10px;border:1px solid #eadab6;border-radius:9px;background:#fffaf0;color:#7a5517;font-size:11px}.approval-queue-note i{width:7px;height:7px;border-radius:50%;background:var(--ops-amber);flex:none}.approval-queue-note b{color:#5d4316}
   .approval-row{display:flex;align-items:center;gap:11px;padding:10px 14px;border-bottom:1px solid var(--ops-line);background:#fff}.approval-row:hover{background:#fbfdff}.approval-row.pending-ot{box-shadow:inset 3px 0 0 var(--ops-amber);background:#fffdf8}.approval-row.pending-leave{box-shadow:inset 3px 0 0 #4779a7}.approval-row .approval-actions{display:flex;gap:5px;flex:none}
   @media(max-width:620px){.approval-row{align-items:flex-start;flex-wrap:wrap}.approval-row .approval-actions{margin-left:auto}.approval-queue-note{align-items:flex-start}}
+  /* Dashboard: attendance and estimated pay share one operational board. */
+  #page-dashboard .cc-hero{grid-template-columns:minmax(300px,.78fr) minmax(0,1.22fr) minmax(220px,.52fr)}
+  #page-dashboard .cc-hero-main{padding:24px 28px}
+  #page-dashboard .cc-hero-rail{display:grid;align-content:center;gap:8px;padding:16px;border-left:1px solid rgba(255,255,255,.12);background:rgba(8,27,45,.18)}
+  #page-dashboard .cc-hero-metric{position:relative;width:100%;min-height:94px;padding:12px 13px;border:1px solid rgba(255,255,255,.13);border-radius:10px;background:rgba(255,255,255,.055);color:#eff6fc;text-align:left;font:inherit;overflow:hidden;cursor:pointer;transition:background .14s ease,border-color .14s ease}
+  #page-dashboard .cc-hero-metric:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.26)}
+  #page-dashboard .cc-hero-metric span{display:block;color:#b7cadb;font-size:10px}.cc-hero-metric b{display:block;margin-top:5px;font-size:25px;line-height:1;font-weight:600;letter-spacing:-.04em;font-variant-numeric:tabular-nums}.cc-hero-metric small{display:block;margin-top:7px;color:#d4e1eb;font-size:10px}
+  #page-dashboard .cc-hero-metric.live:before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;background:#53d0ad;border-radius:0 2px 2px 0}.cc-hero-metric.live b{color:#7ce1c2}
+  #page-dashboard .cc-hero-metric.money:after{content:"฿";position:absolute;right:-4px;bottom:-30px;font-size:104px;font-weight:700;line-height:1;color:rgba(255,255,255,.05)}#page-dashboard .cc-hero-metric.money b{color:#f6c86e}
+  @media(max-width:1240px){#page-dashboard .cc-hero{grid-template-columns:minmax(290px,.85fr) minmax(0,1.15fr)}#page-dashboard .cc-hero-rail{grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr));border-left:0;border-top:1px solid rgba(255,255,255,.12)}#page-dashboard .cc-hero-metric{min-height:76px}}@media(max-width:700px){#page-dashboard .cc-hero-rail{grid-template-columns:1fr}.cc-hero-metric{min-height:72px}}
   @media(max-width:1180px){.people-profile-filter{order:3;width:100%}.people-summary{display:none}}
   @media(max-width:820px){.people-profile-filter{order:initial;max-width:100%;overflow:auto}.people-profile-filter button{flex:none}.payroll-table-tools{align-items:flex-start;flex-wrap:wrap}.payroll-filter-set{overflow:auto;max-width:100%}}
   @media(max-width:900px){:root:not([data-theme="dark"]) .side{box-shadow:0 18px 42px rgba(12,34,54,.32)}}
@@ -1979,14 +1989,16 @@ async function renderDashboard(data, preloaded={}){
               <div class="cc-chips"><span class="cc-chip ok"><i></i>ออนไลน์ ${fmtInt(cOn+cLate)}</span><span class="cc-chip amber"><i></i>สาย ${fmtInt(cLate)}</span><span class="cc-chip rose"><i></i>ต้องตรวจ ${fmtInt(data.exceptions)}</span></div>
               <div class="cc-hero-foot"><div><span>กะงาน</span><b>${esc(dashShiftStart)}–${esc(shiftEnd)} น.</b></div><div><span>ผ่อนผันสาย</span><b>${fmtInt(dashGrace)} นาที</b></div><div><span>วันทำงาน</span><b>${fmtInt(workdaysCount)} วัน/สัปดาห์</b></div></div>
             </div>
+            <div class="cc-hero-rail" aria-label="สรุปงานและเงินเดือน">
+              <button class="cc-hero-metric live" data-nav="owner"><span>ลงเวลาแล้ววันนี้</span><b>${fmtInt(cOn+cLate+cDone)} คน</b><small>ออนไลน์ ${fmtInt(cOn+cLate)} · ออกแล้ว ${fmtInt(cDone)}</small></button>
+              ${canFinance?`<button class="cc-hero-metric money" data-nav="payroll"><span>ยอดจ่ายสุทธิประมาณการ</span><b>${fmtBaht(totalNet)}</b><small>พร้อมตรวจสลิป ${fmtInt(payrollEligible)} คน</small></button>`:""}
+            </div>
           </section>
-          <section class="cc-metrics" aria-label="ตัวชี้วัดวันนี้">
-            <button class="cc-stat s-emerald" data-nav="owner"><span class="cc-stat-ic">${SVG.clock}</span><span class="cc-stat-l">เริ่มงานแล้ว</span><b>${fmtInt(cOn+cLate+cDone)}</b><small>ออนไลน์ ${fmtInt(cOn+cLate)} · ออกแล้ว ${fmtInt(cDone)}</small></button>
+          ${(cLate||mPend||Number(data.exceptions))?`<section class="cc-metrics" aria-label="ตัวชี้วัดที่ต้องติดตาม">
             ${cLate?`<button class="cc-stat s-amber" data-nav="owner"><span class="cc-stat-ic">${SVG.late}</span><span class="cc-stat-l">มาสาย</span><b>${fmtInt(cLate)}</b><small>${fmtInt(pLate)}% ของทีม</small></button>`:""}
             ${mPend?`<button class="cc-stat s-indigo" data-nav="approvals"><span class="cc-stat-ic">${SVG.inbox}</span><span class="cc-stat-l">รออนุมัติ</span><b>${fmtInt(mPend)}</b><small>ลา ${fmtInt(mLeave)} · OT ${fmtInt(mOt)} · ${_thMon}</small></button>`:""}
             ${Number(data.exceptions)?`<button class="cc-stat s-rose" data-nav="owner"><span class="cc-stat-ic">${SVG.search}</span><span class="cc-stat-l">ต้องตรวจเวลา</span><b>${fmtInt(data.exceptions)}</b><small>${canFinance&&Number(data.overdueInvoices)>0?`Invoice เกิน ${fmtBaht(data.overdueInvoices)}`:"ตรวจให้ครบก่อนปิดรอบ"}</small></button>`:""}
-            ${canFinance?`<button class="cc-stat s-money" data-nav="payroll"><span class="cc-stat-ic">${SVG.wallet}</span><span class="cc-stat-l">รายจ่ายงวดนี้</span><b>${fmtBaht(totalNet)}</b><small>พร้อมจ่าย ${fmtInt(payrollEligible)} คน</small></button>`:""}
-          </section>
+          </section>`:""}
           <section class="cc-split">
             <div class="panel cc-arrival"><div class="head"><div><b>ช่วงเวลาเข้างานของทีม</b><span class="sub" style="margin-left:8px">วันนี้ · พีคสุด ${fmtInt(arrivalPeak)} คน</span></div></div><div class="body"><div class="cc-arrival-chart"><div class="cc-bars">${arrivalBars}</div><div class="cc-axis">${arrivalLabels}</div></div></div></div>
             ${canFinance?`<div class="panel cc-payroll"><div class="head"><div><b>เงินเดือนงวดปัจจุบัน</b><span class="sub" style="margin-left:8px">${esc(payrollPeriodLabel)}</span></div><div class="spacer"></div><span class="cc-pay-badge ${payrollIncomplete?"wait":"ok"}">${payrollIncomplete?"ต้องตรวจ":"พร้อมออกสลิป"}</span></div><div class="body"><div class="cc-pay-metrics"><div><span>ยอดสุทธิตาม Timesheet</span><b class="money">${fmtBaht(totalNet)}</b><em>ก่อนหัก ${fmtBaht(payrollGross)} · หัก ${fmtBaht(payrollDed)}</em></div><div><span>คำนวณได้</span><b>${fmtInt(payrollEligible)} คน</b><em>มีเวลาและเรตครบ</em></div><div><span>เวลาค้างตรวจ</span><b class="${payrollIncomplete?"warn":""}">${fmtInt(payrollIncomplete)} รายการ</b><em>${payrollIncomplete?"ต้องตรวจให้ครบก่อนออกสลิป":"ไม่มีรายการค้าง"}</em></div></div><div class="cc-pay-actions"><button class="btn sub sm" data-nav="owner">ตรวจเวลาเข้า–ออก</button><button class="btn sm" data-nav="payroll">${payrollActionLabel}</button></div></div></div>`:""}
