@@ -963,6 +963,33 @@
   @media(max-width:900px){#page-dashboard .ledger-main,#page-dashboard .ledger-lower{grid-template-columns:1fr}.employee-review-modal{max-width:calc(100vw - 24px)!important}}@media(max-width:620px){#page-dashboard .ledger-head{align-items:flex-start;flex-direction:column}.ledger-metrics{grid-template-columns:1fr}.ledger-metric{border-right:0;border-bottom:1px solid var(--line);min-height:54px}.ledger-metric:last-child{border-bottom:0}.ledger-main .team-register-head{display:none}.ledger-main .team-row{grid-template-columns:30px minmax(0,1fr) auto}.ledger-main .tc-time{display:none}.employee-review-summary{grid-template-columns:1fr}.employee-review-identity{border-right:0;border-bottom:1px solid var(--line)}.employee-review-modal .cd{min-height:53px}.employee-review-modal .io,.employee-review-modal .hp{font-size:9px}}
   /* Attendance ledger: compact table first, one row equals one employee-day. */
   #page-owner .owner-time-workspace{max-width:1440px;margin:0 auto}.time-ledger-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:0 0 10px}.time-ledger-head .route-eyebrow{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}.time-ledger-head h2{margin:3px 0 0;font-size:22px;letter-spacing:-.35px}.time-ledger-head p{margin:3px 0 0;color:var(--muted);font-size:11px}.time-ledger-actions{display:flex;align-items:center;gap:6px}.time-ledger-actions select{height:32px;min-width:190px;padding:5px 9px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font:12px inherit}.time-ledger{margin-top:0!important;box-shadow:none!important}.time-ledger .head{min-height:40px!important;padding:8px 12px!important}.time-ledger table{font-size:12px}.time-ledger th{height:34px;padding:7px 10px;font-size:10px;letter-spacing:.02em;color:var(--muted);white-space:nowrap}.time-ledger td{padding:7px 10px;vertical-align:middle}.time-ledger tbody tr{height:42px}.time-ledger .person{font-weight:500;line-height:1.25}.time-ledger .person .sub{display:block;margin-top:1px;font-size:9px}.time-ledger .badge{font-size:9px;padding:2px 6px}.time-ledger-row-actions{white-space:nowrap}.time-ledger-row-actions .btn{min-height:25px;padding:3px 7px;font-size:10px}.time-ledger-row-actions .btn+.btn{margin-left:4px!important}.time-ledger .empty{padding:26px 12px;font-size:12px}@media(max-width:760px){.time-ledger-head{align-items:stretch;flex-direction:column}.time-ledger-actions{width:100%;flex-wrap:wrap}.time-ledger-actions select{min-width:0;flex:1}.time-ledger{overflow-x:auto}.time-ledger table{min-width:680px}.time-ledger .head .sub{display:none}}
+  /* Excel-like attendance ledger: dense, aligned and operational rather than card-like. */
+  #page-owner .owner-time-workspace{max-width:none}
+  #page-owner .time-ledger-head{margin:0 0 8px;align-items:center}
+  #page-owner .time-ledger-head .route-eyebrow{font-size:9px;letter-spacing:.06em;text-transform:none}
+  #page-owner .time-ledger-head h2{font-size:19px;line-height:1.2;margin:2px 0 0}
+  #page-owner .time-ledger-head p{font-size:10px;margin-top:2px}
+  #page-owner .time-ledger-actions{gap:4px}
+  #page-owner .time-ledger-actions select{height:28px;min-width:168px;padding:4px 8px;border-radius:5px;font-size:11px}
+  #page-owner .time-ledger-actions .btn{min-height:28px;padding:4px 8px;font-size:10px;border-radius:5px}
+  #page-owner .time-ledger{border:1px solid #d6dee8;border-radius:6px;background:#fff}
+  #page-owner .time-ledger .head{min-height:34px!important;padding:6px 10px!important;background:#f8fafc;border-bottom:1px solid #d6dee8}
+  #page-owner .time-ledger .head b{font-size:11px}
+  #page-owner .time-ledger .head .sub{font-size:10px}
+  #page-owner .time-ledger .body.flush{padding:0!important;overflow:auto}
+  #page-owner .time-ledger table{min-width:940px;margin:0;border-collapse:collapse;font-size:11px;line-height:1.25}
+  #page-owner .time-ledger thead{position:sticky;top:0;z-index:1}
+  #page-owner .time-ledger th{height:30px;padding:5px 9px;background:#edf2f7;border-right:1px solid #d6dee8;border-bottom:1px solid #cbd5e1;color:#4a6078;font-size:9px;font-weight:600;letter-spacing:.01em;text-transform:none}
+  #page-owner .time-ledger td{height:34px;padding:5px 9px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;vertical-align:middle}
+  #page-owner .time-ledger th:last-child,#page-owner .time-ledger td:last-child{border-right:0}
+  #page-owner .time-ledger tbody tr:nth-child(even){background:#fafcff}
+  #page-owner .time-ledger tbody tr:hover{background:#f2f7fb}
+  #page-owner .time-ledger .person{font-size:11px;font-weight:500}
+  #page-owner .time-ledger .person .sub{font-size:8px;line-height:1.2}
+  #page-owner .time-ledger .badge{font-size:8px;padding:2px 5px;border-radius:4px}
+  #page-owner .time-ledger-row-actions .btn{min-height:22px;padding:2px 6px;font-size:9px;border-radius:4px}
+  #page-owner .time-ledger-row-actions .btn+.btn{margin-left:3px!important}
+  #page-owner .time-ledger .empty{padding:20px 10px;font-size:11px}
   /* Premium dashboard, reorganized: decision and team evidence lead; decoration stays secondary. */
   #page-dashboard .cc{gap:13px;max-width:1440px;padding-bottom:28px}#page-dashboard .cc-head{padding:0 2px;align-items:center}#page-dashboard .cc-head h2{font-size:23px;letter-spacing:-.45px;margin-top:4px}.cc-head-r{gap:8px!important}.cc-clock{font-size:15px!important;padding:5px 9px!important;border-radius:7px!important}.cc-head-r .hr-primary{min-height:32px!important;padding:0 11px!important;font-size:12px!important}.cc-head-r .hr-primary svg{width:14px!important;height:14px!important}
   #page-dashboard .cc-hero{grid-template-columns:300px minmax(0,1fr);min-height:176px;border-radius:14px;background:#17324e;box-shadow:0 12px 28px -18px rgba(15,35,58,.7)}#page-dashboard .cc-hero:before{display:none}#page-dashboard .cc-ring-panel{gap:14px;padding:18px;border-right-color:rgba(255,255,255,.12)}#page-dashboard .cc-ring,#page-dashboard .cc-ring svg{width:104px;height:104px}#page-dashboard .cc-ring-center b{font-size:30px}.cc-ring-center span{font-size:10px!important}.cc-ring-center small{font-size:9px!important}.cc-legend{gap:7px!important;min-width:110px!important}.cc-legend .lg{font-size:10px!important}.cc-legend .lg b{font-size:13px!important}.cc-legend .lg i{width:8px!important;height:8px!important;border-radius:3px!important}#page-dashboard .cc-hero-main{padding:20px 24px}.cc-kicker{font-size:10px!important}.cc-hero-main h3{margin-top:6px!important;font-size:21px!important}.cc-hero-main p{margin-top:6px!important;font-size:12px!important}.cc-chips{margin-top:11px!important;gap:6px!important}.cc-chip{padding:4px 8px!important;font-size:10px!important}.cc-hero-foot{margin-top:12px!important;padding-top:11px!important;gap:20px!important}.cc-hero-foot span{font-size:9px!important}.cc-hero-foot b{font-size:12px!important}
@@ -3438,11 +3465,11 @@ async function renderOwner(){
       </div>
 
       <div class="subpane" data-pane="time" style="display:none">
-        <section class="time-ledger-head"><div><div class="route-eyebrow">Attendance ledger</div><h2>บันทึกเวลาทำงาน</h2><p>หนึ่งแถวต่อพนักงานต่อวัน · ใช้ปุ่มด้านขวาเฉพาะรายการที่ต้องจัดการ</p></div>
+        <section class="time-ledger-head"><div><div class="route-eyebrow">ทะเบียนเวลาเข้า–ออก</div><h2>บันทึกเวลาทำงาน</h2><p>หนึ่งแถวต่อพนักงานต่อวัน · แก้ไขเฉพาะรายการที่ต้องจัดการ</p></div>
           <div class="time-ledger-actions"><select id="ownEmp" aria-label="กรองพนักงาน"></select><button class="btn ok sm" id="ownIn">ลงเวลาเข้า</button><button class="btn danger sm" id="ownOut">ลงเวลาออก</button></div>
         </section>
         ${incompleteWarningHtml(data.incompleteDays)}
-        <section class="panel time-ledger"><div class="head"><div><b>รายการลงเวลา</b><span class="sub" style="margin-left:7px">เลือกพนักงานด้านบนเพื่อกรองข้อมูล</span></div><div class="spacer"></div><button class="btn sub sm" id="expAttBtn">ส่งออก CSV</button></div>
+        <section class="panel time-ledger"><div class="head"><div><b>รายการลงเวลา</b><span class="sub" style="margin-left:7px">ตารางข้อมูลรายวัน · เลือกพนักงานด้านบนเพื่อกรอง</span></div><div class="spacer"></div><button class="btn sub sm" id="expAttBtn">ส่งออก CSV</button></div>
           <div class="body flush"><table>
             <thead><tr><th>วันที่</th><th>พนักงาน</th><th class="num">เข้า</th><th class="num">ออก</th><th class="num">ชั่วโมงทำงาน</th><th>สถานะ</th><th data-nosort></th></tr></thead>
             <tbody id="ownAtt"><tr><td colspan="7"><div class="empty">กำลังโหลด…</div></td></tr></tbody>
