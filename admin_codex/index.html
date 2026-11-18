@@ -1228,6 +1228,39 @@
   @media(max-width:1180px){.people-profile-filter{order:3;width:100%}.people-summary{display:none}}
   @media(max-width:820px){.people-profile-filter{order:initial;max-width:100%;overflow:auto}.people-profile-filter button{flex:none}.payroll-table-tools{align-items:flex-start;flex-wrap:wrap}.payroll-filter-set{overflow:auto;max-width:100%}}
   @media(max-width:900px){:root:not([data-theme="dark"]) .side{box-shadow:0 18px 42px rgba(12,34,54,.32)}}
+  /* Payroll run — compact workbench */
+  #page-payroll .finance-workbench.compact{padding:14px 16px;gap:12px;align-items:center}
+  #page-payroll .finance-workbench.compact h2{display:none}
+  #page-payroll .payroll-period{gap:8px}
+  /* Timesheet — view tabs + full-month matrix */
+  #page-owner .time-key .k-ot{background:#2f7fd6}
+  .ts-viewtabs{display:inline-flex;gap:4px;background:#eef1f5;border:1px solid var(--line);border-radius:12px;padding:4px;margin:4px 0 16px}
+  .ts-viewtabs button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:600;padding:8px 16px;border-radius:9px;cursor:pointer}
+  .ts-viewtabs button.active{background:#fff;color:var(--blue-ink);box-shadow:0 1px 3px rgba(16,36,56,.14)}
+  .pm-matrix-panel{border-radius:12px;box-shadow:none}
+  .pm-matrix-scroll{overflow:auto;max-height:70vh}
+  table.pm-matrix{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:11px;margin:0}
+  table.pm-matrix th,table.pm-matrix td{padding:0;border:0}
+  table.pm-matrix thead th{position:sticky;top:0;z-index:3;background:#f4f6f9;color:var(--muted);font-weight:700;text-align:center;height:34px;border-bottom:1px solid var(--line)}
+  table.pm-matrix thead th.pm-d{width:26px;min-width:26px}
+  table.pm-matrix thead th.pm-d.wk{color:#a3433c;background:#f1e7e6}
+  table.pm-matrix th.pm-name{position:sticky;left:0;z-index:2;background:#fff;text-align:left;min-width:180px;max-width:180px;padding:7px 12px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);cursor:pointer;display:flex;align-items:center;gap:9px}
+  table.pm-matrix th.pm-name.pm-corner{z-index:4;cursor:default;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+  table.pm-matrix .pm-nm{min-width:0;font-weight:600;color:var(--ink);line-height:1.2}
+  table.pm-matrix .pm-nm .sub{display:block;font-weight:400;font-size:10px;color:var(--muted)}
+  .pm-mrow:hover th.pm-name{background:#f6faff}
+  .pm-mrow.active th.pm-name{box-shadow:inset 3px 0 var(--blue-ink);background:#eef5fc}
+  td.pm-x{width:26px;min-width:26px;height:30px;text-align:center;vertical-align:middle;border-right:1px solid #eef1f5;border-bottom:1px solid #eef1f5;position:relative}
+  td.pm-x.pm-has{color:#fff;font-weight:700;cursor:pointer}
+  td.pm-x.pm-has>span{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:6px;background:var(--pc)}
+  td.pm-x.pm-has:hover>span{outline:2px solid rgba(16,36,56,.35);outline-offset:1px}
+  td.pm-x.pm-off{color:#c2cad4}
+  td.pm-x.pm-future{background:repeating-linear-gradient(45deg,#f6f7f9,#f6f7f9 3px,#eef0f3 3px,#eef0f3 6px)}
+  td.pm-x.is-today>span{outline:2px solid var(--blue-ink);outline-offset:1px}
+  td.pm-x .pm-ot{position:absolute;top:3px;right:4px;width:5px;height:5px;border-radius:50%;background:#1f66b0;box-shadow:0 0 0 1px #fff}
+  table.pm-matrix td.pm-tot{width:40px;min-width:40px;text-align:center;font-weight:700;color:var(--ink);background:#fafbfd;border-bottom:1px solid #eef1f5;border-left:1px solid var(--line)}
+  table.pm-matrix td.pm-tot-l{color:#b45309}table.pm-matrix td.pm-tot-a{color:#b42318}
+  table.pm-matrix thead th.pm-tot{background:#eef1f5;border-left:1px solid var(--line);min-width:40px}
 </style>
 </head>
 <body>
@@ -2969,13 +3002,11 @@ async function renderPayroll(){
   const current=payrollRange("current"), t=current.end, first=current.start;
   node.innerHTML=`
     ${groupTabsHtml("payroll")}
-    <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">ศูนย์เงินเดือน</div><h2>ตรวจ Timesheet และออกสลิป</h2><p>OT จะคิดเฉพาะรายการที่อนุมัติแล้ว และทุกยอดตรวจย้อนกลับถึง Timesheet ได้</p></div><div class="directory-count">ขั้นตอนหลัก<br><b>ออกสลิป</b></div></div>
-    <div class="flow-steps" aria-label="ขั้นตอนออกสลิป"><span class="step"><span class="n">1</span>เลือกงวด</span><span class="line"></span><span class="step"><span class="n">2</span>ตรวจ Timesheet</span><span class="line"></span><span class="step"><span class="n">3</span>ตรวจยอดและออกสลิป</span></div>
-    <section class="payroll-workbench finance-workbench" aria-label="กำหนดงวดเงินเดือน">
-      <div><div class="payroll-kicker"><i></i>เลือกงวดเพื่อคำนวณ</div><h2>เงินเดือน ${fmtDate(first)} – ${fmtDate(t)}</h2><p>เริ่มต้นที่วันที่ 1 ถึงวันนี้ · เลือก “เดือนก่อน” ระบบจะตัดเต็มเดือนให้อัตโนมัติ</p></div>
+    <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">ศูนย์เงินเดือน</div><h2>ออกสลิปเงินเดือน</h2><p>เลือกงวด → ตรวจ Timesheet รายคน → ออกสลิป (ยืนยันรหัสผ่านผู้ดูแล)</p></div><div class="directory-count">งวด<br><b>${fmtDate(first)} – ${fmtDate(t)}</b></div></div>
+    <section class="payroll-workbench finance-workbench compact" aria-label="กำหนดงวดเงินเดือน">
+      <div><div class="payroll-kicker"><i></i>งวดเงินเดือน</div><p style="margin:3px 0 0;font-size:12px;color:var(--muted)">เริ่มวันที่ 1 ถึงวันนี้ · เลือก “เดือนก่อน” ตัดเต็มเดือนให้อัตโนมัติ</p></div>
       <div class="payroll-period"><div class="period-presets" role="group" aria-label="เลือกงวด"><button class="active" data-payroll-period="current">1–วันนี้</button><button data-payroll-period="previous">เดือนก่อนเต็มเดือน</button></div><label>เริ่ม<input type="date" id="pStart" value="${first}"></label><label>สิ้นสุด<input type="date" id="pEnd" value="${t}"></label><button class="btn sm" id="previewBtn">คำนวณงวด</button></div>
     </section>
-    <section class="notice blue" style="margin-top:12px;align-items:flex-start"><div><b>ลำดับก่อนออกสลิป</b><br><span class="sub">เปิด Timesheet รายคนเพื่อตรวจเข้า–ออก, OT และวันอัตราพิเศษ → แก้ข้อมูลเวลา/เรต → ตรวจยอด → ออกสลิปเงินเดือน</span></div></section>
     <section class="payroll-summary" id="payrollSummary"><div class="payroll-loading">กำลังคำนวณงวดปัจจุบัน…</div></section>
     <div class="notice">ขั้นตอนที่ 3 เป็น <b>ประมาณการ</b> — สุทธิ = gross − เบิกล่วงหน้า − ประกันสังคม − หักอื่นๆ ยังไม่รวมภาษี ณ ที่จ่ายแบบขั้นบันได</div>
     <div class="panel"><div class="head"><h2>รายละเอียดงวดและสลิป</h2><span class="sub" style="margin-left:8px">ตรวจความครบถ้วนก่อนออกสลิป</span></div>
@@ -3136,7 +3167,7 @@ function readyPayslipReviewDialog(rows, period){
   const body=el(`<div><div class="notice blue"><div><b>รายการที่พร้อมออกสลิป</b><br><span class="sub">แสดงเฉพาะผู้ที่มีเวลาเข้าครบ เรตค่าจ้างครบ และไม่มี OT รออนุมัติในงวดนี้ เลือกพนักงานเพื่อตรวจรายการหักและออกสลิป</span></div></div><div class="panel" style="margin:12px 0 0"><div class="body flush"><table><thead><tr><th>พนักงาน</th><th class="num">รายได้ก่อนหัก</th><th class="num">เงินได้สุทธิ</th><th data-nosort></th></tr></thead><tbody>${rows.map((row,index)=>`<tr><td class="person">${esc(row.emp.name||empName(row.emp.id))}<span class="sub">${esc(row.emp.id)}</span></td><td class="num">${fmtBaht(row.line.grossPay)}</td><td class="num"><b>${fmtBaht(row.line.netPay!=null?row.line.netPay:row.line.grossPay)}</b></td><td class="num"><button class="btn sub sm" data-ready-slip="${index}">ตรวจและออกสลิป</button></td></tr>`).join("")}</tbody></table></div></div></div>`);
   const close=el(`<button class="btn sub">ปิด</button>`); close.onclick=closeModal;
   openModal("ตรวจสลิปที่พร้อมออก",body,[close]);
-  body.querySelectorAll("[data-ready-slip]").forEach(b=>b.onclick=()=>{ const row=rows[+b.dataset.readySlip]; closeModal(); openPayslipDraftEditor(row.line,period); });
+  body.querySelectorAll("[data-ready-slip]").forEach(b=>b.onclick=()=>{ const row=rows[+b.dataset.readySlip]; closeModal(); issuePayslipWithAdminPassword({startDate:period.start,endDate:period.end},row.line.employeeId); });
 }
 
 // Payroll review is deliberately a read-only, per-person timesheet.  It makes
@@ -3194,8 +3225,8 @@ async function payrollTimesheetDialog(line, period){
     rules.onclick=()=>{ closeModal(); go("payrules"); };
     const printTimesheetBtn=el(`<button class="btn sub">พิมพ์ Timesheet</button>`);
     printTimesheetBtn.onclick=()=>printTimesheet(line,period,attendance.days||[],specialByDate);
-    const draft=el(`<button class="btn">ตรวจยอดและออกสลิป</button>`);
-    draft.onclick=()=>openPayslipDraftEditor(line,period);
+    const draft=el(`<button class="btn">ออกสลิป</button>`);
+    draft.onclick=()=>issuePayslipWithAdminPassword({startDate:period.start,endDate:period.end},line.employeeId);
     const modalFooter=$("#modal .m-foot"); if(modalFooter){ modalFooter.prepend(calendar,rules,printTimesheetBtn,draft); }
   }catch(err){ body.innerHTML=`<div class="empty">${esc(err.message||"โหลด Timesheet ไม่สำเร็จ")}</div>`; }
 }
@@ -3688,55 +3719,20 @@ async function renderOwner(){
     const wdLabel=(s.workdays||"").split(",").filter(x=>x!=="").map(d=>DOW_SHORT[+d]).join(" ")||"—";
     const paydayText=s.pay_frequency==="semimonthly"?(payDayLabel(s.pay_day_2)+" และ "+payDayLabel(s.pay_day_1)):(s.pay_frequency==="weekly"?"ทุกวันศุกร์":payDayLabel(s.pay_day_1));
     node.innerHTML=`
-      <div class="cards">
-        <div class="card"><div class="label">งวดปัจจุบัน</div><div class="value" style="font-size:18px">${esc(p.label||(p.start+" → "+p.end))}</div><div class="note">${fmtDate(p.start)} – ${fmtDate(p.end)}</div></div>
-        <div class="card"><div class="label">ยอดสุทธิต้องจ่าย</div><div class="value">${fmtBaht(data.totalNet!=null?data.totalNet:data.totalGross)}</div><div class="note">gross ${fmtBaht(data.totalGross)} · หักเบิก ${fmtBaht(data.totalAdvance||0)}</div></div>
-        <div class="card"><div class="label">คนที่ต้องจ่าย</div><div class="value">${fmtInt(data.paidCount)}<span style="font-size:14px;color:var(--muted)">/${fmtInt(data.activeEmployees)} คน</span></div><div class="note">มีวันทำงานครบในงวดนี้</div></div>
-        <div class="card"><div class="label">วันจ่ายถัดไป</div><div class="value" style="font-size:18px">${fmtDate(data.nextPayday)}</div><div class="note">${esc(freqLabel)}</div></div>
+      <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">ทะเบียนเวลาทำงาน</div><h2>Timesheet</h2><p>ดูเวลาทั้งเดือนของทุกคนในตารางเดียว · สลับไปหน้ารายวันเพื่อลงเวลาหรือแก้ไข</p></div>
+        <div class="time-month-nav" id="pmNav"><button class="btn sub sm" id="pmPrev" aria-label="เดือนก่อน">‹</button><b id="pmLabel" style="min-width:120px;text-align:center">—</b><button class="btn sub sm" id="pmNext" aria-label="เดือนถัดไป">›</button></div>
       </div>
-      <div class="subtabs" id="ownerTabs">
-        <button data-pane="pay" class="active">จ่ายเงินเดือน</button>
-        <button data-pane="person">ภาพรวมรายบุคคล</button>
-        <button data-pane="time">ลงเวลาแทน</button>
+      <div class="ts-viewtabs" role="group" aria-label="มุมมอง Timesheet"><button class="active" data-tsview="month">ทั้งเดือน (ตาราง)</button><button data-tsview="day">รายวัน (ลงเวลา/แก้ไข)</button></div>
+
+      <div class="ts-view" data-tsview="month">
+        <div class="time-key"><span><i class="k-present"></i>มาทำงาน</span><span><i class="k-late"></i>สายหรือเวลาไม่ครบ</span><span><i class="k-absent"></i>ขาดงาน</span><span><i class="k-off"></i>วันหยุด/ยังไม่ถึงวันทำงาน</span><span><i class="k-ot"></i>ทำเกินเวลา</span></div>
+        <div id="pmShiftNote" class="sub" style="margin:0 2px 8px"></div>
+        <div class="panel pm-matrix-panel" style="margin:0"><div class="body flush"><div id="pmMatrix" class="pm-matrix-host"><div class="empty">กำลังโหลด…</div></div></div></div>
+        <div id="pmDetail"></div>
       </div>
 
-      <div class="subpane" data-pane="person" style="display:none">
-        <div class="time-page-head">
-          <div><div class="dash-kicker route-eyebrow">ทะเบียนเวลาทำงาน</div><h2>เวลาทำงานรายบุคคล</h2><div id="pmShiftNote" class="sub" style="margin-top:5px"></div></div>
-          <div class="time-month-nav">
-            <button class="btn sub sm" id="pmPrev" aria-label="เดือนก่อน">‹</button>
-            <b id="pmLabel" style="min-width:120px;text-align:center">—</b>
-            <button class="btn sub sm" id="pmNext" aria-label="เดือนถัดไป">›</button>
-          </div>
-        </div>
-        <div class="time-key"><span><i class="k-present"></i>มาทำงาน</span><span><i class="k-late"></i>สายหรือเวลาไม่ครบ</span><span><i class="k-absent"></i>ขาดงาน</span><span><i class="k-off"></i>วันหยุด/ยังไม่ถึงวันทำงาน</span></div>
-        <div class="attendance-workspace">
-          <div class="panel time-roster"><div class="head"><b>พนักงาน</b><span class="sub" style="margin-left:8px">เลือกเพื่อดูรายละเอียด</span></div>
-            <div class="body flush"><div class="pm-col-head"><span>พนักงาน</span></div><div id="pmRows"><div class="empty">กำลังโหลด…</div></div></div>
-          </div>
-          <div id="pmDetail" class="pm-detail"></div>
-        </div>
-      </div>
-
-      <div class="subpane" data-pane="pay">
-        <div class="panel"><div class="head"><b>ตั้งค่าการจ่ายเงินเดือน</b><div class="spacer"></div><button class="btn sub" id="ownSettings">แก้ไขการตั้งค่า</button></div>
-          <div class="body"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
-            <div><div class="label">รอบการจ่าย</div><div style="font-size:17px;font-weight:600;margin-top:3px">${esc(freqLabel)}</div></div>
-            <div><div class="label">วันจ่าย</div><div style="font-size:17px;font-weight:600;margin-top:3px">${esc(paydayText)}</div></div>
-            <div><div class="label">วันทำงาน</div><div style="font-size:17px;font-weight:600;margin-top:3px">${esc(wdLabel)}</div></div>
-          </div></div>
-        </div>
-        <div class="panel"><div class="head"><b>สรุป Timesheet งวดนี้</b><div class="spacer"></div><button class="btn" data-nav="payroll">ตรวจและออกสลิป</button></div>
-          <div class="body flush"><table>
-            <thead><tr><th>พนักงาน</th><th class="num">วันทำงาน</th><th class="num">ชม.ปกติ</th><th class="num">OT</th><th class="num">ฐาน</th><th class="num">OT เงิน</th><th class="num">รวม gross</th><th class="num">หักเบิก</th><th class="num">ปกส./อื่นๆ</th><th class="num">สุทธิจ่ายจริง</th><th data-nosort></th></tr></thead>
-            <tbody id="ownRows"></tbody>
-            <tfoot><tr><td colspan="6" class="num"><b>ยอดรวมทั้งสิ้น</b></td><td class="num">${fmtBaht(data.totalGross)}</td><td class="num">${(data.totalAdvance||0)?"-"+fmtBaht(data.totalAdvance):"—"}</td><td class="num">${((data.totalSso||0)+(data.totalOther||0))?"-"+fmtBaht((data.totalSso||0)+(data.totalOther||0)):"—"}</td><td class="num"><b>${fmtBaht(data.totalNet!=null?data.totalNet:data.totalGross)}</b></td><td></td></tr></tfoot>
-          </table></div>
-        </div>
-      </div>
-
-      <div class="subpane" data-pane="time" style="display:none">
-        <section class="time-ledger-head"><div><div class="route-eyebrow">ทะเบียนเวลาเข้า–ออก</div><h2>บันทึกเวลาทำงาน</h2><p>รองรับการตรวจทั้งเดือน · เลือกช่วงวันที่ก่อนส่งออก Timesheet</p></div>
+      <div class="ts-view owner-time-workspace" data-tsview="day" style="display:none">
+        <section class="time-ledger-head"><div><div class="route-eyebrow">ทะเบียนเวลาเข้า–ออก</div><h2>ลงเวลา / แก้ไขรายวัน</h2><p>เลือกช่วงวันที่ · ลงเวลาเข้า–ออกแทน หรือยกเลิกรายการที่ผิด</p></div>
           <div class="time-ledger-actions"><select id="ownEmp" aria-label="กรองพนักงาน"></select><button class="btn ok sm" id="ownIn">ลงเวลาเข้า</button><button class="btn sub sm" id="ownOut">ลงเวลาออก</button></div>
         </section>
         ${incompleteWarningHtml(data.incompleteDays)}
@@ -3746,33 +3742,12 @@ async function renderOwner(){
             <tbody id="ownAtt"><tr><td colspan="7"><div class="empty">กำลังโหลด…</div></td></tr></tbody>
           </table></div>
         </section>
-      </div>
-
       </div>`;
-    // This is the attendance workspace. Payroll has its own page; leaving a
-    // second payroll console here made operators guess which "lock period" was
-    // the real one. Keep this route focused on time records and work sites.
-    node.querySelector(".cards")?.remove();
-    node.querySelector('.subpane[data-pane="pay"]')?.remove();
-    node.querySelector('#ownerTabs [data-pane="pay"]')?.remove();
-    const timePane=node.querySelector('.subpane[data-pane="time"]');
-    node.querySelector('.subpane[data-pane="person"]')?.remove();
-    node.querySelector('#ownerTabs')?.remove();
-    if(timePane){ timePane.style.display="block"; timePane.classList.add("owner-time-workspace"); }
-    const rows=data.lines||[];
-    const payrollRows=$("#ownRows");
-    if(payrollRows) payrollRows.innerHTML = rows.length? rows.map((l,idx)=>`<tr>
-        <td class="person">${esc(l.name)}<span class="sub">${esc(l.employeeId)}${l.role?" · "+esc(l.role):""}</span></td>
-        <td class="num">${fmtInt(l.workDays)}</td><td class="num">${fmtHours(l.regularMinutes)}</td><td class="num">${l.otMinutes?fmtHours(l.otMinutes):"—"}</td>
-        <td class="num">${fmtBaht(l.baseGross)}</td><td class="num">${l.otGross?fmtBaht(l.otGross):"—"}</td><td class="num">${fmtBaht(l.grossPay)}</td>
-        <td class="num">${l.advanceDeduction?'<span style="color:#b91c1c">-'+fmtBaht(l.advanceDeduction)+'</span>':"—"}</td>
-        <td class="num">${((l.sso||0)+(l.otherDeduction||0))?'<span style="color:#b91c1c">-'+fmtBaht((l.sso||0)+(l.otherDeduction||0))+'</span>':"—"}</td>
-        <td class="num"><b>${fmtBaht(l.netPay!=null?l.netPay:l.grossPay)}</b></td>
-        <td class="num"><button class="btn sub sm" data-slip="${idx}">สลิป</button></td>
-      </tr>`).join("") : `<tr><td colspan="11"><div class="empty">ยังไม่มีใครมีวันทำงานครบในงวดนี้ (ต้องมีทั้งเช็กอินและเช็กเอาต์ + ตั้งเรตค่าจ้าง)</div></td></tr>`;
-    payrollRows?.querySelectorAll("[data-slip]").forEach(b=>b.onclick=()=>printPayslip(rows[+b.dataset.slip], p, true));
-    $("#ownSettings") && ($("#ownSettings").onclick=()=>settingsDialog(s));
-    $("#ownGoAdv") && ($("#ownGoAdv").onclick=()=>go("advances"));
+    // Timesheet route: full-month team matrix (default) + a day-level ledger for
+    // manual attendance. Payroll has its own route; this stays focused on time.
+    if(!ownerState.pmMonth) ownerState.pmMonth=new Date();
+    $("#pmPrev").onclick=()=>shiftPersonMonth(-1);
+    $("#pmNext").onclick=()=>shiftPersonMonth(1);
     const sel=$("#ownEmp");
     const fillSel=()=>{ sel.innerHTML=`<option value="">ทุกคน</option>`+(state.employees||[]).map(e=>`<option value="${esc(e.id)}"${e.id===ownerState.emp?" selected":""}>${esc(e.name)} (${esc(e.id)})</option>`).join(""); };
     if(!state.employees||!state.employees.length){ try{ await loadEmployees(true); }catch(_){} }
@@ -3819,7 +3794,9 @@ async function renderOwner(){
     $("#ownIn").onclick=()=>adminClock("check_in", null, null, $("#ownIn"));
     $("#ownOut").onclick=()=>adminClock("check_out", null, null, $("#ownOut"));
     $("#expAttBtn").onclick=()=>attendanceExportDialog(ownerState.attStart,ownerState.attEnd);
-    loadAtt();
+    const showView=(v)=>{ node.querySelectorAll(".ts-view").forEach(x=>x.style.display=x.dataset.tsview===v?"":"none"); node.querySelectorAll("button[data-tsview]").forEach(b=>b.classList.toggle("active",b.dataset.tsview===v)); const nav=$("#pmNav"); if(nav) nav.style.visibility=v==="month"?"visible":"hidden"; ownerState.tsView=v; if(v==="month") loadPersonMonth(); else loadAtt(); };
+    node.querySelectorAll("button[data-tsview]").forEach(b=>b.onclick=()=>showView(b.dataset.tsview));
+    showView(ownerState.tsView||"month");
   }catch(err){ errorBox(node, err, renderOwner); }
 }
 
@@ -3866,7 +3843,7 @@ async function loadPersonMonth(){
   if(!ownerState.pmMonth) ownerState.pmMonth=new Date();
   const r=pmRange();
   $("#pmLabel").textContent=`${PM_TH_MON[r.m]} ${r.y+543}`;
-  if(!silentRefresh){ $("#pmRows").innerHTML=`<div class="empty">กำลังโหลด…</div>`; const best=$("#pmBest"); if(best) best.innerHTML=""; $("#pmDetail").innerHTML=""; }
+  if(!silentRefresh){ const mx=$("#pmMatrix"); if(mx) mx.innerHTML=`<div class="empty">กำลังโหลด…</div>`; const dt=$("#pmDetail"); if(dt) dt.innerHTML=""; }
   try{
     if(!state.employees||!state.employees.length){ try{ await loadEmployees(true); }catch(_){} }
     const [att,pay,setRes,holRes]=await Promise.all([
@@ -3908,10 +3885,10 @@ async function loadPersonMonth(){
       return {e,present,late,absent,incomplete,workedMin,full8,cells,pl:payBy[e.id]||{}};
     });
     { const sn=$("#pmShiftNote"); if(sn) sn.textContent=`เกณฑ์สาย: เข้าหลัง ${ownerState.pmShift}`; }
-    pmRenderBest(); pmRenderRows();
+    pmRenderMatrix();
     if(!ownerState.pmSel){ const best=pmModel.slice().sort((a,b)=>b.workedMin-a.workedMin)[0]; ownerState.pmSel=best?best.e.id:null; }
     pmRenderDetail();
-  }catch(err){ $("#pmRows").innerHTML=`<div class="empty">${esc(err.message)}</div>`; }
+  }catch(err){ const mx=$("#pmMatrix"); if(mx) mx.innerHTML=`<div class="empty">${esc(err.message)}</div>`; }
 }
 function pmBadge(m){
   if(m.absent && !m.present && !m.late) return `<span class="badge red">ขาดบ่อย</span>`;
@@ -3943,6 +3920,32 @@ function pmRenderRows(){
     </div>`;
   }).join("");
   host.querySelectorAll(".pm-row").forEach(row=>row.onclick=()=>{ ownerState.pmSel=row.dataset.emp; pmRenderRows(); pmRenderDetail(); });
+}
+function pmRenderMatrix(){
+  const host=$("#pmMatrix"); if(!host) return;
+  if(!pmModel.length){ host.innerHTML=`<div class="empty">ไม่มีพนักงานที่ใช้งานอยู่</div>`; return; }
+  const r=pmRange();
+  const dcol={present:"#10b981",late:"#f59e0b",absent:"#ef4444"};
+  let head=`<th class="pm-name pm-corner">พนักงาน</th>`;
+  for(let dn=1;dn<=r.lastD;dn++){ const dow=new Date(r.y,r.m,dn).getDay(); const wk=dow===0||dow===6; head+=`<th class="pm-d${wk?" wk":""}">${dn}</th>`; }
+  head+=`<th class="pm-tot">มา</th><th class="pm-tot">สาย</th><th class="pm-tot">ขาด</th><th class="pm-tot">ชม.</th>`;
+  const rows=pmModel.map(m=>{
+    const cells=m.cells.map(c=>{
+      if(c.base==="future") return `<td class="pm-x pm-future"${c.isToday?' data-today':''}></td>`;
+      if(c.base==="off") return `<td class="pm-x pm-off"${c.isToday?' data-today':''} title="${c.iso}${c.holName?' · '+esc(c.holName):''}">·</td>`;
+      const col=dcol[c.base]||"#cbd5e1";
+      const io=c.d?`${esc(c.d.checkIn||'—')}–${esc(c.d.checkOut||'—')}${c.d.workedMinutes?' · '+fmtHours(c.d.workedMinutes):''}`:c.iso;
+      return `<td class="pm-x pm-has${c.isToday?' is-today':''}" data-emp="${esc(m.e.id)}" data-iso="${c.iso}" style="--pc:${col}" title="${c.iso} · ${io}">${c.ot?'<i class="pm-ot"></i>':''}<span>${c.dn}</span></td>`;
+    }).join("");
+    const init=(m.e.name||m.e.id).trim().slice(0,2);
+    return `<tr class="pm-mrow${ownerState.pmSel===m.e.id?' active':''}" data-emp="${esc(m.e.id)}">
+      <th class="pm-name"><div class="pm-av">${esc(init)}</div><div class="pm-nm">${esc(m.e.name||m.e.id)}<span class="sub">${esc(m.e.id)}${m.e.role?' · '+esc(m.e.role):''}</span></div></th>
+      ${cells}
+      <td class="pm-tot pm-tot-p">${m.present+m.late}</td><td class="pm-tot pm-tot-l">${m.late}</td><td class="pm-tot pm-tot-a">${m.absent}</td><td class="pm-tot pm-tot-h">${fmtHours(m.workedMin)}</td></tr>`;
+  }).join("");
+  host.innerHTML=`<div class="pm-matrix-scroll"><table class="pm-matrix"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  host.querySelectorAll(".pm-mrow .pm-name").forEach(th=>th.onclick=()=>{ ownerState.pmSel=th.closest(".pm-mrow").dataset.emp; pmRenderMatrix(); pmRenderDetail(); const d=$("#pmDetail"); if(d) d.scrollIntoView({behavior:"smooth",block:"nearest"}); });
+  host.querySelectorAll("td.pm-has").forEach(td=>td.onclick=()=>{ const m=pmModel.find(x=>x.e.id===td.dataset.emp); const c=m&&m.cells.find(x=>x.iso===td.dataset.iso); if(c&&c.d) openAttendanceRecordDialog(c.d, ()=>loadPersonMonth()); else { ownerState.pmSel=td.dataset.emp; pmRenderMatrix(); pmRenderDetail(); } });
 }
 function pmRenderBest(){
   const host=$("#pmBest"); if(!host) return;
