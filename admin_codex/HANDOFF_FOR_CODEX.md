@@ -1,6 +1,6 @@
 # Handoff for Codex — BVN Package
 
-อัปเดต: 2026-11-16 (Claude). อ่านไฟล์นี้ + `../AI_COLLAB_BRIEF.md` + `../docs/DEPLOY_STATUS.md`
+อัปเดต: 2026-11-18. อ่านไฟล์นี้ + `../AI_COLLAB_BRIEF.md` + `../docs/DEPLOY_STATUS.md`
 ก่อนแก้ทุกครั้ง และอัปเดต changelog ใน brief หลังทำงานเสร็จแต่ละชิ้น
 
 ## ภาพรวมสถาปัตยกรรม
@@ -12,8 +12,8 @@
 - **ไม่มี auto-host** สำหรับคอนโซล — ไฟล์ `index.html` ต้อง deploy/เปิดเองที่ไหนสักที่ (ถามเจ้าของว่าเปิดจากไหน)
 
 ## สถานะล่าสุด (deploy แล้ว ทำงานจริง)
-ระบบ **ตัวคูณ OT/วันหยุด** deploy + รัน `supabase/patch_ot_calendar.sql` แล้ว ยืนยัน live (ดู `docs/DEPLOY_STATUS.md`).
-APK ล่าสุด **1.0.8+9** (console app-version = 9). เหลือใส่ลิงก์ APK บน Drive (`appApkUrl` ยังว่าง).
+ระบบ **ตัวคูณ OT/วันหยุด**, Timesheet/Payroll review และนโยบายสายสะสม deploy แล้ว; live `version` ยืนยัน revision `2026-11-18-late-absence-policy` (ดู `docs/DEPLOY_STATUS.md`).
+APK ล่าสุด **1.0.12+12** (console app-version = 12) และตั้งลิงก์อัปเดตแล้ว. งานต่อไปคือ UAT บนอุปกรณ์และ publish Admin HTML รุ่นล่าสุด.
 
 ## สิ่งที่ทำเสร็จในรอบนี้ (อยู่ใน main แล้ว)
 1. **รีแบรนด์โทนน้ำเงินเข้ม (navy #1e3a5f)** ทั้งคอนโซล + แอป + โลโก้/ไอคอน BVN

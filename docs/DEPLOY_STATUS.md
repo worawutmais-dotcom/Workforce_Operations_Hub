@@ -1,6 +1,6 @@
 # สถานะการ Deploy — BVN Package
 
-อัปเดต: 2026-11-16 · ยืนยันโดย Claude (ทดสอบกับ backend จริง)
+อัปเดต: 2026-11-18 · ยืนยันด้วยการเรียก `version` แบบ read-only ที่ backend จริง
 
 ## ✅ Deploy เสร็จและทำงานจริงแล้ว
 
@@ -9,6 +9,8 @@
 2. รัน `supabase/patch_ot_calendar.sql` บนฐานข้อมูล
 
 ### ผลการตรวจสอบ (live)
+- ✅ Endpoint `swift-handler` ตอบ `backendVersion: 2.0.1-supabase` และ `sourceRevision: 2026-11-18-late-absence-policy`
+- ✅ Capability หลักตรงกับนโยบายปัจจุบัน: identity/profile, ลบพนักงาน, OT calendar, Timesheet/Payroll review, payment control, shortfall และ late-absence policy; `attendanceCorrection` เป็น `false`
 - ✅ คอลัมน์ `holidays.multiplier` ใช้งานได้ — บันทึก/อ่านตัวคูณรายวันได้ (ทดสอบ set ×3 → อ่านกลับได้ ×3)
 - ✅ คีย์ตั้งค่า OT ครบในระบบ:
   | คีย์ | ค่า |
@@ -38,8 +40,11 @@
 ## ฝั่งแอปพนักงาน (APK)
 - หน้า "เวลาทำงาน" แสดงป้าย **×N** บนวันหยุด/เสาร์/อาทิตย์ (ดึงจาก `employee_month.multiplier` ซึ่งอ่านกติกาเดียวกัน)
 - OT คิดอัตโนมัติเมื่อเช็กเอาต์เกินเวลาเลิกงาน — พนักงานขอ OT เองไม่ได้
-- เวอร์ชันล่าสุด: **1.0.6 / version code 9** (คอนโซลตั้งไว้แล้ว) · ไฟล์ `bvn_employee_v1.0.8+9.apk`
+- เวอร์ชันล่าสุด: **1.0.12 / version code 12** · ตั้งเป็นบังคับอัปเดตแล้ว และมีลิงก์ดาวน์โหลดในระบบ
 
 ## ยังค้าง
-- **ลิงก์ APK บน Drive** — ยังว่าง (ช่อง `appApkUrl`) พนักงานจะยังไม่เด้งอัปเดตจนกว่าจะใส่ลิงก์
-- ทดสอบเลขเงินเดือนจริงแบบครบวงจร (อนุมัติ OT วันอาทิตย์/วันหยุด → พรีวิว → เทียบยอด) แนะนำทำบนข้อมูลไม่สำคัญก่อน
+
+- Publish `admin_codex/index.html` รุ่นล่าสุดไปยังช่องทางที่ผู้ดูแลใช้งานจริง; `run.bat` เปิดได้เฉพาะ localhost
+- ทดสอบเลขเงินเดือนจริงแบบครบวงจรบนข้อมูล UAT (อนุมัติ OT วันอาทิตย์/วันหยุด → พรีวิว → เทียบยอด → ตรวจสลิปก่อนพิมพ์)
+- ทดสอบ APK 1.0.12 บนอุปกรณ์จริง: เวลา Asia/Bangkok, GPS check-in/out และ profile reminder
+- ปรับข้อความ release note ในตั้งค่าระบบ: ข้อความ live ปัจจุบันยังกล่าวถึง “แก้เวลา” แต่ capability `attendanceCorrection` ปิดอยู่
