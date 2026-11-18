@@ -1228,6 +1228,31 @@
   @media(max-width:1180px){.people-profile-filter{order:3;width:100%}.people-summary{display:none}}
   @media(max-width:820px){.people-profile-filter{order:initial;max-width:100%;overflow:auto}.people-profile-filter button{flex:none}.payroll-table-tools{align-items:flex-start;flex-wrap:wrap}.payroll-filter-set{overflow:auto;max-width:100%}}
   @media(max-width:900px){:root:not([data-theme="dark"]) .side{box-shadow:0 18px 42px rgba(12,34,54,.32)}}
+  /* Team calendar — minimal cells with a completion bar */
+  #page-dashboard .team-cal-day{display:flex;flex-direction:column;min-height:80px;padding:9px 10px;border-radius:12px}
+  #page-dashboard .team-cal-day .tcd-date{align-items:center}
+  #page-dashboard .team-cal-day .tcd-n{font-size:13px;font-weight:600;color:var(--ink)}
+  #page-dashboard .team-cal-day.off .tcd-n{font-weight:400;color:#9aa7b6}
+  #page-dashboard .team-cal-day .tcd-today{font-size:9px;font-weight:700;color:#fff;background:var(--blue);padding:1px 7px;border-radius:999px;line-height:1.4}
+  #page-dashboard .team-cal-day .tcd-foot{margin-top:auto;display:flex;flex-direction:column;gap:5px}
+  #page-dashboard .team-cal-day .tcd-bar{height:3px;border-radius:999px;background:#e7ecf2;overflow:hidden}
+  #page-dashboard .team-cal-day .tcd-bar i{display:block;height:100%;border-radius:999px;background:#9aa7b6;transition:width .25s ease}
+  #page-dashboard .team-cal-day.ok .tcd-bar i{background:#1f9d61}
+  #page-dashboard .team-cal-day.warn .tcd-bar i{background:#d9892a}
+  #page-dashboard .team-cal-day.ok.run .tcd-bar i{background:#2f7fd6}
+  #page-dashboard .team-cal-day .tcd-fig{font-size:10px;font-weight:600;font-variant-numeric:tabular-nums}
+  #page-dashboard .team-cal-day .tcd-fig.ok{color:#14784c}
+  #page-dashboard .team-cal-day .tcd-fig.warn{color:#b45309}
+  #page-dashboard .team-cal-day .tcd-fig.run{color:#1f66b0}
+  #page-dashboard .team-cal-day .tcd-fig.muted{color:#9aa7b6;font-weight:500}
+  #page-dashboard .team-cal-day.ok{background:linear-gradient(180deg,#f3fbf6,#fff);border-color:#cfe9db}
+  #page-dashboard .team-cal-day.warn{background:linear-gradient(180deg,#fff8ef,#fff);border-color:#f0d9b4}
+  #page-dashboard .team-cal-day.ok.run{background:linear-gradient(180deg,#f0f6fd,#fff);border-color:#cfe0f2}
+  #page-dashboard .team-cal-day.off{background:#fafbfc}
+  #page-dashboard .team-cal-day.weekend{background:#f6f8fa}
+  #page-dashboard .team-cal-day.future{opacity:.5}
+  #page-dashboard .team-cal-day.today{box-shadow:inset 0 0 0 2px var(--blue);border-color:var(--blue)}
+  @media(max-width:700px){#page-dashboard .team-cal-day{min-height:58px;padding:6px}#page-dashboard .team-cal-day .tcd-fig{font-size:9px}}
   /* Payroll run — compact workbench */
   #page-payroll .finance-workbench.compact{padding:14px 16px;gap:12px;align-items:center}
   #page-payroll .finance-workbench.compact h2{display:none}
@@ -1875,14 +1900,19 @@ function dashboardTeamCalendarHtml(month, team, attendanceDays, workdays, leaves
     const leaveCount=new Set((leaves||[]).filter(leave=>leave.status==="approved"&&leave.startDate<=iso&&leave.endDate>=iso).map(leave=>leave.employeeId)).size;
     const scheduled=allowedDays.has(String(dow)), expected=Math.max(0,team.length-leaveCount), missing=Math.max(0, scheduled?expected-complete-open:0);
     const future=iso>today, isToday=iso===today;
-    let cls="", state="", meta="";
-    if(!scheduled){ cls="off weekend"; state="วันหยุด"; meta="ไม่ต้องลงเวลา"; }
-    else if(future){ cls="off future"; state="รอวันมาถึง"; meta="—"; }
-    else if(missing>0){ cls="warn"; state=`ต้องตรวจ ${fmtInt(missing)} คน`; meta=`ครบ ${fmtInt(complete)} · ค้าง ${fmtInt(open)}${leaveCount?` · ลา ${fmtInt(leaveCount)}`:""}`; }
-    else { cls="ok"; state=open?`กำลังทำงาน ${fmtInt(open)} คน`:"ลงเวลาครบ"; meta=`ครบ ${fmtInt(complete)} คน${leaveCount?` · ลา ${fmtInt(leaveCount)}`:""}`; }
-    grid+=`<button type="button" class="team-cal-day ${cls}${isToday?" today":""}" data-team-day="${iso}"${future?" disabled":""} aria-label="เปิดข้อมูลทีมวันที่ ${fmtDate(iso)}"><span class="tcd-date"><span>${day}</span>${isToday?'<span class="badge blue">วันนี้</span>':""}</span><span class="tcd-state">${state}</span><span class="tcd-meta">${meta}</span></button>`;
+    const expectedN=Math.max(expected,complete+open);
+    const ratio=expectedN>0?Math.round((complete/expectedN)*100):0;
+    let cls="", fig="", bar="";
+    if(!scheduled){ cls="off weekend"; fig=`<span class="tcd-fig muted">หยุด</span>`; }
+    else if(future){ cls="off future"; }
+    else if(missing>0){ cls="warn"; bar=`<span class="tcd-bar"><i style="width:${ratio}%"></i></span>`; fig=`<span class="tcd-fig warn">ตรวจ ${fmtInt(missing)}</span>`; }
+    else if(open>0){ cls="ok run"; bar=`<span class="tcd-bar"><i style="width:${ratio}%"></i></span>`; fig=`<span class="tcd-fig run">ทำงาน ${fmtInt(open)}</span>`; }
+    else if(expectedN>0){ cls="ok"; bar=`<span class="tcd-bar"><i style="width:100%"></i></span>`; fig=`<span class="tcd-fig ok">ครบ ${fmtInt(complete)}</span>`; }
+    else { cls="off"; fig=leaveCount?`<span class="tcd-fig muted">ลา ${fmtInt(leaveCount)}</span>`:""; }
+    const title=`${fmtDate(iso)}${scheduled&&!future?` · ครบ ${fmtInt(complete)} · กำลังทำงาน ${fmtInt(open)} · ต้องตรวจ ${fmtInt(missing)} · ทีม ${fmtInt(expectedN)}`:""}${leaveCount?` · ลา ${fmtInt(leaveCount)}`:""}`;
+    grid+=`<button type="button" class="team-cal-day ${cls}${isToday?" today":""}" data-team-day="${iso}"${future?" disabled":""} title="${esc(title)}" aria-label="เปิดข้อมูลทีมวันที่ ${fmtDate(iso)}"><span class="tcd-date"><span class="tcd-n">${day}</span>${isToday?'<span class="tcd-today">วันนี้</span>':""}</span><span class="tcd-foot">${bar}${fig}</span></button>`;
   }
-  return `<section class="panel dashboard-team-calendar" aria-label="ปฏิทินทีม"><div class="head"><div><b>ปฏิทินทีม</b><span class="sub" style="margin-left:8px">เลือกวันที่เพื่อดูสถานะทีมและจัดการเวลา</span></div><div class="spacer"></div><div class="team-cal-head"><button class="btn sub sm" data-team-cal-nav="prev" aria-label="เดือนก่อน">‹</button><b class="team-cal-label">${CAL_TH_MON[m]} ${y+543}</b><button class="btn sub sm" data-team-cal-nav="next" aria-label="เดือนถัดไป">›</button></div></div><div class="body"><div class="team-cal-legend"><span><i style="background:#14784c"></i>ลงเวลาครบ</span><span><i style="background:#d07a17"></i>ต้องตรวจ</span><span><i style="background:#8b9aae"></i>วันหยุด/วันถัดไป</span></div><div class="team-cal-grid">${grid}</div></div></section>`;
+  return `<section class="panel dashboard-team-calendar" aria-label="ปฏิทินทีม"><div class="head"><div><b>ปฏิทินทีม</b><span class="sub" style="margin-left:8px">เลือกวันที่เพื่อดูสถานะทีมและจัดการเวลา</span></div><div class="spacer"></div><div class="team-cal-head"><button class="btn sub sm" data-team-cal-nav="prev" aria-label="เดือนก่อน">‹</button><b class="team-cal-label">${CAL_TH_MON[m]} ${y+543}</b><button class="btn sub sm" data-team-cal-nav="next" aria-label="เดือนถัดไป">›</button></div></div><div class="body"><div class="team-cal-legend"><span><i style="background:#1f9d61"></i>ครบ</span><span><i style="background:#2f7fd6"></i>กำลังทำงาน</span><span><i style="background:#d9892a"></i>ต้องตรวจ</span><span><i style="background:#9aa7b6"></i>วันหยุด/ล่วงหน้า</span></div><div class="team-cal-grid">${grid}</div></div></section>`;
 }
 async function renderDashboard(data, preloaded={}){
   const node=$("#page-dashboard");
