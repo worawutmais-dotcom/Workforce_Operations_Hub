@@ -3993,37 +3993,6 @@ async function loadPersonMonth(){
     pmRenderDetail();
   }catch(err){ const mx=$("#pmMatrix"); if(mx) mx.innerHTML=`<div class="empty">${esc(err.message)}</div>`; }
 }
-function pmBadge(m){
-  if(m.absent && !m.present && !m.late) return `<span class="badge red">ขาดบ่อย</span>`;
-  const t=m.cells.find(c=>c.isToday&&c.d);
-  if(t && t.d && t.d.checkIn && !t.d.checkOut) return `<span class="badge" style="background:#faeeda;color:#854f0b">กำลังทำงาน</span>`;
-  if(t) return `<span class="badge">มาแล้ววันนี้</span>`;
-  return `<span class="badge grey">—</span>`;
-}
-function pmStripHtml(m){
-  const col={present:"#10b981",late:"#ef8b1f",absent:"#d6453f"};
-  return `<div class="pm-strip">`+m.cells.map(c=>{
-    if(c.base==="future") return `<span class="pm-cell pm-future" title="${c.iso}"></span>`;
-    if(c.base==="off") return `<span class="pm-cell pm-off"${c.isToday?" data-today":""} title="${c.iso} · ${esc(c.holName||"วันหยุด")}"></span>`;
-    const dot=c.ot?`<span class="pm-ot"></span>`:"";
-    return `<span class="pm-cell"${c.isToday?" data-today":""} style="background:${col[c.base]||"var(--line)"}" title="${c.iso}">${dot}</span>`;
-  }).join("")+`</div>`;
-}
-function pmRenderRows(){
-  const host=$("#pmRows"); if(!host) return;
-  if(!pmModel.length){ host.innerHTML=`<div class="empty">ไม่มีพนักงาน</div>`; return; }
-  host.innerHTML=pmModel.map(m=>{
-    const pl=m.pl;
-    const init=(m.e.name||m.e.id).trim().slice(0,2);
-    const status=m.incomplete?`<span class="badge amber">ต้องตรวจ</span>`:m.absent?`<span class="badge red">ขาด ${m.absent}</span>`:pmBadge(m);
-    return `<div class="pm-row${ownerState.pmSel===m.e.id?" active":""}" data-emp="${esc(m.e.id)}">
-      <div class="pm-list-top"><div class="pm-av">${esc(init)}</div><div class="pm-list-name">${esc(m.e.name||m.e.id)}<span class="sub">${esc(m.e.id)}${m.e.role?" · "+esc(m.e.role):""}</span></div>${status}</div>
-      <div class="pm-list-meta"><span>มา <b>${m.present+m.late}</b> · สาย <b>${m.late}</b> · ขาด <b>${m.absent}</b></span>${pl.otMinutes?`<span>OT ${fmtHours(pl.otMinutes)}</span>`:""}</div>
-      ${pmStripHtml(m)}
-    </div>`;
-  }).join("");
-  host.querySelectorAll(".pm-row").forEach(row=>row.onclick=()=>{ ownerState.pmSel=row.dataset.emp; pmRenderRows(); pmRenderDetail(); });
-}
 function pmRenderMatrix(){
   const host=$("#pmMatrix"); if(!host) return;
   if(!pmModel.length){ host.innerHTML=`<div class="empty">ไม่มีพนักงานที่ใช้งานอยู่</div>`; return; }
@@ -4049,12 +4018,6 @@ function pmRenderMatrix(){
   host.innerHTML=`<div class="pm-matrix-scroll"><table class="pm-matrix"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
   host.querySelectorAll(".pm-mrow .pm-name").forEach(th=>th.onclick=()=>{ ownerState.pmSel=th.closest(".pm-mrow").dataset.emp; pmRenderMatrix(); pmRenderDetail(); const d=$("#pmDetail"); if(d) d.scrollIntoView({behavior:"smooth",block:"nearest"}); });
   host.querySelectorAll("td.pm-has").forEach(td=>td.onclick=()=>{ const m=pmModel.find(x=>x.e.id===td.dataset.emp); const c=m&&m.cells.find(x=>x.iso===td.dataset.iso); if(c&&c.d) openAttendanceRecordDialog(c.d, ()=>loadPersonMonth()); else { ownerState.pmSel=td.dataset.emp; pmRenderMatrix(); pmRenderDetail(); } });
-}
-function pmRenderBest(){
-  const host=$("#pmBest"); if(!host) return;
-  // The work-time screen is an operational review, not a performance leaderboard.
-  // Keep attention on the team rows and the selected employee's actual records.
-  host.innerHTML="";
 }
 function pmRenderDetail(){
   const host=$("#pmDetail"); if(!host) return;
@@ -4507,21 +4470,6 @@ function printInvoice(i){
   w.document.open(); w.document.write(html); w.document.close();
 }
 
-function openPayslipDraftEditor(line,period){
-  if(!line||!period?.start||!period?.end){ toast("ไม่พบข้อมูลงวดเงินเดือน","bad"); return; }
-  const gross=Number(line.grossPay||0), money=n=>Number(n||0).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2});
-  const deduction=Number(line.advanceDeduction||0)+Number(line.sso||0)+Number(line.otherDeduction||0);
-  const body=el(`<div>
-    <div class="notice blue"><div><b>ตรวจยอดก่อนออกสลิป</b><br><span class="sub">สลิปจะอ้างอิงยอดคำนวณจาก Timesheet และนโยบายค่าจ้าง ณ ขณะนี้ ไม่มีการบันทึกรายการแก้ไขจากหน้าสลิป</span></div></div>
-    <div class="grid2" style="margin:14px 0 10px"><div class="field"><label>พนักงาน</label><b>${esc(empName(line.employeeId))}</b><span class="sub">${esc(line.employeeId)}</span></div><div class="field"><label>งวดเงินเดือน</label><b>${fmtDate(period.start)} – ${fmtDate(period.end)}</b><span class="sub">รายได้ก่อนหัก ${fmtBaht(gross)}</span></div></div>
-      <div class="panel" style="margin:0"><div class="head"><h2>สรุปยอดที่จะออกสลิป</h2><span class="sub">แก้ยอดจาก Timesheet / เรตค่าจ้าง ก่อนออกเอกสาร</span></div><div class="body"><div class="grid2"><div class="field"><label>รายได้ก่อนหัก</label><b>${money(gross)} บาท</b><span class="hint">ค่าแรงฐานและ OT ที่อนุมัติแล้ว</span></div><div class="field"><label>รายการหักรวม</label><b>${money(deduction)} บาท</b><span class="hint">เบิกเงินล่วงหน้า / ประกันสังคม / รายการตามนโยบาย</span></div></div></div></div>
-    <div class="notice" style="margin-top:12px"><div><b>เงินได้สุทธิ</b><br><span class="sub">รายได้ ${money(gross)} − รายการหัก ${money(deduction)}</span></div><b style="font-size:20px">${money(line.netPay!=null?line.netPay:Math.max(0,gross-deduction))} บาท</b></div>
-  </div>`);
-  const close=el(`<button class="btn sub">ยกเลิก</button>`); close.onclick=closeModal;
-  const print=el(`<button class="btn">ออกสลิปเงินเดือน</button>`);
-  openModal("ตรวจยอดก่อนออกสลิป",body,[close,print]);
-  print.onclick=()=>issuePayslipWithAdminPassword({startDate:period.start,endDate:period.end},line.employeeId);
-}
 
 async function printPayslip(l, period, isInternal=false, issuerSnapshot=null){
   if(!l){ toast("ไม่พบข้อมูลพนักงาน","bad"); return; }
