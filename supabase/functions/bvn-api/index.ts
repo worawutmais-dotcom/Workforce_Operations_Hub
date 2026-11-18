@@ -411,7 +411,7 @@ async function previewPayroll(start: string, end: string) {
 const H: Record<string, (p: any) => Promise<Response>> = {
   async version() {
     const s = await settingsMap();
-    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-18-late-absence-policy", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: false, otCalendar: true, timesheetReview: true, payrollReview: true, payrollPaymentControl: true, employeeDeleteRemovesAttendance: true, factoryResetWhereFix: true, payrollShortfallPolicy: true, payrollLateAbsencePolicy: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
+    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-18-payslip-no-password-delete-auth", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: false, otCalendar: true, timesheetReview: true, payrollReview: true, payrollPaymentControl: true, employeeDeleteRemovesAttendance: true, factoryResetWhereFix: true, payrollShortfallPolicy: true, payrollLateAbsencePolicy: true, payslipNoPassword: true, employeeDeletePassword: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
   },
   async public_branding() {
     const s = await settingsMap();
@@ -526,6 +526,12 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     if (!id) return reply(false, "ต้องระบุรหัสพนักงาน");
     const { data: employee } = await db.from("employees").select("employee_id,name").eq("employee_id", id).maybeSingle();
     if (!employee) return reply(false, "ไม่พบพนักงานที่ต้องการลบ");
+    // Permanent employee deletion now carries the sensitive re-auth: the owner
+    // must re-enter their own password to confirm this irreversible action.
+    const password = String(p.password || "");
+    if (!password) return reply(false, "กรอกรหัสผ่านผู้ดูแลเพื่อยืนยันการลบพนักงาน");
+    const { data: owner } = await db.from("admin_users").select("username,password,active,role").eq("username", a.username).maybeSingle();
+    if (!owner || owner.active === false || owner.role !== "owner" || !(await verifyPw(password, String(owner.password || "")))) return reply(false, "รหัสผ่านผู้ดูแลไม่ถูกต้อง");
 
     // Attendance (check-in/out) is NOT a blocker: a permanent delete also removes
     // the person's attendance log (see cleanup below). Payroll/leave/OT/advance
@@ -996,14 +1002,9 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     const payrollId = String(p.payrollId || "").trim();
     const startDate = String(p.startDate || ""), endDate = String(p.endDate || "");
     const employeeId = String(p.employeeId || "").trim().toUpperCase();
-    const password = String(p.password || "");
-    if ((!payrollId && (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < startDate)) || !employeeId || !password) return reply(false, "ข้อมูลงวดหรือรหัสผ่านผู้ดูแลไม่ครบ");
-    // Re-authenticate the currently signed-in finance user. This intentionally
-    // never accepts an employee password and never exposes an admin secret to APK.
-    const { data: admin } = await db.from("admin_users").select("username,password,active,role").eq("username", a.username).maybeSingle();
-    if (!admin || admin.active === false || !FIN.includes(String(admin.role || "")) || !(await verifyPw(password, String(admin.password || "")))) {
-      return reply(false, "รหัสผ่านผู้ดูแลไม่ถูกต้อง");
-    }
+    if ((!payrollId && (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < startDate)) || !employeeId) return reply(false, "ข้อมูลงวดไม่ครบ");
+    // Issuing a payslip is authorized by the finance session (FIN role) itself —
+    // no extra password step. The sensitive re-auth lives on employee deletion.
     if (payrollId) {
       const { data: period } = await db.from("payroll_periods").select("*").eq("payroll_id", payrollId).eq("status", "locked").maybeSingle();
       if (!period) return reply(false, "ไม่พบงวดเงินเดือนที่ล็อกยอดแล้ว");
@@ -1013,14 +1014,14 @@ const H: Record<string, (p: any) => Promise<Response>> = {
       ]);
       if (!row) return reply(false, "ไม่พบรายการพนักงานในงวดนี้");
       const line = { employeeId, name: names[employeeId]?.name || employeeId, role: names[employeeId]?.role || "", regularMinutes: row.regular_minutes, otMinutes: row.ot_minutes, baseGross: num(row.base_gross), otGross: num(row.ot_gross), grossPay: num(row.gross_pay), advanceDeduction: num(row.advance_deduction), sso: num(row.sso), otherDeduction: num(row.other_deduction), netPay: num(row.net_pay) };
-      await audit(a.display_name, "payslip_issued", `${payrollId}:${employeeId}`, "locked snapshot · admin re-authenticated");
+      await audit(a.display_name, "payslip_issued", `${payrollId}:${employeeId}`, "locked snapshot · FIN session");
       return reply(true, "ยืนยันและออกสลิปได้", { payrollId, startDate: period.start_date, endDate: period.end_date, lockedAt: period.locked_at, issuerSettings: period.issuer_snapshot || {}, line });
     }
     const preview = await previewPayroll(startDate, endDate);
     if ((preview.incompleteDays || []).some((d: any) => d.employeeId === employeeId)) return reply(false, "พนักงานมีเวลาเข้า-ออกไม่ครบ กรุณาตรวจ Timesheet ก่อนออกสลิป");
     const line = (preview.lines || []).find((x: any) => x.employeeId === employeeId);
     if (!line) return reply(false, "ไม่พบข้อมูลค่าจ้างที่พร้อมออกสลิปในงวดนี้");
-    await audit(a.display_name, "payslip_issued", `${startDate}:${endDate}:${employeeId}`, "live payroll preview · admin re-authenticated");
+    await audit(a.display_name, "payslip_issued", `${startDate}:${endDate}:${employeeId}`, "live payroll preview · FIN session");
     return reply(true, "ยืนยันและออกสลิปได้", { payrollId: "", startDate, endDate, lockedAt: nowISO(), issuerSettings: await settingsMap(), line });
   },
   async admin_mark_payroll_paid(p) {

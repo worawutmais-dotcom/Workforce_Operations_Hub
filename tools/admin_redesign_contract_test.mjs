@@ -83,7 +83,8 @@ const required = [
   'data-payroll-period="previous"',
   'data-att-period="previous"',
   'function payrollRange(',
-  'ยืนยันตัวตนก่อนออกสลิป',
+  'ออกสลิปสุดท้ายให้ก่อนลบ',
+  'deleteAdminPw',
   'admin_issue_payslip',
 ];
 

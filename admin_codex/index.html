@@ -2800,15 +2800,27 @@ async function deactivate(emp){
 async function deleteEmployee(emp){
   if(state.role!=="owner"){ toast("เฉพาะ Owner เท่านั้นที่ลบพนักงานถาวรได้", "bad"); return; }
   if(!hasBackendCapability("employeeDelete")){ toast("ลบถาวรรอ deploy Backend รุ่นปัจจุบัน — ตอนนี้ใช้ “ปิดใช้งาน” ได้ตามปกติ", "bad"); return; }
-  const body=el(`<div><div class="notice bad"><b>ลบถาวร</b> จะลบพนักงาน<b>พร้อม log เข้า-ออกงานทั้งหมด</b>ของคนนี้<br>ใช้ได้เฉพาะคนที่ยังไม่มีประวัติ<b>เงินเดือน การลา OT หรือเบิกเงิน</b> — ถ้ามี ระบบจะปฏิเสธ ให้ใช้ “ปิดใช้งาน” แทน</div><p style="line-height:1.6;margin:14px 0 8px">พิมพ์รหัส <b>${esc(emp.id)}</b> เพื่อยืนยันการลบ <b>${esc(emp.name)}</b></p></div>`);
+  const range=payrollRange("current");
+  const body=el(`<div><div class="notice bad"><b>ลบถาวร</b> จะลบพนักงาน<b>พร้อม log เข้า-ออกงานทั้งหมด</b>ของคนนี้<br>ใช้ได้เฉพาะคนที่ยังไม่มีประวัติ<b>เงินเดือน การลา OT หรือเบิกเงิน</b> — ถ้ามี ระบบจะปฏิเสธ ให้ใช้ “ปิดใช้งาน” แทน</div>
+    <label style="display:flex;gap:9px;align-items:flex-start;margin:14px 0 6px;font-size:13px;line-height:1.5;cursor:pointer"><input type="checkbox" id="delFinalSlip" checked style="margin-top:2px"><span>ออกสลิปสุดท้ายให้ก่อนลบ — คิดค่าจ้างถึงวันนี้ (<b>${fmtDate(range.start)} – ${fmtDate(range.end)}</b>)</span></label>
+    <p style="line-height:1.6;margin:12px 0 8px">พิมพ์รหัส <b>${esc(emp.id)}</b> และ<b>รหัสผ่านผู้ดูแล</b>เพื่อยืนยันการลบ <b>${esc(emp.name)}</b></p></div>`);
   body.append(field("ยืนยันรหัสพนักงาน", `<input id="deleteEmployeeId" type="text" autocomplete="off" placeholder="${esc(emp.id)}">`));
+  body.append(field("รหัสผ่านผู้ดูแล", `<input id="deleteAdminPw" type="password" autocomplete="current-password" placeholder="รหัสผ่านของคุณ">`));
   const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
   const confirm=el(`<button class="btn danger" disabled>ลบถาวร</button>`);
-  const input=body.querySelector("#deleteEmployeeId");
-  input.oninput=()=>{ confirm.disabled=input.value.trim().toUpperCase()!==emp.id; };
+  const idInput=body.querySelector("#deleteEmployeeId"), pwInput=body.querySelector("#deleteAdminPw");
+  const recheck=()=>{ confirm.disabled=!(idInput.value.trim().toUpperCase()===emp.id && pwInput.value.length>0); };
+  idInput.oninput=recheck; pwInput.oninput=recheck;
   confirm.onclick=()=>withBtn(confirm,async()=>{
+    const password=pwInput.value;
+    if(body.querySelector("#delFinalSlip").checked){
+      try{ const r=await api("admin_issue_payslip",{payrollId:"",startDate:range.start,endDate:range.end,employeeId:emp.id});
+        await printPayslip(r.line,{start:r.startDate,end:r.endDate,lockedAt:r.lockedAt},false,r.issuerSettings||{});
+        toast("ออกสลิปสุดท้ายแล้ว","good");
+      }catch(slipErr){ toast("ออกสลิปสุดท้ายไม่ได้: "+(slipErr.message||"ไม่มีข้อมูลค่าจ้าง")+" — จะดำเนินการลบต่อ","bad"); }
+    }
     try{
-      await api("admin_delete_employee",{employeeId:emp.id});
+      await api("admin_delete_employee",{employeeId:emp.id,password});
       closeModal(); await loadEmployees(true); PAGES[state.page].load(); toast("ลบพนักงานแล้ว", "good");
     }catch(err){
       const message=String(err?.message||err);
@@ -3379,13 +3391,16 @@ async function viewSnapshot(payrollId){
   }catch(err){ toast(err.message,"bad"); }
 }
 
-async function issuePayslipWithAdminPassword(source, employeeId){
+// Issuing a payslip no longer asks for a password — the finance session itself
+// authorizes it. The sensitive re-auth now lives on permanent employee delete.
+async function issuePayslipWithAdminPassword(source, employeeId){ return issuePayslip(source, employeeId); }
+async function issuePayslip(source, employeeId){
   if(!source||!employeeId)return;
-  const body=el(`<div><div class="notice blue"><div><b>ยืนยันตัวตนก่อนออกสลิป</b><br><span class="sub">ใช้รหัสผ่านของผู้ดูแลที่กำลังเข้าสู่ระบบอยู่เท่านั้น เพื่อป้องกันการออกเอกสารโดยไม่ได้รับอนุญาต</span></div></div><div class="field" style="margin-top:14px"><label>รหัสผ่านผู้ดูแล</label><input id="issuePayslipPassword" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่านเพื่อออกสลิป"></div><div class="sub" style="margin-top:8px">พนักงานไม่ต้องทราบและไม่ควรกรอกรหัสผ่านผู้ดูแล</div></div>`);
-  const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
-  const issue=el(`<button class="btn">ยืนยันและออกสลิป</button>`);
-  openModal(`ออกสลิป · ${empName(employeeId)}`,body,[cancel,issue]);
-  issue.onclick=()=>withBtn(issue,async()=>{try{ const password=$("#issuePayslipPassword").value; const result=await api("admin_issue_payslip",{payrollId:source.payrollId||"",startDate:source.startDate||"",endDate:source.endDate||"",employeeId,password}); closeModal(); await printPayslip(result.line,{start:result.startDate,end:result.endDate,lockedAt:result.lockedAt},false,result.issuerSettings||{}); toast("ยืนยันแล้ว เปิดสลิปเงินเดือนให้แล้ว","good"); }catch(err){toast(err.message||"ออกสลิปไม่สำเร็จ","bad");}});
+  try{
+    const result=await api("admin_issue_payslip",{payrollId:source.payrollId||"",startDate:source.startDate||"",endDate:source.endDate||"",employeeId});
+    await printPayslip(result.line,{start:result.startDate,end:result.endDate,lockedAt:result.lockedAt,paidAt:result.paidAt,paymentReference:result.paymentReference},false,result.issuerSettings||{});
+    toast("ออกสลิปเงินเดือนแล้ว","good");
+  }catch(err){ toast(err.message||"ออกสลิปไม่สำเร็จ","bad"); }
 }
 
 // Generic CSV download used by every export (payroll, employees, attendance, backup).
