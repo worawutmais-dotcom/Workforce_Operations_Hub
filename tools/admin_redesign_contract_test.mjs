@@ -33,7 +33,7 @@ const required = [
   'ทะเบียนพนักงาน ข้อมูลเอกสาร และคิวอนุมัติ',
   'ทะเบียนเงินล่วงหน้า',
   'data-adv-filter',
-  'เปิดเอกสารได้',
+  'ล็อกยอดแล้ว · พร้อมออกสลิป',
   'ทีมวันนี้',
   'เลือกชื่อเพื่อดูเวลาเข้า–ออกและประวัติ',
   'employee-review-modal',
@@ -44,7 +44,7 @@ const required = [
   'actionQueue',
   'data-action-target',
   'data-att-filter',
-  'ownerState={emp:"",filter:""',
+  'ownerState={emp:"",filter:"",attRange:',
   'OT รออนุมัติ',
   'data-payroll-nav',
   'ข้อมูลเอกสารยังไม่ครบ',
@@ -80,6 +80,11 @@ const required = [
   'useAppNotesTemplate',
   'appPolicyHint',
   'พนักงานไม่ส่งคำขอแก้เวลา',
+  'data-payroll-period="previous"',
+  'data-att-period="previous"',
+  'function payrollRange(',
+  'ยืนยันตัวตนก่อนออกสลิป',
+  'admin_issue_payslip',
 ];
 
 const missing = required.filter((token) => !html.includes(token));
