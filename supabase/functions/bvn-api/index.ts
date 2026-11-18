@@ -399,14 +399,21 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     const { data: u } = await db.from("admin_users").select("*").ilike("username", username).eq("active", true).maybeSingle();
     if (!u || !(await verifyPw(password, String(u.password || "")))) { await loginFailed(lid); return reply(false, "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"); }
     await loginCleared(lid);
+    // Upgrade a legacy plaintext credential only after it has been verified.
+    // This makes the first successful login a safe, one-time migration instead
+    // of interrupting the operator with an action they may not be able to find.
+    const legacyPassword = !String(u.password || "").startsWith("pbkdf2$");
+    if (legacyPassword) {
+      const { error: upgradeError } = await db.from("admin_users")
+        .update({ password: await hashPw(password) }).eq("username", u.username);
+      if (!upgradeError) audit(u.display_name || u.username, "admin_password_upgraded", u.username, "legacy credential migrated on successful login");
+    }
     const tk = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, "");
     const expiresAt = new Date(Date.now() + 12 * 3600 * 1000).toISOString();
     await db.from("admin_sessions").insert({ token_hash: tk, username: u.username, display_name: u.display_name || u.username, expires_at: expiresAt, last_used_at: nowISO(), status: "active", role: u.role || "owner" });
     audit(u.display_name || u.username, "admin_login", u.username, "");
     pruneDeadSessions();
-    // weakPassword = still stored as plaintext (not PBKDF2) → the console nudges a change.
-    const weakPassword = !String(u.password || "").startsWith("pbkdf2$");
-    return reply(true, "เข้าสู่ระบบสำเร็จ", { adminToken: tk, username: u.username, displayName: u.display_name || u.username, role: u.role || "owner", expiresAt, weakPassword });
+    return reply(true, "เข้าสู่ระบบสำเร็จ", { adminToken: tk, username: u.username, displayName: u.display_name || u.username, role: u.role || "owner", expiresAt, passwordMigrated: legacyPassword });
   },
   async admin_console_logout(p) {
     if (p.adminToken) await db.from("admin_sessions").update({ status: "revoked" }).eq("token_hash", p.adminToken);

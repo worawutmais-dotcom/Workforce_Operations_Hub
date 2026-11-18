@@ -1395,7 +1395,6 @@ async function doLogin(e){
       const token=login.adminToken, reviewer=login.displayName||username;
       state.token=token; state.username=login.username||username; state.reviewer=reviewer; state.role=login.role||"owner";
       state.employees=[]; state.empById={};
-      if(login.weakPassword && state.role==="owner"){ setTimeout(()=>toast("⚠ รหัสผ่านยังไม่เข้ารหัส — ควรเปลี่ยนที่ ตั้งค่า → บัญชีแอดมิน","bad"),1200); }
       // Start independent Sheet reads now, rather than making the operator wait
       // for Dashboard and then wait for these three calls in a second round.
       const canOperate=["owner","manager","operations"].includes(state.role);
