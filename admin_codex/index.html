@@ -3863,10 +3863,23 @@ function settingsDialog(s){
   </select><div class="sub" style="margin-top:6px">ใช้กับพนักงานทุกคน · ตรวจผลรายคนได้ที่หน้าเงินเดือน → ตรวจ Timesheet</div></div>`);
   shortField.querySelector("#sShort").value=s.payroll_shortfall_policy||"none";
   body.append(shortField);
+  // Settings are global. State the scope before save so Finance can decide
+  // without opening each employee record or re-running payroll first.
+  const impact=el(`<div class="notice blue" id="settingsImpact" style="margin-top:12px"><div></div></div>`);
+  body.append(impact);
+  const updateImpact=()=>{
+    const active=(state.employees||[]).filter(e=>String(e.status||"active").toLowerCase()==="active").length;
+    const workdays=[...body.querySelectorAll('#sWd input:checked')].map(c=>c.value);
+    const ssoOn=$("#sSso",body).checked;
+    const shortLabel={none:"ไม่ตัดค่าแรง",deduct_wage:"ตัดค่าแรงตามสัดส่วน",trim_ot:"ตัด OT ตามชั่วโมงที่ขาด"}[$("#sShort",body).value]||"—";
+    impact.firstElementChild.innerHTML=`<b>ผลกระทบก่อนบันทึก</b><br><span class="sub">มีผลกับพนักงานที่ใช้งาน ${fmtInt(active)} คน · วันทำงาน ${fmtInt(workdays.length)} วัน/สัปดาห์ · ประกันสังคม ${ssoOn?"เปิด":"ปิด"} · ไม่ครบกะ: ${esc(shortLabel)}<br>การเปลี่ยนแปลงจะใช้ในการคำนวณ Timesheet ครั้งถัดไป และไม่แก้สลิปที่ออกไปแล้ว</span>`;
+  };
+  body.querySelectorAll("input,select").forEach(control=>control.addEventListener("change",updateImpact));
+  updateImpact();
   const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
   const save=el(`<button class="btn">บันทึก</button>`);
   save.onclick=()=>withBtn(save, async ()=>{
-    const workdays=[...document.querySelectorAll('#sWd input:checked')].map(c=>c.value).join(",");
+    const workdays=[...body.querySelectorAll('#sWd input:checked')].map(c=>c.value).join(",");
     try{ await api("admin_save_settings",{settings:{pay_frequency:$("#sFreq").value, pay_day_1:$("#sPay1").value.trim(), pay_day_2:$("#sPay2").value.trim(), workdays,
         sso_enabled:$("#sSso").checked, sso_rate:$("#sSsoRate").value, sso_cap:$("#sSsoCap").value,
         quota_sick:$("#sQSick").value, quota_personal:$("#sQPer").value, quota_vacation:$("#sQVac").value,

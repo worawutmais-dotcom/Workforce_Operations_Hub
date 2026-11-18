@@ -49,6 +49,8 @@ const required = [
   'data-payroll-nav',
   'ข้อมูลเอกสารยังไม่ครบ',
   'ยังไม่มีเลขบัตรประชาชน',
+  'ผลกระทบก่อนบันทึก',
+  'การเปลี่ยนแปลงจะใช้ในการคำนวณ Timesheet ครั้งถัดไป',
 ];
 
 const missing = required.filter((token) => !html.includes(token));
