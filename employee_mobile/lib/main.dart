@@ -71,6 +71,37 @@ String _clockValue(Object? raw, {String fallback = '09:00'}) {
   return '${matched.group(1)!.padLeft(2, '0')}:${matched.group(2)}';
 }
 
+// Attendance events are persisted as UTC instants. A substring of an ISO
+// timestamp is UTC, not the employee's local clock (09:48 in Bangkok is
+// 02:48Z). Keep the attendance-day boundary in Thailand time as well.
+const _bangkokOffset = Duration(hours: 7);
+
+DateTime? _bangkokAttendanceDate(Object? raw) {
+  final value = '${raw ?? ''}'.trim();
+  if (value.isEmpty) return null;
+  final parsed = DateTime.tryParse(value);
+  if (parsed == null) return null;
+  return parsed.toUtc().add(_bangkokOffset);
+}
+
+String _bangkokAttendanceDay(Object? raw) {
+  final date = _bangkokAttendanceDate(raw);
+  if (date == null) return '';
+  return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+}
+
+String? _bangkokAttendanceClock(Object? raw) {
+  final date = _bangkokAttendanceDate(raw);
+  if (date != null) {
+    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+  final value = '${raw ?? ''}'.trim();
+  final match = RegExp(r'(?:T|\s|^)([01]?\d|2[0-3]):([0-5]\d)')
+      .firstMatch(value);
+  if (match == null) return null;
+  return '${match.group(1)!.padLeft(2, '0')}:${match.group(2)}';
+}
+
 // The whole app's visual language lives in theme.dart (see [bvnTheme]). Kept
 // here as a thin alias so the MaterialApp call below stays readable.
 ThemeData _theme(Brightness brightness) => bvnTheme(brightness);
@@ -284,115 +315,115 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 30),
                 if (!_loading && _people.isEmpty)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.person_search_outlined, size: 30),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'ไม่พบรายชื่อพนักงาน',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'ให้ผู้ดูแลสร้างและเปิดใช้งานบัญชีก่อน แล้วจึงลองโหลดรายชื่อใหม่',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else ...[
-                DropdownButtonFormField<String>(
-                  initialValue: _id,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'ชื่อพนักงาน',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: _people
-                      .map(
-                        (p) => DropdownMenuItem(
-                          value: p['employeeId']?.toString(),
-                          child: Text('${p['name']} (${p['employeeId']})'),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: _loading
-                      ? null
-                      : (value) => setState(() => _id = value),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: _password,
-                  obscureText: _hidden,
-                  keyboardType: TextInputType.text,
-                  decoration: InputDecoration(
-                    labelText: 'รหัสผ่าน',
-                    border: const OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _hidden
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.person_search_outlined, size: 30),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'ไม่พบรายชื่อพนักงาน',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'ให้ผู้ดูแลสร้างและเปิดใช้งานบัญชีก่อน แล้วจึงลองโหลดรายชื่อใหม่',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ],
                       ),
-                      onPressed: () => setState(() => _hidden = !_hidden),
+                    ),
+                  )
+                else ...[
+                  DropdownButtonFormField<String>(
+                    initialValue: _id,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'ชื่อพนักงาน',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: _people
+                        .map(
+                          (p) => DropdownMenuItem(
+                            value: p['employeeId']?.toString(),
+                            child: Text('${p['name']} (${p['employeeId']})'),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: _loading
+                        ? null
+                        : (value) => setState(() => _id = value),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _password,
+                    obscureText: _hidden,
+                    keyboardType: TextInputType.text,
+                    decoration: InputDecoration(
+                      labelText: 'รหัสผ่าน',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _hidden
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                        ),
+                        onPressed: () => setState(() => _hidden = !_hidden),
+                      ),
                     ),
                   ),
-                ),
-                if (_error != null)
-                  Container(
-                    margin: const EdgeInsets.only(top: 12),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: kDangerSoft,
-                      borderRadius: BorderRadius.circular(kRadiusSm),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.error_outline_rounded,
-                          size: 18,
-                          color: kDanger,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _error!,
-                            style: const TextStyle(
-                              color: kDanger,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                  if (_error != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: kDangerSoft,
+                        borderRadius: BorderRadius.circular(kRadiusSm),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.error_outline_rounded,
+                            size: 18,
+                            color: kDanger,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: kDanger,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                  const SizedBox(height: 22),
+                  FilledButton(
+                    onPressed: _loading || _people.isEmpty ? null : _submit,
+                    child: Text(_loading ? 'กำลังโหลด…' : 'เข้าสู่ระบบ'),
                   ),
-                const SizedBox(height: 22),
-                FilledButton(
-                  onPressed: _loading || _people.isEmpty ? null : _submit,
-                  child: Text(_loading ? 'กำลังโหลด…' : 'เข้าสู่ระบบ'),
-                ),
-                TextButton(
-                  onPressed: _loading
-                      ? null
-                      : () {
-                          setState(() {
-                            _loading = true;
-                            _error = null;
-                          });
-                          _load();
-                        },
-                  child: const Text('โหลดรายชื่อใหม่'),
-                ),
-              ],
+                  TextButton(
+                    onPressed: _loading
+                        ? null
+                        : () {
+                            setState(() {
+                              _loading = true;
+                              _error = null;
+                            });
+                            _load();
+                          },
+                    child: const Text('โหลดรายชื่อใหม่'),
+                  ),
+                ],
               ],
             ),
           ),
@@ -451,7 +482,7 @@ class _EmployeeShellState extends State<EmployeeShell>
     try {
       // Profile and attendance history do not depend on one another. Load both
       // together so a Google Apps Script redirect is paid once in perceived time.
-      final day = DateTime.now().toIso8601String().substring(0, 10);
+      final day = _bangkokAttendanceDay(DateTime.now().toUtc());
       final api = BvnApi();
       if (force) api.clearEmployeeCache(widget.token);
       final results = await Future.wait([
@@ -459,8 +490,7 @@ class _EmployeeShellState extends State<EmployeeShell>
         api.timeline(widget.token),
       ]);
       final profile = results[0] as Map<String, dynamic>;
-      bool validClock(String value) =>
-          RegExp(r'^\d{2}:\d{2}$').hasMatch(value);
+      bool validClock(String value) => RegExp(r'^\d{2}:\d{2}$').hasMatch(value);
       String clock(dynamic value) => _clockValue(value, fallback: '—');
       var shiftStart = clock(profile['shiftStart']);
       var shiftEnd = clock(profile['shiftEnd']);
@@ -485,14 +515,15 @@ class _EmployeeShellState extends State<EmployeeShell>
       final events = (results[1] as List<Map<String, dynamic>>)
           .where(
             (e) =>
-                '${e['occurredAt']}'.startsWith(day) &&
+                _bangkokAttendanceDay(e['occurredAt']) == day &&
                 e['status'] == 'accepted',
           )
           .toList();
       String? time(String type) {
         final event = events.where((e) => e['eventType'] == type).toList();
-        final value = event.isEmpty ? '' : '${event.first['occurredAt']}';
-        return value.length >= 16 ? value.substring(11, 16) : null;
+        return event.isEmpty
+            ? null
+            : _bangkokAttendanceClock(event.first['occurredAt']);
       }
 
       if (mounted) {
@@ -533,7 +564,8 @@ class _EmployeeShellState extends State<EmployeeShell>
       // blocking their first check-in.
       try {
         final identity = await api.identityProfile(widget.token);
-        final needsUpdate = identity['identityComplete'] != true ||
+        final needsUpdate =
+            identity['identityComplete'] != true ||
             '${identity['phone'] ?? ''}'.trim().isEmpty;
         if (mounted) {
           setState(() => _profileNeedsUpdate = needsUpdate);
@@ -943,7 +975,7 @@ class _Today extends StatelessWidget {
                 Text(
                   hasSchedule ? '$shiftStart – $shiftEnd' : 'ยังไม่มีข้อมูล',
                   style: const TextStyle(
-                      fontSize: 24,
+                    fontSize: 24,
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -.3,
@@ -1025,9 +1057,7 @@ class _Today extends StatelessWidget {
                 : !hasStarted
                 ? FilledButton.icon(
                     onPressed: busy ? null : onIn,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _greenDeep,
-                    ),
+                    style: FilledButton.styleFrom(backgroundColor: _greenDeep),
                     icon: busy
                         ? const SizedBox(
                             width: 17,
@@ -1042,9 +1072,7 @@ class _Today extends StatelessWidget {
                   )
                 : FilledButton.icon(
                     onPressed: busy ? null : onOut,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _greenDeep,
-                    ),
+                    style: FilledButton.styleFrom(backgroundColor: _greenDeep),
                     icon: busy
                         ? const SizedBox(
                             width: 17,
@@ -1942,12 +1970,7 @@ class _MonthCalendarState extends State<_MonthCalendar> {
                 ],
               ),
             ),
-            if (premium)
-              Positioned(
-                top: 1,
-                right: 2,
-                child: _multBadge(mult),
-              ),
+            if (premium) Positioned(top: 1, right: 2, child: _multBadge(mult)),
           ],
         ),
       ),
@@ -1961,7 +1984,9 @@ class _MonthCalendarState extends State<_MonthCalendar> {
         : m >= 2
         ? (const Color(0xFFFAD79A), const Color(0xFF7A4A08))
         : (const Color(0xFFC6E3A4), const Color(0xFF2C5010));
-    final txt = m == m.roundToDouble() ? m.toStringAsFixed(0) : m.toStringAsFixed(1);
+    final txt = m == m.roundToDouble()
+        ? m.toStringAsFixed(0)
+        : m.toStringAsFixed(1);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
       decoration: BoxDecoration(
@@ -1995,11 +2020,7 @@ class _MonthCalendarState extends State<_MonthCalendar> {
     ),
     child: Row(
       children: [
-        const Icon(
-          Icons.notifications_active,
-          size: 18,
-          color: _greenDeep,
-        ),
+        const Icon(Icons.notifications_active, size: 18, color: _greenDeep),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
@@ -2113,13 +2134,18 @@ class _MonthCalendarState extends State<_MonthCalendar> {
     }
     final mult = (d['multiplier'] as num?)?.toDouble() ?? 1;
     if (mult > 1) {
-      final mtxt =
-          mult == mult.roundToDouble() ? mult.toStringAsFixed(0) : mult.toStringAsFixed(1);
+      final mtxt = mult == mult.roundToDouble()
+          ? mult.toStringAsFixed(0)
+          : mult.toStringAsFixed(1);
       rows.add(
         _detailLine(
           Icons.payments,
           'ค่าแรงวันนี้',
-          '×$mtxt (${holiday.isNotEmpty ? 'วันหยุด' : (dt.weekday % 7 == 0 ? 'วันอาทิตย์' : dt.weekday % 7 == 6 ? 'วันเสาร์' : 'วันพิเศษ')})',
+          '×$mtxt (${holiday.isNotEmpty ? 'วันหยุด' : (dt.weekday % 7 == 0
+                    ? 'วันอาทิตย์'
+                    : dt.weekday % 7 == 6
+                    ? 'วันเสาร์'
+                    : 'วันพิเศษ')})',
           _orange,
         ),
       );
@@ -2202,7 +2228,6 @@ class _MonthCalendarState extends State<_MonthCalendar> {
       ),
     );
   }
-
 }
 
 class _RequestsPage extends StatefulWidget {
@@ -2847,10 +2872,7 @@ class _NotifStatusCardState extends State<_NotifStatusCard> {
                 children: [
                   const Text(
                     'การแจ้งเตือน',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -3122,7 +3144,8 @@ class _Account extends StatelessWidget {
               maxLength: 13,
               decoration: InputDecoration(
                 labelText: 'เลขบัตรประชาชน',
-                hintText: current['nationalIdLast4']?.toString().isNotEmpty == true
+                hintText:
+                    current['nationalIdLast4']?.toString().isNotEmpty == true
                     ? 'บันทึกแล้ว ••••${current['nationalIdLast4']}'
                     : '13 หลัก',
               ),

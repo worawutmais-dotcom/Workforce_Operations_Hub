@@ -971,6 +971,15 @@
   @media(max-width:1040px){#page-dashboard .cc-hero,#page-dashboard .cc-work,#page-dashboard .cc-lower{grid-template-columns:1fr}#page-dashboard .cc-metrics{grid-template-columns:repeat(3,1fr)}#page-dashboard .s-money{grid-column:auto}}@media(max-width:680px){#page-dashboard .cc-metrics{grid-template-columns:repeat(2,1fr)}#page-dashboard .cc-head{align-items:flex-start;flex-direction:column}.cc-head-r{width:100%;justify-content:space-between}.cc-hero-main{padding:18px!important}.cc-work .team-register-head{display:none}.cc-work .team-row{grid-template-columns:30px minmax(0,1fr) auto}.cc-work .tc-time{display:none}}
   /* Dense desktop system: 4/8 rhythm, flat surfaces, and data first. Mobile retains readable touch targets. */
   @media(min-width:761px){.bvn-route{max-width:1440px}.bvn-route .cards{gap:8px}.bvn-route .card{padding:10px 12px;border-radius:10px}.bvn-route .card .label,.bvn-route .card .note{font-size:10px}.bvn-route .card .value{font-size:22px;margin:3px 0}.bvn-route .panel{margin-top:10px}.bvn-route .panel+.panel,.bvn-route .panel+.cards,.bvn-route .cards+.panel{margin-top:12px}.bvn-route .subtabs{margin:10px 0}.bvn-route .subtabs button{min-height:32px;padding:6px 10px;font-size:12px}.bvn-route .field{margin-top:10px}.bvn-route .field label,.bvn-route .hint{font-size:11px;margin-bottom:4px}.bvn-route .field input,.bvn-route .field select,.bvn-route .field textarea{padding:8px 10px;font-size:12px;border-radius:7px}.bvn-route table{font-size:12px}.bvn-route th{font-size:10px}.bvn-route th,.bvn-route td{padding-left:10px;padding-right:10px}.bvn-route .empty{padding:26px 12px}.bvn-route .notice{padding:9px 11px;font-size:12px}.bvn-route .badge{font-size:10px;padding:3px 6px}.bvn-route .btn.sm{min-height:28px;padding:4px 8px;font-size:11px}}
+  /* Compact feedback surfaces: routine admin information stays calm; only
+     warning, error and success states receive semantic colour. */
+  .bvn-route .notice,.modal .notice{gap:8px;padding:9px 11px;border:1px solid #d9e3ee;border-left:3px solid #365b7d;background:#f6f9fc;color:#31465c;border-radius:8px;font-size:12px;line-height:1.45}
+  .bvn-route .notice.blue,.modal .notice.blue{border-color:#cbddea;border-left-color:#365b7d;background:#f2f7fb;color:#294866}
+  .bvn-route .notice.amber,.modal .notice.amber{border-color:#efdfb5;border-left-color:#b7791f;background:#fffaf0;color:#6d501c}
+  .bvn-route .notice.red,.modal .notice.red{border-color:#edcaca;border-left-color:#b54444;background:#fff7f7;color:#7c3030}
+  .toast{min-width:0;max-width:360px;padding:10px 12px;border:1px solid rgba(255,255,255,.14);background:#17324e;color:#fff;border-radius:8px;font-size:12px;line-height:1.4;box-shadow:0 10px 24px rgba(20,49,63,.16)}
+  .toast.good{background:#176b4b}.toast.bad{background:#8e3636}
+  .bvn-route .empty{padding:24px 12px;color:#64748b;font-size:12px}
 </style>
 </head>
 <body>
