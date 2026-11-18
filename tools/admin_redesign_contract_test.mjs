@@ -47,6 +47,8 @@ const required = [
   'ownerState={emp:"",filter:""',
   'OT รออนุมัติ',
   'data-payroll-nav',
+  'ข้อมูลเอกสารยังไม่ครบ',
+  'ยังไม่มีเลขบัตรประชาชน',
 ];
 
 const missing = required.filter((token) => !html.includes(token));
