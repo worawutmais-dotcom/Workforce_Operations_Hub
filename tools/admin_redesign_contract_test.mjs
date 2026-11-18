@@ -59,6 +59,9 @@ const required = [
   'นโยบายมาสายสะสม',
   'lateAbsenceThreshold||4',
   'มาสายสะสม (วัน)',
+  '--ops-navy:#132d46',
+  'Operations colour system',
+  'Dashboard signature: live-shift instrument',
 ];
 
 const missing = required.filter((token) => !html.includes(token));
