@@ -235,15 +235,6 @@
   .dash-list .dash-row:first-child{border-top:0}
   .dash-list .dash-row[data-nav]:hover{background:var(--blue-soft)}
   @media(max-width:860px){.dash-kpi{grid-template-columns:repeat(2,1fr)}.dash-two{grid-template-columns:1fr}}
-  .pm-row{display:grid;grid-template-columns:1.5fr 1.4fr 1.3fr;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid var(--line);cursor:pointer}
-  .pm-row:first-child{border-top:0}
-  .pm-row:hover{background:var(--blue-soft)}
-  .pm-row.active{background:#eef7f0}
-  .pm-strip{display:flex;gap:2px;align-items:center;flex-wrap:nowrap}
-  .pm-cell{position:relative;width:11px;height:16px;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
-  .pm-cell.pm-future{width:5px;background:transparent;border:1px dashed var(--line);opacity:.7}
-  .pm-cell.pm-off{background:repeating-linear-gradient(45deg,#eef0f3,#eef0f3 2px,#dfe3e9 2px,#dfe3e9 4px);border:1px solid var(--line)}
-  .pm-cell[data-today]{outline:2px solid var(--blue-ink);outline-offset:1px}
   .pm-ot{width:5px;height:5px;border-radius:50%;background:#2f7fd6;box-shadow:0 0 0 1.5px #fff}
   .pm-av{width:30px;height:30px;border-radius:50%;background:#e1f1e6;color:#1f6c3a;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:0 0 auto}
   .calm{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
@@ -1073,8 +1064,6 @@
   #page-dashboard .team-cal-day.ok{background:#f3fbf6;border-color:#cde8d6;box-shadow:inset 3px 0 0 #27835a}
   #page-dashboard .team-cal-day.warn{background:#fff9ee;border-color:#f0dfb6;box-shadow:inset 3px 0 0 #b7791f}
   #page-dashboard .team-cal-day .tcd-date{font-size:12px;color:#172c42;font-variant-numeric:tabular-nums}
-  #page-dashboard .team-cal-day .tcd-state{margin-top:7px;font-size:10px;font-weight:600;line-height:1.3}
-  #page-dashboard .team-cal-day .tcd-meta{margin-top:2px;font-size:9px;color:#62748a;line-height:1.25}
   #page-dashboard .team-cal-day.ok .tcd-state{color:#176b4b}
   #page-dashboard .team-cal-day.warn .tcd-state{color:#8a5916}
   #page-dashboard .team-cal-day.off .tcd-state{color:#62748a}
