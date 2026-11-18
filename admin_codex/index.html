@@ -1071,6 +1071,14 @@
   #page-dashboard .cc-lower .panel{margin:0!important;min-height:142px}
   #page-dashboard .cc-lower .head{background:#f5f8fb!important;border-top:2px solid #365b7d}
   #page-dashboard .cc-lower .dashboard-checkin-sites .head{border-top-color:#27835a}
+  /* Payroll readiness rail and timesheet scan layer. Both use the same
+     semantic states as the dashboard so an operator learns one visual grammar. */
+  .payroll-status-rail{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 12px}
+  .payroll-state{position:relative;min-height:78px;padding:10px 12px;text-align:left;border:1px solid var(--ops-line,#dce5ee);border-radius:10px;background:#fff;color:var(--ops-text,#15283a);font:inherit;overflow:hidden;transition:border-color .14s ease,background .14s ease}
+  .payroll-state:before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:#6d8192}.payroll-state:hover{border-color:#9db4c6;background:#fbfdff}.payroll-state span,.payroll-state small{display:block;color:var(--ops-muted,#65788b);font-size:10px}.payroll-state b{display:block;margin:4px 0 2px;font-size:22px;line-height:1;font-variant-numeric:tabular-nums}.payroll-state.ready:before{background:var(--ops-teal,#087f6a)}.payroll-state.ready b{color:var(--ops-teal,#087f6a)}.payroll-state.review:before{background:var(--ops-amber,#b86b13)}.payroll-state.review b{color:var(--ops-amber,#b86b13)}.payroll-state.waiting:before{background:#4779a7}.payroll-state.waiting b{color:#35648f}.payroll-state.blocked:before{background:var(--ops-coral,#c8495f)}.payroll-state.blocked b{color:var(--ops-coral,#c8495f)}
+  #page-owner .time-ledger-status{display:flex;align-items:center;gap:14px;padding:8px 10px;border-bottom:1px solid #dce5ee;background:#f8fafc;font-size:10px;color:#65788b}.time-ledger-status span{display:inline-flex;align-items:center;gap:5px}.time-ledger-status b{font-size:12px;color:#213b51;font-variant-numeric:tabular-nums}.time-ledger-status small{margin-left:auto;color:#718396}.ops-dot{width:7px;height:7px;border-radius:50%;display:inline-block}.ops-dot.ready{background:var(--ops-teal,#087f6a)}.ops-dot.review{background:var(--ops-amber,#b86b13)}.ops-dot.today{background:#4779a7}
+  #page-owner .time-ledger tbody tr.att-row.review td:first-child{box-shadow:inset 3px 0 0 var(--ops-coral,#c8495f)}#page-owner .time-ledger tbody tr.att-row.open td:first-child{box-shadow:inset 3px 0 0 var(--ops-amber,#b86b13)}#page-owner .time-ledger tbody tr.att-row.is-today{background:#eff7f6!important}#page-owner .time-ledger tbody tr.att-row.is-today td:first-child{font-weight:600}
+  @media(max-width:860px){.payroll-status-rail{grid-template-columns:repeat(2,minmax(0,1fr))}#page-owner .time-ledger-status{flex-wrap:wrap}.time-ledger-status small{margin-left:0;width:100%}}
   /* Operations colour system — a single neutral canvas lets live status and
      financial decisions carry the colour. This final layer deliberately
      replaces legacy competing greens, gradients and shadows. */
@@ -2949,13 +2957,15 @@ async function doPreview(btn){
       const payrollReady=payrollRows.some(r=>r.state==="ready") && payrollRows.every(r=>r.state!=="blocked"&&r.state!=="waiting");
       const pendingOtCount=pendingOtByEmp.size;
       const readyPayrollRows=payrollRows.filter(r=>r.target==="slip"&&r.line);
+      const readyCount=payrollRows.filter(r=>r.state==="ready").length;
+      const missingRateCount=payrollRows.filter(r=>r.target==="payrules").length;
       const lateAbsenceNotice=Number(data.lateAbsenceDays||0)>0?`<div class="notice" style="margin:0 0 12px;border-color:#f0d49a;background:#fff7ea"><div><b>นโยบายมาสายสะสม:</b> สาย ${fmtInt(data.lateDaysCount||0)} วัน · ทุก ${fmtInt(data.lateAbsenceThreshold||4)} วันเท่ากับขาด 1 วัน · คิดขาดงานเทียบเท่า ${fmtInt(data.lateAbsenceDays)} วัน${Number(data.totalLateAbsenceDeduction||0)>0?` · หักค่าแรงรวม −${fmtBaht(data.totalLateAbsenceDeduction)}`:""}</div></div>`:"";
       if(summary) summary.innerHTML=`
         <div class="payroll-metric"><span>พนักงานที่คำนวณได้</span><b>${fmtInt((data.lines||[]).length)} คน</b><em>มีเรตค่าจ้างและเวลาเข้าครบ</em></div>
         <div class="payroll-metric"><span>รายได้รวม</span><b>${fmtBaht(data.totalGross)}</b><em>ก่อนหักรายการ</em></div>
         <div class="payroll-metric"><span>ยอดหักรวม</span><b>${fmtBaht((data.totalAdvance||0)+(data.totalSso||0)+(data.totalOther||0))}</b><em>เบิกล่วงหน้า / ปกส. / อื่นๆ</em></div>
         <div class="payroll-metric"><span>ยอดจ่ายสุทธิ</span><b>${fmtBaht(data.totalNet!=null?data.totalNet:data.totalGross)}</b><em>${incompleteCount?`ต้องตรวจเวลา ${fmtInt(incompleteCount)} รายการ`:pendingOtCount?`OT รออนุมัติ ${fmtInt(pendingOtCount)} คน`:`ไม่มีเวลาค้างตรวจ`}</em></div>`;
-      box.innerHTML=`<div class="payroll-readiness ${payrollReady?"":"is-blocked"}"><div><span class="ready-dot"></span><b>${payrollReady?"พร้อมออกสลิป":"ยังมีรายการที่ต้องจัดการก่อนออกสลิป"}</b><span class="sub"> · ${incompleteCount?`เวลาไม่ครบ ${fmtInt(incompleteCount)} รายการ`:pendingOtCount?`OT รออนุมัติ ${fmtInt(pendingOtCount)} คน`:"ตรวจสถานะรายบุคคลด้านล่าง"}</span></div>${payrollReady?"":`<div class="toolbar"><button class="btn ghost sm" data-nav="owner">ตรวจเวลา</button><button class="btn ghost sm" data-nav="payrules">ตั้งเรต</button></div>`}</div>`+lateAbsenceNotice+((data.shortfallPolicy&&data.shortfallPolicy!=="none"&&(data.shortDaysCount||0)>0)?`<div class="notice" style="margin:0 0 12px;border-color:#f0d49a;background:#fff7ea"><div><b>นโยบายไม่ครบกะ:</b> ${data.shortfallPolicy==="deduct_wage"?"ตัดค่าแรงตามสัดส่วน":"หัก OT เท่าชั่วโมงที่ขาด"} · มี ${fmtInt(data.shortDaysCount)} วันที่ไม่ครบกะในงวดนี้${(data.totalShortfallDeduction||0)>0?` · ตัดค่าแรงรวม −${fmtBaht(data.totalShortfallDeduction)}`:""}</div></div>`:"")+incWarn+`
+      box.innerHTML=`<div class="payroll-readiness ${payrollReady?"":"is-blocked"}"><div><span class="ready-dot"></span><b>${payrollReady?"พร้อมออกสลิป":"ยังมีรายการที่ต้องจัดการก่อนออกสลิป"}</b><span class="sub"> · ${incompleteCount?`เวลาไม่ครบ ${fmtInt(incompleteCount)} รายการ`:pendingOtCount?`OT รออนุมัติ ${fmtInt(pendingOtCount)} คน`:"ตรวจสถานะรายบุคคลด้านล่าง"}</span></div>${payrollReady?"":`<div class="toolbar"><button class="btn ghost sm" data-nav="owner">ตรวจเวลา</button><button class="btn ghost sm" data-nav="payrules">ตั้งเรต</button></div>`}</div><section class="payroll-status-rail" aria-label="ความพร้อมของงวด"><div class="payroll-state ready"><span>พร้อมออกสลิป</span><b>${fmtInt(readyCount)}</b><small>ตรวจ Timesheet แล้ว</small></div><button class="payroll-state review" data-payroll-nav="owner"><span>เวลาไม่ครบ</span><b>${fmtInt(incompleteCount)}</b><small>เปิดรายการเพื่อตรวจ</small></button><button class="payroll-state waiting" data-payroll-nav="approvals"><span>OT รออนุมัติ</span><b>${fmtInt(pendingOtCount)}</b><small>ยังไม่นำไปคิดเงิน</small></button><button class="payroll-state blocked" data-payroll-nav="payrules"><span>ต้องตั้งเรต</span><b>${fmtInt(missingRateCount)}</b><small>แก้ก่อนออกสลิป</small></button></section>`+lateAbsenceNotice+((data.shortfallPolicy&&data.shortfallPolicy!=="none"&&(data.shortDaysCount||0)>0)?`<div class="notice" style="margin:0 0 12px;border-color:#f0d49a;background:#fff7ea"><div><b>นโยบายไม่ครบกะ:</b> ${data.shortfallPolicy==="deduct_wage"?"ตัดค่าแรงตามสัดส่วน":"หัก OT เท่าชั่วโมงที่ขาด"} · มี ${fmtInt(data.shortDaysCount)} วันที่ไม่ครบกะในงวดนี้${(data.totalShortfallDeduction||0)>0?` · ตัดค่าแรงรวม −${fmtBaht(data.totalShortfallDeduction)}`:""}</div></div>`:"")+incWarn+`
         <table><thead><tr><th>พนักงาน</th><th>ความพร้อม</th><th class="num">วันทำงาน</th><th class="num">ชม.ปกติ</th><th class="num">OT</th>
           <th class="num">ฐาน</th><th class="num">OT (เงิน)</th><th class="num">รวม gross</th><th class="num">หักเบิก</th><th class="num">ปกส./อื่นๆ</th><th class="num">สุทธิ</th><th data-nosort></th></tr></thead>
         <tbody>${payrollRows.map((row,idx)=>{ const l=row.line||{}; const badge=row.state==="ready"?"green":row.state==="waiting"?"amber":"red"; return `
@@ -3597,11 +3607,11 @@ async function renderOwner(){
 
       <div class="subpane" data-pane="time" style="display:none">
         <section class="time-ledger-head"><div><div class="route-eyebrow">ทะเบียนเวลาเข้า–ออก</div><h2>บันทึกเวลาทำงาน</h2><p>หนึ่งแถวต่อพนักงานต่อวัน · แก้ไขเฉพาะรายการที่ต้องจัดการ</p></div>
-          <div class="time-ledger-actions"><select id="ownEmp" aria-label="กรองพนักงาน"></select><button class="btn ok sm" id="ownIn">ลงเวลาเข้า</button><button class="btn danger sm" id="ownOut">ลงเวลาออก</button></div>
+          <div class="time-ledger-actions"><select id="ownEmp" aria-label="กรองพนักงาน"></select><button class="btn ok sm" id="ownIn">ลงเวลาเข้า</button><button class="btn sub sm" id="ownOut">ลงเวลาออก</button></div>
         </section>
         ${incompleteWarningHtml(data.incompleteDays)}
         <section class="panel time-ledger"><div class="head"><div><b>รายการลงเวลา</b><span class="sub" style="margin-left:7px">ตารางข้อมูลรายวัน · เลือกพนักงานด้านบนเพื่อกรอง</span></div><div class="spacer"></div><div class="ledger-filter" role="group" aria-label="กรองรายการลงเวลา"><button class="btn sub sm" data-att-filter="review">ต้องตรวจ</button><button class="btn sub sm" data-att-filter="today">วันนี้</button><button class="btn sub sm" data-att-filter="complete">ครบแล้ว</button><button class="btn sub sm" data-att-filter="all">ทั้งหมด</button></div><button class="btn sub sm" id="expAttBtn">ส่งออก CSV</button></div>
-          <div class="body flush"><table>
+          <div class="time-ledger-status" id="attLedgerStatus" aria-live="polite"></div><div class="body flush"><table>
             <thead><tr><th>วันที่</th><th>พนักงาน</th><th class="num">เข้า</th><th class="num">ออก</th><th class="num">ชั่วโมงทำงาน</th><th>สถานะ</th><th data-nosort></th></tr></thead>
             <tbody id="ownAtt"><tr><td colspan="7"><div class="empty">กำลังโหลด…</div></td></tr></tbody>
           </table></div>
@@ -3646,6 +3656,9 @@ async function renderOwner(){
         if(!ownerState.filter) ownerState.filter=reviewCount?"review":"all";
         const shown=days.filter(d=>ownerState.filter==="review"?needsReview(d):ownerState.filter==="today"?d.date===today:ownerState.filter==="complete"?d.status==="complete":true);
         node.querySelectorAll("[data-att-filter]").forEach(b=>b.classList.toggle("active",b.dataset.attFilter===ownerState.filter));
+        const todayCount=days.filter(d=>d.date===today).length;
+        const statusHost=$("#attLedgerStatus");
+        if(statusHost) statusHost.innerHTML=`<span><i class="ops-dot ready"></i>ครบแล้ว <b>${fmtInt(days.filter(d=>d.status==="complete").length)}</b></span><span><i class="ops-dot review"></i>ต้องตรวจ <b>${fmtInt(reviewCount)}</b></span><span><i class="ops-dot today"></i>วันนี้ <b>${fmtInt(todayCount)}</b></span><small>กำลังแสดง ${fmtInt(shown.length)} จาก ${fmtInt(days.length)} รายการ</small>`;
         tb.innerHTML=shown.length? shown.map((d,i)=>{
           const isToday=d.date===today;
           let act="";
@@ -3653,7 +3666,8 @@ async function renderOwner(){
           else if(isToday && !d.checkOut) act+=`<button class="btn danger sm" data-attout="${i}" style="margin-left:8px">ลงเวลาออก</button>`;
           const person=esc(d.name||empName(d.employeeId)||d.employeeId);
           const status=d.status==="complete"?'<span class="badge">ครบ</span>':d.checkIn?'<span class="badge amber">รอออก</span>':'<span class="badge red">ไม่ครบ</span>';
-          return `<tr data-att="${i}">
+          const rowState=d.status==="complete"?"complete":d.checkIn?"open":"review";
+          return `<tr data-att="${i}" class="att-row ${rowState}${isToday?" is-today":""}">
           <td>${fmtDate(d.date)}</td><td class="person">${person}<span class="sub">${esc(d.employeeId||"")}</span></td><td class="num">${esc(d.checkIn||"—")}</td><td class="num">${esc(d.checkOut||"—")}</td>
           <td class="num">${d.workedMinutes?fmtHours(d.workedMinutes):"—"}</td><td>${status}</td>
           <td class="num time-ledger-row-actions">${act}</td></tr>`;}).join("")

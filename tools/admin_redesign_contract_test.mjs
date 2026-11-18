@@ -62,6 +62,9 @@ const required = [
   '--ops-navy:#132d46',
   'Operations colour system',
   'Dashboard signature: live-shift instrument',
+  'payroll-status-rail',
+  'attLedgerStatus',
+  'timesheet scan layer',
 ];
 
 const missing = required.filter((token) => !html.includes(token));
