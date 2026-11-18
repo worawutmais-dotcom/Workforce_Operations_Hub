@@ -76,22 +76,25 @@ String _clockValue(Object? raw, {String fallback = '09:00'}) {
 // 02:48Z). Keep the attendance-day boundary in Thailand time as well.
 const _bangkokOffset = Duration(hours: 7);
 
-DateTime? _bangkokAttendanceDate(Object? raw) {
+DateTime? bangkokAttendanceDate(Object? raw) {
   final value = '${raw ?? ''}'.trim();
   if (value.isEmpty) return null;
   final parsed = DateTime.tryParse(value);
   if (parsed == null) return null;
+  // Old time-only values have no zone. They describe the clock itself and
+  // must not be shifted as if they were a UTC attendance event.
+  if (!RegExp(r'(Z|[+-]\d{2}:\d{2})$').hasMatch(value)) return parsed;
   return parsed.toUtc().add(_bangkokOffset);
 }
 
-String _bangkokAttendanceDay(Object? raw) {
-  final date = _bangkokAttendanceDate(raw);
+String bangkokAttendanceDay(Object? raw) {
+  final date = bangkokAttendanceDate(raw);
   if (date == null) return '';
   return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 }
 
-String? _bangkokAttendanceClock(Object? raw) {
-  final date = _bangkokAttendanceDate(raw);
+String? bangkokAttendanceClock(Object? raw) {
+  final date = bangkokAttendanceDate(raw);
   if (date != null) {
     return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
@@ -482,7 +485,7 @@ class _EmployeeShellState extends State<EmployeeShell>
     try {
       // Profile and attendance history do not depend on one another. Load both
       // together so a Google Apps Script redirect is paid once in perceived time.
-      final day = _bangkokAttendanceDay(DateTime.now().toUtc());
+      final day = bangkokAttendanceDay(DateTime.now().toUtc());
       final api = BvnApi();
       if (force) api.clearEmployeeCache(widget.token);
       final results = await Future.wait([
@@ -515,7 +518,7 @@ class _EmployeeShellState extends State<EmployeeShell>
       final events = (results[1] as List<Map<String, dynamic>>)
           .where(
             (e) =>
-                _bangkokAttendanceDay(e['occurredAt']) == day &&
+                bangkokAttendanceDay(e['occurredAt']) == day &&
                 e['status'] == 'accepted',
           )
           .toList();
@@ -523,7 +526,7 @@ class _EmployeeShellState extends State<EmployeeShell>
         final event = events.where((e) => e['eventType'] == type).toList();
         return event.isEmpty
             ? null
-            : _bangkokAttendanceClock(event.first['occurredAt']);
+            : bangkokAttendanceClock(event.first['occurredAt']);
       }
 
       if (mounted) {
