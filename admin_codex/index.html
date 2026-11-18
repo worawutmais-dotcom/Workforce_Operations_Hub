@@ -3264,12 +3264,70 @@ async function payrollTimesheetDialog(line, period){
 async function printTimesheet(line,period,days,specialByDate={}){
   let invoiceSettings={}; try{ invoiceSettings=(await api("admin_get_invoice_settings")).settings||{}; }catch(_){}
   const issuer=invoiceIssuer(invoiceSettings), dateTh=(iso)=>fmtDate(iso);
-  const rows=(days||[]).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).map(d=>{
-    const special=specialByDate[d.date], premium=special?`×${special.multiplier}`:"—";
-    return `<tr><td>${dateTh(d.date)}</td><td>${esc(d.checkIn||"—")}</td><td>${esc(d.checkOut||"—")}</td><td>${d.workedMinutes?fmtHours(d.workedMinutes):"—"}</td><td>${special?`${esc(special.label)} ${premium}`:"—"}</td><td>${d.status==="complete"?"ครบ":"เวลาไม่ครบ"}</td></tr>`;
-  }).join("")||`<tr><td colspan="6" style="text-align:center;color:#6b7280">ไม่มีบันทึกเวลาในงวดนี้</td></tr>`;
-  const html=`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>Timesheet ${esc(line.employeeId)}</title><style>
-  *{box-sizing:border-box}body{font-family:"Sarabun","Tahoma",sans-serif;color:#14213d;margin:0;padding:24px;background:#f3f4f6}.sheet{max-width:850px;margin:auto;background:#fff;padding:34px 40px;box-shadow:0 1px 6px #0002}.top{display:flex;justify-content:space-between;gap:18px;border-bottom:3px solid #1e3a5f;padding-bottom:15px}.brand{display:flex;gap:13px}.logo{width:68px;height:68px;object-fit:contain}.co{font-size:18px;font-weight:800;color:#1e3a5f}.muted{font-size:12px;color:#52606d;line-height:1.5}h1{margin:0;font-size:22px}table{width:100%;border-collapse:collapse;margin-top:20px;font-size:13px}th{background:#1e3a5f;color:white;text-align:left;padding:8px}td{padding:8px;border-bottom:1px solid #dbe3ec}.summary{display:flex;gap:16px;margin-top:18px}.summary div{flex:1;border:1px solid #dbe3ec;padding:10px;border-radius:8px}.tb{max-width:850px;margin:0 auto 12px;text-align:right}.pbtn{padding:8px 18px;border:0;border-radius:8px;background:#1e3a5f;color:#fff;font:inherit}@media print{body{background:#fff;padding:0}.sheet{box-shadow:none}.tb{display:none}}</style></head><body><div class="tb"><button class="pbtn" onclick="window.print()">พิมพ์ / บันทึก PDF</button></div><main class="sheet"><div class="top"><div class="brand">${printLogoMarkup(issuer,"logo")}<div><div class="co">${esc(issuer.name)}</div><div class="muted">${esc(issuer.address)}<br>เลขประจำตัวผู้เสียภาษี ${esc(issuer.taxId)}</div></div></div><div style="text-align:right"><h1>ใบลงเวลาทำงาน</h1><div class="muted">TIMESHEET<br>งวด ${dateTh(period.start)} – ${dateTh(period.end)}</div></div></div><div class="summary"><div><b>พนักงาน</b><br>${esc(empName(line.employeeId))}<br><span class="muted">${esc(line.employeeId)}</span></div><div><b>สรุปเพื่อคำนวณเงินเดือน</b><br>เวลาปกติ ${fmtHours(line.regularMinutes)} · OT ${fmtHours(line.otMinutes)}<br><span class="muted">ตรวจสอบก่อนล็อกงวด</span></div></div><table><thead><tr><th>วันที่</th><th>เข้า</th><th>ออก</th><th>เวลาทำงาน</th><th>อัตราพิเศษ</th><th>สถานะ</th></tr></thead><tbody>${rows}</tbody></table><p class="muted">เอกสารตรวจสอบก่อนออกสลิป · การแก้ไขเวลาและตัวคูณอัตราพิเศษต้องทำในหลังบ้านก่อนล็อกงวด</p></main></body></html>`;
+  const DOW=["อา","จ","อ","พ","พฤ","ศ","ส"];
+  const hm=(m)=>{ m=Number(m||0); if(!m) return "—"; return Math.floor(m/60)+":"+String(m%60).padStart(2,"0"); };
+  if(!state.empById[line.employeeId]){ try{ await loadEmployees(true); }catch(_){} }
+  const empRole=state.empById[line.employeeId]?.role||line.role||"";
+  const list=(days||[]).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  let sumWorked=0, present=0, absent=0, late=0, holidayWork=0;
+  const rows=list.map(d=>{
+    const dt=new Date(String(d.date)+"T00:00:00+07:00"), dow=isNaN(dt)?0:dt.getDay();
+    const special=specialByDate[d.date], premium=special?`×${special.multiplier}`:"";
+    const worked=Number(d.workedMinutes||0); sumWorked+=worked;
+    const base=d.base||(d.status==="complete"?"present":d.status||"");
+    let st,cls;
+    if(base==="late"){ present++; late++; st="มาสาย / ไม่ครบ"; cls="st-late"; }
+    else if(base==="present"||d.status==="complete"){ present++; st="มาทำงาน"; cls="st-ok"; }
+    else if(base==="absent"){ absent++; st="ขาดงาน"; cls="st-absent"; }
+    else if(base==="off"){ st=d.holName?esc(d.holName):"วันหยุด"; cls="st-off"; }
+    else if(base==="future"){ st="—"; cls="st-off"; }
+    else if(d.checkIn||d.checkOut){ late++; st="เวลาไม่ครบ"; cls="st-late"; }
+    else { st="—"; cls="st-off"; }
+    if(special&&worked) holidayWork++;
+    const weekend=dow===0||dow===6;
+    return `<tr class="${weekend?'wk':''}"><td class="c">${isNaN(dt)?esc(d.date):dt.getDate()}</td><td class="c d-${dow}">${DOW[dow]}</td><td class="c">${esc(d.checkIn||"—")}</td><td class="c">${esc(d.checkOut||"—")}</td><td class="c num">${hm(worked)}</td><td class="prem">${special?esc(special.label)+" <b>"+premium+"</b>":"—"}</td><td class="st ${cls}">${st}</td></tr>`;
+  }).join("")||`<tr><td colspan="7" class="empty">ไม่มีบันทึกเวลาในงวดนี้</td></tr>`;
+  const totalNormal=Number(line.regularMinutes!=null?line.regularMinutes:sumWorked), totalOt=Number(line.otMinutes||0);
+  const docNo="TS-"+esc(line.employeeId)+"-"+esc(String(period?.start||"").replaceAll("-",""));
+  const html=`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ใบลงเวลาทำงาน ${esc(empName(line.employeeId))}</title><style>
+    *{box-sizing:border-box}body{font-family:"Sarabun","TH Sarabun New","Tahoma",sans-serif;color:#152235;margin:0;padding:24px;background:#eef1f5}
+    .sheet{max-width:760px;margin:0 auto;background:#fff;padding:40px 44px;box-shadow:0 3px 14px rgba(21,44,71,.12)}
+    .top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;border-bottom:2px solid #173a63;padding-bottom:18px}
+    .brand{display:flex;gap:14px;align-items:flex-start;min-width:0}.logo{width:68px;height:68px;object-fit:contain;flex:none}
+    .co{font-size:18px;font-weight:700;color:#173a63;margin:0;line-height:1.25}.muted{font-size:11.5px;color:#42546a;line-height:1.55}
+    .doc{min-width:210px;text-align:right}.doc h1{font-size:23px;margin:0;color:#14263d;font-weight:700;line-height:1.15}.doc .en{font-size:10.5px;letter-spacing:.8px;color:#5c7088;margin-top:3px}.doc .no{font-size:10px;color:#6a7c91;margin-top:8px}
+    .meta{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:18px 0 6px;padding:12px 0;border-bottom:1px solid #dbe3ec;font-size:12.5px;line-height:1.65}.meta .k{color:#6a7c91;display:inline-block;min-width:54px}.meta strong{color:#14263d}
+    .sum{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin:14px 0 4px;border:1px solid #dbe3ec;border-radius:8px;overflow:hidden}
+    .sum>div{padding:9px 12px;border-right:1px solid #e7edf3;text-align:center}.sum>div:last-child{border-right:0}.sum span{display:block;font-size:10px;color:#6a7c91}.sum b{display:block;font-size:17px;margin-top:2px;color:#14263d;font-variant-numeric:tabular-nums}.sum b.a{color:#b42318}.sum b.l{color:#b45309}
+    table{width:100%;border-collapse:collapse;margin-top:16px;font-size:12px}
+    thead{display:table-header-group}thead th{background:#173a63;color:#fff;font-weight:600;padding:7px 8px;text-align:left}thead th.c{text-align:center}
+    tbody tr{page-break-inside:avoid}tbody tr:nth-child(even){background:#f7f9fb}tbody tr.wk{background:#f1f4f8}
+    td{padding:5px 8px;border-bottom:1px solid #e7edf3;line-height:1.3}td.c{text-align:center}td.num{text-align:right;font-variant-numeric:tabular-nums}td.d-0{color:#a3433c}td.d-6{color:#2b5a86}
+    td.prem{font-size:11px;color:#42546a}td.st{font-weight:600;font-size:11px}.st-ok{color:#14784c}.st-late{color:#b45309}.st-absent{color:#b42318}.st-off{color:#8a98a8;font-weight:500}
+    td.empty{text-align:center;color:#8a98a8;padding:18px}
+    tfoot td{border-top:2px solid #173a63;padding:9px 8px;font-weight:700;color:#173a63}tfoot td.num{text-align:right;font-variant-numeric:tabular-nums}
+    .note{margin-top:16px;padding:9px 12px;border-left:3px solid #173a63;background:#f4f7fa;font-size:10.5px;color:#51657b;line-height:1.5}
+    .sign{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:40px;font-size:12px;color:#42546a;text-align:center}.sign .l{margin-top:46px;border-top:1px dotted #78899b;padding-top:6px}
+    .tb{max-width:760px;margin:0 auto 12px;text-align:right}.pbtn{font:inherit;font-size:14px;padding:9px 18px;border:0;border-radius:8px;background:#173a63;color:#fff;cursor:pointer}
+    @page{size:A4;margin:12mm}@media print{body{background:#fff;padding:0}.sheet{box-shadow:none;max-width:none;padding:0}.tb{display:none}}
+  </style></head><body>
+    <div class="tb"><button class="pbtn" onclick="window.print()">พิมพ์ / บันทึก PDF</button></div>
+    <main class="sheet">
+      <div class="top"><div class="brand">${printLogoMarkup(issuer,"logo")}<div><p class="co">${esc(issuer.name)}</p><div class="muted">${esc(issuer.address)}<br>เลขประจำตัวผู้เสียภาษี ${esc(issuer.taxId)}</div></div></div>
+        <div class="doc"><h1>ใบลงเวลาทำงาน</h1><div class="en">TIMESHEET</div><div class="no">เลขที่ ${docNo}</div></div></div>
+      <div class="meta">
+        <div><div><span class="k">พนักงาน</span> <strong>${esc(empName(line.employeeId))}</strong></div><div><span class="k">รหัส</span> ${esc(line.employeeId)}${empRole?" · "+esc(empRole):""}</div></div>
+        <div style="text-align:right"><div><span class="k">งวด</span> <strong>${dateTh(period.start)} – ${dateTh(period.end)}</strong></div><div><span class="k">จัดทำ</span> ${new Date().toLocaleDateString("th-TH",{dateStyle:"long"})}</div></div>
+      </div>
+      <div class="sum"><div><span>วันมาทำงาน</span><b>${fmtInt(present)}</b></div><div><span>มาสาย/ไม่ครบ</span><b class="l">${fmtInt(late)}</b></div><div><span>ขาดงาน</span><b class="a">${fmtInt(absent)}</b></div><div><span>ชั่วโมงปกติ</span><b>${hm(totalNormal)}</b></div><div><span>OT</span><b>${hm(totalOt)}</b></div></div>
+      <table>
+        <thead><tr><th class="c">วันที่</th><th class="c">วัน</th><th class="c">เข้า</th><th class="c">ออก</th><th class="c">ชม.ทำงาน</th><th>อัตราพิเศษ</th><th>สถานะ</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr><td colspan="4" style="text-align:right">รวมชั่วโมงทำงาน</td><td class="num">${hm(sumWorked)}</td><td>OT ${hm(totalOt)}</td><td>มา ${fmtInt(present)} · ขาด ${fmtInt(absent)}</td></tr></tfoot>
+      </table>
+      <div class="note">เอกสารแสดงเวลาเข้า–ออกตามข้อมูลที่บันทึกในระบบ ณ วันที่จัดทำ · ตัวคูณอัตราพิเศษ (×N) อ้างอิงปฏิทินวันหยุด/นโยบายที่ตั้งไว้หลังบ้าน</div>
+      <div class="sign"><div><div class="l">ผู้จัดทำ</div></div><div><div class="l">ผู้ตรวจสอบ</div></div><div><div class="l">พนักงาน</div></div></div>
+    </main></body></html>`;
   const w=window.open("","_blank"); if(!w){toast("เบราว์เซอร์บล็อก popup","bad");return;} w.document.open();w.document.write(html);w.document.close();
 }
 
@@ -4014,6 +4072,7 @@ function pmRenderDetail(){
       <div class="pm-av" style="width:40px;height:40px;font-size:14px">${esc((m.e.name||m.e.id).slice(0,2))}</div>
       <div style="flex:1;min-width:140px"><div style="font-size:15px;font-weight:600">${esc(m.e.name||m.e.id)}</div><div class="sub">${esc(m.e.id)}${m.e.role?" · "+esc(m.e.role):""}</div></div>
       <div style="text-align:right"><div class="sub">ประมาณการเงินเดือนงวดนี้</div><div style="font-size:20px;font-weight:600;color:var(--blue-ink)">${fmtBaht(net)}</div></div>
+      <button class="btn sub sm" id="pmPrintTs" type="button">พิมพ์ Timesheet</button>
     </div>
     <div class="cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
       <div class="card" style="padding:10px 12px"><div class="label">ค่าแรงฐาน</div><div style="font-size:17px;font-weight:600">${fmtBaht(pl.baseGross||0)}</div><div class="sub">${pl.workDays||0} วัน${daily?" × "+fmtBaht(daily):""}</div></div>
@@ -4024,6 +4083,8 @@ function pmRenderDetail(){
     ${cal}
     <div class="notice blue" style="margin-top:12px">ตัวเลขเงินเป็น<b>ประมาณการ</b> คิดจากวันที่เช็กเอาต์ครบ ยอดจริงล็อกตอนปิดงวดที่หน้า “จ่ายเงินเดือน”</div>
   </div></div>`;
+  const pb=host.querySelector("#pmPrintTs");
+  if(pb) pb.onclick=()=>{ const days=m.cells.map(c=>({date:c.iso,checkIn:c.d?c.d.checkIn:"",checkOut:c.d?c.d.checkOut:"",workedMinutes:c.d?c.d.workedMinutes:0,status:c.d?c.d.status:"",base:c.base,holName:c.holName})); printTimesheet({employeeId:m.e.id,role:m.e.role,regularMinutes:(pl.regularMinutes!=null?pl.regularMinutes:m.workedMin),otMinutes:(pl.otMinutes||0)},{start:r.start,end:r.end},days,{}); };
 }
 
 /* Dashboard path for exceptional, Admin-recorded attendance. The server remains
@@ -4478,6 +4539,7 @@ async function printPayslip(l, period, isInternal=false, issuerSnapshot=null){
       .co-name{font-size:20px;font-weight:700;line-height:1.25;color:#173a63;margin:0}.co-en{font-size:12px;color:#42546a;margin:2px 0 8px}.co-line{font-size:12px;color:#42546a;line-height:1.55}
       .doc-title{min-width:220px;text-align:right;padding-top:2px}.doc-title h1{font-size:25px;line-height:1.18;margin:0;color:#14263d;font-weight:700}.doc-title .sub{font-size:11px;letter-spacing:.7px;color:#5c7088;margin-top:4px}.document-id{font-size:10px;color:#6a7c91;margin-top:9px}
       .meta{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:22px;padding:14px 0;border-bottom:1px solid #dbe3ec;font-size:13px;line-height:1.7}.meta .k{display:inline-block;min-width:50px;color:#6a7c91}.meta strong{font-weight:700;color:#14263d}
+      .paysum{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #dbe3ec;border-radius:8px;overflow:hidden;margin:16px 0 2px}.paysum>div{padding:10px 12px;border-right:1px solid #e7edf3;text-align:center}.paysum>div:last-child{border-right:0}.paysum span{display:block;font-size:10px;color:#6a7c91}.paysum b{display:block;font-size:16px;margin-top:3px;color:#14263d;font-variant-numeric:tabular-nums}
       table{width:100%;border-collapse:collapse;margin-top:24px;font-size:14px}th{background:#173a63;color:#fff;text-align:left;padding:10px 12px;font-weight:600}th.num,td.num{text-align:right}td{padding:10px 12px;border-bottom:1px solid #dbe3ec}td.num{font-variant-numeric:tabular-nums}
       .totals{margin-top:18px;margin-left:auto;width:330px;font-size:14px}.totals div{display:flex;justify-content:space-between;gap:20px;padding:7px 4px}.totals .ded{color:#42546a}.totals .grand{border-top:2px solid #173a63;margin-top:5px;padding:12px 4px 4px;font-size:21px;font-weight:700;color:#173a63}.totals .grand span:last-child{font-variant-numeric:tabular-nums}
       .note{margin-top:22px;padding:10px 12px;border-left:3px solid #173a63;background:#f4f7fa;font-size:11px;line-height:1.55;color:#51657b}.foot{margin-top:54px;display:flex;justify-content:space-between;align-items:flex-end;font-size:13px;color:#42546a}.recipient{padding-bottom:6px}.sign{text-align:center;width:220px;color:#42546a}.sign .line{margin-top:54px;border-top:1px dotted #78899b;padding-top:7px;line-height:1.45}
@@ -4499,10 +4561,11 @@ async function printPayslip(l, period, isInternal=false, issuerSnapshot=null){
         <div><div><span class="k">พนักงาน</span> <strong>${esc(employeeName)}</strong></div><div><span class="k">รหัส</span> ${esc(l.employeeId)}${l.role?" · "+esc(l.role):""}</div></div>
         <div style="text-align:right"><div><span class="k">งวดค่าจ้าง</span> <strong>${periodText}</strong></div><div><span class="k">${isInternal?"จัดทำเมื่อ":"วันที่จ่าย"}</span> ${isInternal?today:dateTh(period.paidAt||period.lockedAt)}</div></div>
       </div>
+      <div class="paysum"><div><span>วันทำงาน</span><b>${fmtInt(l.workDays)} วัน</b></div><div><span>ชั่วโมงปกติ</span><b>${hrs(l.regularMinutes)}</b></div><div><span>ล่วงเวลา (OT)</span><b>${Number(l.otMinutes||0)?hrs(l.otMinutes):"—"}</b></div></div>
       <table><thead><tr><th>รายการ</th><th class="num">จำนวน</th><th class="num">เงิน (บาท)</th></tr></thead>
         <tbody>
-          <tr><td>ค่าแรงฐาน · ${fmtInt(l.workDays)} วัน (${hrs(l.regularMinutes)})${lateAbsenceDeduction?`<br><span style="font-size:11px;color:#51657b">รวมผลหักจากมาสายสะสม ${fmtInt(l.lateDays||0)} วัน = ขาด ${fmtInt(l.lateAbsenceDays||0)} วัน (${money(lateAbsenceDeduction)} บาท)</span>`:""}</td><td class="num">—</td><td class="num">${money(l.baseGross)}</td></tr>
-          ${Number(l.otGross||0)?`<tr><td>ค่าล่วงเวลา (OT) · ${hrs(l.otMinutes)}</td><td class="num">—</td><td class="num">${money(l.otGross)}</td></tr>`:""}
+          <tr><td>ค่าแรงฐาน · ${fmtInt(l.workDays)} วัน (${hrs(l.regularMinutes)})${lateAbsenceDeduction?`<br><span style="font-size:11px;color:#51657b">รวมผลหักจากมาสายสะสม ${fmtInt(l.lateDays||0)} วัน = ขาด ${fmtInt(l.lateAbsenceDays||0)} วัน (${money(lateAbsenceDeduction)} บาท)</span>`:""}</td><td class="num">${fmtInt(l.workDays)} วัน</td><td class="num">${money(l.baseGross)}</td></tr>
+          ${Number(l.otGross||0)?`<tr><td>ค่าล่วงเวลา (OT) · ${hrs(l.otMinutes)}</td><td class="num">${hrs(l.otMinutes)}</td><td class="num">${money(l.otGross)}</td></tr>`:""}
         </tbody></table>
       <div class="totals">
         <div><span>รวมรายได้ก่อนหัก</span><span>${money(gross)}</span></div>
