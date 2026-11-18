@@ -34,6 +34,13 @@ const required = [
   'ทะเบียนเงินล่วงหน้า',
   'data-adv-filter',
   'เปิดเอกสารได้',
+  'ledger-dashboard',
+  'รายชื่อทีมวันนี้',
+  'คลิกชื่อเพื่อเปิดแผ่นตรวจสอบ',
+  'employee-review-modal',
+  'employee-review-summary',
+  'employeeReviewHistory',
+  'ตรวจสอบเวลาทำงาน',
 ];
 
 const missing = required.filter((token) => !html.includes(token));
