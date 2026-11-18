@@ -1200,6 +1200,29 @@
   :root:not([data-theme="dark"]) #page-dashboard .team-cal-day.future{background:#f3f6f9}
   :root:not([data-theme="dark"]) #page-dashboard .team-register,.cc-decide{background:#fff}
   @media(max-width:700px){:root:not([data-theme="dark"]) #page-dashboard .cc{padding:12px;border-radius:14px}}
+  /* Timesheet uses the same canvas-to-ledger contrast. Check-in and check-out
+     are clock values, not generic text, so they receive one quiet semantic
+     treatment that stays scannable in a dense table. */
+  :root:not([data-theme="dark"]) #page-owner .owner-time-workspace{padding:18px;background:#f2f6fa;border:1px solid #dbe5ed;border-radius:18px;box-shadow:0 10px 28px -26px rgba(19,45,70,.46)}
+  :root:not([data-theme="dark"]) #page-owner .time-ledger-head{padding:0 4px 4px;margin-bottom:8px}
+  :root:not([data-theme="dark"]) #page-owner .time-ledger-head h2{color:#102b43}
+  :root:not([data-theme="dark"]) #page-owner .time-ledger-actions select{background:#fff;border-color:#bfcfdb;color:#193851}
+  :root:not([data-theme="dark"]) #page-owner .time-ledger-actions .btn.ok{background:#e6f5f1;color:#056855;border:1px solid #b9e0d4}
+  :root:not([data-theme="dark"]) #page-owner .time-ledger-actions .btn.sub{background:#fff;color:#314d64;border:1px solid #bfcfdb}
+  :root:not([data-theme="dark"]) #page-owner .time-ledger{background:#fff;border-color:#cbd9e4;box-shadow:0 6px 16px -12px rgba(19,45,70,.3)!important}
+  :root:not([data-theme="dark"]) #page-owner .time-ledger>.head{background:#f5f8fb!important;border-bottom-color:#cbd9e4}
+  :root:not([data-theme="dark"]) #page-owner .time-ledger-status{background:#eef4f8;border-bottom-color:#d7e2eb;color:#49657b}
+  :root:not([data-theme="dark"]) #page-owner .time-ledger thead th{background:#e6eef5;color:#38546b;border-color:#ccd9e4}
+  :root:not([data-theme="dark"]) #page-owner .time-ledger td{border-color:#e1e9ef}
+  :root:not([data-theme="dark"]) #page-owner .time-ledger tbody tr:nth-child(even){background:#fbfdff}
+  :root:not([data-theme="dark"]) #page-owner .time-ledger tbody tr:hover{background:#f3f8fb}
+  :root:not([data-theme="dark"]) #page-owner .time-ledger tbody tr.att-row.open{background:#fffaf2}
+  :root:not([data-theme="dark"]) #page-owner .time-ledger tbody tr.att-row.review{background:#fff7f8}
+  .time-stamp{display:inline-grid;min-width:56px;place-items:center;padding:3px 6px;border:1px solid transparent;border-radius:6px;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+  .time-stamp.in{background:#e7f5ee;border-color:#c8e8d9;color:#076b59}
+  .time-stamp.out{background:#fff2e4;border-color:#f0d3ae;color:#9a5b12}
+  .time-stamp.empty{background:#f2f5f7;border-color:#e2e8ee;color:#7b8c9a;font-weight:500}
+  @media(max-width:700px){:root:not([data-theme="dark"]) #page-owner .owner-time-workspace{padding:12px;border-radius:14px}.time-stamp{min-width:52px}}
   @media(max-width:1240px){#page-dashboard .cc-hero{grid-template-columns:minmax(290px,.85fr) minmax(0,1.15fr)}#page-dashboard .cc-hero-rail{grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr));border-left:0;border-top:1px solid rgba(255,255,255,.12)}#page-dashboard .cc-hero-metric{min-height:76px}}@media(max-width:700px){#page-dashboard .cc-hero-rail{grid-template-columns:1fr}.cc-hero-metric{min-height:72px}}
   @media(max-width:1180px){.people-profile-filter{order:3;width:100%}.people-summary{display:none}}
   @media(max-width:820px){.people-profile-filter{order:initial;max-width:100%;overflow:auto}.people-profile-filter button{flex:none}.payroll-table-tools{align-items:flex-start;flex-wrap:wrap}.payroll-filter-set{overflow:auto;max-width:100%}}
@@ -3692,7 +3715,7 @@ async function renderOwner(){
       </div>
 
       <div class="subpane" data-pane="time" style="display:none">
-        <section class="time-ledger-head"><div><div class="route-eyebrow">ทะเบียนเวลาเข้า–ออก</div><h2>บันทึกเวลาทำงาน</h2><p>หนึ่งแถวต่อพนักงานต่อวัน · แก้ไขเฉพาะรายการที่ต้องจัดการ</p></div>
+        <section class="time-ledger-head"><div><div class="route-eyebrow">ทะเบียนเวลาเข้า–ออก</div><h2>บันทึกเวลาทำงาน</h2><p>หนึ่งแถวต่อพนักงานต่อวัน · ตรวจเฉพาะรายการที่ต้องจัดการ</p></div>
           <div class="time-ledger-actions"><select id="ownEmp" aria-label="กรองพนักงาน"></select><button class="btn ok sm" id="ownIn">ลงเวลาเข้า</button><button class="btn sub sm" id="ownOut">ลงเวลาออก</button></div>
         </section>
         ${incompleteWarningHtml(data.incompleteDays)}
@@ -3754,7 +3777,7 @@ async function renderOwner(){
           const status=d.status==="complete"?'<span class="badge">ครบ</span>':d.checkIn?'<span class="badge amber">รอออก</span>':'<span class="badge red">ไม่ครบ</span>';
           const rowState=d.status==="complete"?"complete":d.checkIn?"open":"review";
           return `<tr data-att="${i}" class="att-row ${rowState}${isToday?" is-today":""}">
-          <td>${fmtDate(d.date)}</td><td class="person">${person}<span class="sub">${esc(d.employeeId||"")}</span></td><td class="num">${esc(d.checkIn||"—")}</td><td class="num">${esc(d.checkOut||"—")}</td>
+          <td>${fmtDate(d.date)}</td><td class="person">${person}<span class="sub">${esc(d.employeeId||"")}</span></td><td class="num"><span class="time-stamp in${d.checkIn?"":" empty"}">${esc(d.checkIn||"—")}</span></td><td class="num"><span class="time-stamp out${d.checkOut?"":" empty"}">${esc(d.checkOut||"—")}</span></td>
           <td class="num">${d.workedMinutes?fmtHours(d.workedMinutes):"—"}</td><td>${status}</td>
           <td class="num time-ledger-row-actions">${act}</td></tr>`;}).join("")
         : `<tr><td colspan="7"><div class="empty">${ownerState.filter==="review"?"ไม่มีรายการที่ต้องตรวจ":ownerState.filter==="today"?"ยังไม่มีบันทึกเวลาวันนี้":"ไม่มีบันทึกเวลา"}</div></td></tr>`;
