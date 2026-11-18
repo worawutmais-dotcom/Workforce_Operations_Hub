@@ -1006,6 +1006,21 @@
   #page-dashboard .team-cal-day.off .tcd-state{color:#62748a}
   #page-dashboard .team-cal-day .badge{font-size:9px;padding:2px 5px;background:#dce9f5;color:#294866;border-radius:5px}
   @media(max-width:700px){#page-dashboard .team-cal-day{min-height:58px;padding:6px}.team-cal-day .tcd-state{margin-top:5px}}
+  /* Shared data hierarchy for every back-office route. The shell stays quiet;
+     fields, records and actionable states do the visual work. */
+  :root:not([data-theme="dark"]) .bvn-route .panel,.bvn-route .card{border-color:#dfe7ef}
+  :root:not([data-theme="dark"]) .bvn-route .panel>.head{background:#f7f9fc;border-bottom-color:#dfe7ef}
+  :root:not([data-theme="dark"]) .bvn-route table thead th{background:#edf2f7;color:#52677d;border-bottom-color:#d8e2ec}
+  :root:not([data-theme="dark"]) .bvn-route table tbody tr:nth-child(even){background:#fbfcfe}
+  :root:not([data-theme="dark"]) .bvn-route table tbody tr:hover{background:#f3f7fb}
+  :root:not([data-theme="dark"]) .bvn-route .field input,:root:not([data-theme="dark"]) .bvn-route .field select,:root:not([data-theme="dark"]) .bvn-route .field textarea,:root:not([data-theme="dark"]) .bvn-route .toolbar input,:root:not([data-theme="dark"]) .bvn-route .toolbar select{background:#fff;border-color:#cbd8e5;color:#172c42}
+  :root:not([data-theme="dark"]) .bvn-route .field input:focus,:root:not([data-theme="dark"]) .bvn-route .field select:focus,:root:not([data-theme="dark"]) .bvn-route .field textarea:focus,:root:not([data-theme="dark"]) .bvn-route .toolbar input:focus,:root:not([data-theme="dark"]) .bvn-route .toolbar select:focus{border-color:#365b7d;box-shadow:0 0 0 3px rgba(54,91,125,.12)}
+  .bvn-route .badge{font-weight:600;letter-spacing:0}
+  .bvn-route .sub,.bvn-route .hint{color:#62748a}
+  #page-dashboard .cc-lower{grid-template-columns:minmax(0,1.1fr) minmax(330px,.9fr);gap:12px}
+  #page-dashboard .cc-lower .panel{margin:0!important;min-height:142px}
+  #page-dashboard .cc-lower .head{background:#f5f8fb!important;border-top:2px solid #365b7d}
+  #page-dashboard .cc-lower .dashboard-checkin-sites .head{border-top-color:#27835a}
 </style>
 </head>
 <body>
@@ -1818,8 +1833,8 @@ async function renderDashboard(data, preloaded={}){
             <div class="panel cc-decide"><div class="head"><b>คิวที่ต้องตัดสินใจ</b><div class="spacer"></div><button class="btn sub sm" data-nav="approvals">เปิดทั้งหมด</button></div><div class="body flush dash-list">${decideHtml}</div></div>
             <div class="panel team-register hr-team"><div class="head"><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">เลือกชื่อเพื่อดูเวลาเข้า–ออกและประวัติ</span><div class="spacer"></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เวลาเข้า</span><span>สถานะ</span></div><div class="team-grid">${teamHtml}</div></div></div>
           </section>
-          ${dashboardTeamCalendarHtml(calendarMonth, team, calendarDays, dashSettings.workdays, leaves)}
           <section class="cc-lower"><section class="panel dashboard-personal-time" aria-label="เวลาทำงานรายบุคคล"><div class="head"><div><b>แนวโน้มเวลาทำงานรายบุคคล</b><span class="sub" style="margin-left:8px">สรุปเดือนนี้ · เลือกพนักงานเพื่อดูรายละเอียด</span></div></div><div class="body"><div id="peoplePulse"><div class="empty">กำลังโหลดสรุปรายบุคคล…</div></div></div></section><section class="panel site-policy dashboard-checkin-sites" aria-label="จุดเช็กอินที่อนุญาต"><div class="head"><div><b>จุดเช็กอินที่อนุญาต</b><span class="sub" style="margin-left:8px">นโยบายพื้นที่สำหรับการเช็กอิน</span></div><div class="spacer"></div><button class="btn sm" id="siteAddBtn">เพิ่มจุด</button></div><div class="site-policy-note">พนักงานเช็กอินได้เมื่ออยู่ในรัศมีของจุดที่เปิดใช้งาน · เช็กเอาต์ได้ทุกพื้นที่</div><div class="body flush"><table id="siteTable"><thead><tr><th>พื้นที่</th><th class="num">รัศมี</th><th>สถานะ</th><th data-nosort></th></tr></thead><tbody id="siteRows"><tr><td colspan="4"><div class="empty">กำลังโหลดจุดเช็กอิน…</div></td></tr></tbody></table></div></section></section>
+          ${dashboardTeamCalendarHtml(calendarMonth, team, calendarDays, dashSettings.workdays, leaves)}
           <div class="toolbar dash-short"><button class="btn ghost" data-act="emp">เพิ่มพนักงาน</button><button class="btn ghost" data-act="ot">บันทึก OT</button>${canFinance?`<button class="btn ghost" data-act="inv">ออกใบแจ้งหนี้</button><button class="btn ghost" data-nav="payroll">ตรวจเงินเดือน</button>`:""}</div>
         </div>`;
     } else {
