@@ -65,6 +65,10 @@ const required = [
   'payroll-status-rail',
   'attLedgerStatus',
   'timesheet scan layer',
+  'people-profile-filter',
+  'data-profile-filter="missing"',
+  'profileReadyCount',
+  'profileMissingCount',
 ];
 
 const missing = required.filter((token) => !html.includes(token));

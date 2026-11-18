@@ -1141,6 +1141,23 @@
   #page-dashboard .team-cal-day.warn{background:#fff8eb;border-color:#eeddb7;box-shadow:inset 3px 0 0 var(--ops-amber)}
   #page-dashboard .cc-lower .head{background:#f6f9fb!important;border-top-color:var(--ops-navy)}
   #page-dashboard .cc-lower .dashboard-checkin-sites .head{border-top-color:var(--ops-teal)}
+  /* Employee directory: completeness is a workflow state, not an extra screen. */
+  .people-profile-filter{display:flex;align-items:center;gap:3px;padding:3px;border:1px solid var(--ops-line);border-radius:8px;background:#f7fafc;white-space:nowrap}
+  .people-profile-filter button{border:0;border-radius:6px;padding:5px 7px;background:transparent;color:var(--ops-muted);font:inherit;font-size:10px;line-height:1.2;cursor:pointer}
+  .people-profile-filter button b{margin-left:3px;font-variant-numeric:tabular-nums}
+  .people-profile-filter button:hover{background:#edf3f7;color:var(--ops-text)}
+  .people-profile-filter button.active{background:#e7f0f8;color:#24516f;box-shadow:inset 0 0 0 1px #c8ddeb}
+  .employee-table .employee-meta.is-ready{color:var(--ops-teal)}
+  .employee-table .employee-meta.is-missing{color:var(--ops-amber);font-weight:600}
+  /* Settings reads as policy first, maintenance second, with the irreversible action isolated. */
+  .settings-workspace{gap:12px}
+  .settings-workspace .setting-group-label{margin:12px 0 -2px;color:#406078;letter-spacing:.06em}
+  .settings-workspace>.panel{border-left:3px solid #a8c0d1}
+  .settings-workspace>.panel .head h2{color:var(--ops-text)}
+  .settings-workspace>.panel[style*="fecaca"]{border-color:#f0c6cd!important;border-left-color:var(--ops-coral)!important;background:#fffafb}
+  .settings-workspace>.panel[style*="fecaca"] .head{background:#fff6f7!important}
+  @media(max-width:1180px){.people-profile-filter{order:3;width:100%}.people-summary{display:none}}
+  @media(max-width:820px){.people-profile-filter{order:initial;max-width:100%;overflow:auto}.people-profile-filter button{flex:none}}
   @media(max-width:900px){:root:not([data-theme="dark"]) .side{box-shadow:0 18px 42px rgba(12,34,54,.32)}}
 </style>
 </head>
@@ -2232,7 +2249,7 @@ async function refreshApprovalBadge(){
 /* =================================================================
    PEOPLE & APPROVALS (merged, minimal)
    ================================================================= */
-let _peopleSel=null, _peopleMode="ot";
+let _peopleSel=null, _peopleMode="ot", _peopleProfileFilter="all";
 function peopleRow(i,idx,kind){
   const tag=i.tag||(kind==="adv"?"เบิก":"");
   const tagCls=i.mode==="leave"?"blue":i.mode==="advance"?"amber":i.tag==="OT"?"":"grey";
@@ -2277,6 +2294,8 @@ async function renderPeople(){
     const activeCount=emps.filter(e=>String(e.status||"").toLowerCase()==="active").length;
     const inactiveCount=Math.max(0,emps.length-activeCount);
     const pendingCount=Object.values(pendBy).reduce((sum,n)=>sum+Number(n||0),0);
+    const profileReadyCount=emps.filter(e=>e.nationalId&&e.phone).length;
+    const profileMissingCount=Math.max(0,emps.length-profileReadyCount);
     node.innerHTML=`
       <div id="pwReqPanel"></div>
       <div id="identityReqPanel"></div>
@@ -2289,6 +2308,7 @@ async function renderPeople(){
           </div>
           <div class="people-tools">
             <input class="people-search" type="search" id="pSearch" placeholder="ค้นหาชื่อ รหัส หรือ ตำแหน่ง">
+            <div class="people-profile-filter" role="group" aria-label="กรองความพร้อมข้อมูลพนักงาน"><button class="active" data-profile-filter="all">ทั้งหมด <b>${fmtInt(emps.length)}</b></button><button data-profile-filter="ready">ข้อมูลครบ <b>${fmtInt(profileReadyCount)}</b></button><button data-profile-filter="missing">ต้องติดตาม <b>${fmtInt(profileMissingCount)}</b></button></div>
             <div class="people-summary"><span><b>${fmtInt(activeCount)}</b> ใช้งาน</span><span><b>${fmtInt(inactiveCount)}</b> ปิดใช้งาน</span><span><b>${fmtInt(pendingCount)}</b> งานค้าง</span></div>
             <button class="btn sub sm" id="pExport">ส่งออก CSV</button>
           </div>
@@ -2309,14 +2329,19 @@ async function renderPeople(){
       </div>`;
     const drawList=(q="")=>{
       q=q.trim().toLowerCase();
-      const list=emps.filter(e=>!q||(e.id+e.name+(e.role||"")).toLowerCase().includes(q));
+      const list=emps.filter(e=>{
+        const matched=!q||(e.id+e.name+(e.role||"")).toLowerCase().includes(q);
+        const ready=!!(e.nationalId&&e.phone);
+        const profileMatched=_peopleProfileFilter==="all"||(_peopleProfileFilter==="ready"&&ready)||(_peopleProfileFilter==="missing"&&!ready);
+        return matched&&profileMatched;
+      });
       $("#pList").innerHTML=list.length?`<table class="employee-table"><thead><tr><th>พนักงาน</th><th>ตำแหน่ง</th><th>ติดต่อ / เอกสาร</th><th>นโยบายลงเวลา</th><th class="num">งานค้าง</th><th style="text-align:right">จัดการ</th></tr></thead><tbody>${list.map(e=>{
         const pc=pendBy[e.id]||0, ini=(e.name||e.id).trim().slice(0,2), sel=_peopleSel===e.id;
         const active=String(e.status||"").toLowerCase()==="active";
         return `<tr class="p-emp ${sel?"is-selected":""}" data-emp="${esc(e.id)}">
           <td><button class="p-open employee-name" data-emp="${esc(e.id)}" style="border:0;background:none;cursor:pointer;text-align:left;color:var(--ink);padding:0;width:100%"><span class="employee-avatar">${esc(ini)}</span><span><strong>${esc(e.name||e.id)}</strong><span class="employee-meta">${esc(e.id)} · ${active?"ใช้งาน":"ปิดใช้งาน"}</span></span></button></td>
           <td>${esc(e.role||"—")}<span class="employee-meta">${esc(e.department||"ไม่ระบุแผนก")}</span></td>
-          <td>${esc(e.phone||"—")}<span class="employee-meta">บัตรประชาชน ${e.nationalId?"•••••••••"+esc(String(e.nationalId).slice(-4)):"ยังไม่ระบุ"}</span></td>
+          <td>${esc(e.phone||"—")}<span class="employee-meta ${e.nationalId&&e.phone?"is-ready":"is-missing"}">บัตรประชาชน ${e.nationalId?"•••••••••"+esc(String(e.nationalId).slice(-4)):"ยังไม่ระบุ"}</span></td>
           <td><span class="employee-policy"><i class="dot ${e.locationRequired?"gps":""}"></i>${e.locationRequired?"เช็กอินตามพื้นที่":"ไม่บังคับตำแหน่ง"}</span></td>
           <td class="num">${pc?`<span class="badge amber">${fmtInt(pc)}</span>`:`<span class="sub">—</span>`}</td>
           <td><div class="employee-actions"><button class="employee-icon-btn p-cal" data-emp="${esc(e.id)}" title="ปฏิทินเวลางาน" aria-label="ปฏิทิน ${esc(e.name)}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg></button><button class="employee-icon-btn p-menu" data-emp="${esc(e.id)}" aria-label="จัดการ ${esc(e.name)}" title="จัดการ">⋯</button></div></td>
@@ -2364,6 +2389,7 @@ async function renderPeople(){
     };
     drawList(); drawMode(); loadPwRequests(); loadIdentityRequests();
     $("#pSearch").oninput=e=>drawList(e.target.value);
+    node.querySelectorAll("[data-profile-filter]").forEach(button=>button.onclick=()=>{ _peopleProfileFilter=button.dataset.profileFilter; node.querySelectorAll("[data-profile-filter]").forEach(x=>x.classList.toggle("active",x===button)); drawList($("#pSearch").value); });
     $("#pAdd").onclick=()=>employeeDialog(null);
     $("#pDemo").onclick=()=>openThreeMonthPayrollDemo();
     $("#pExport").onclick=()=>exportEmployeesCSV();
