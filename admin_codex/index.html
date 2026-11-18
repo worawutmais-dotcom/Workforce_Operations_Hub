@@ -4662,10 +4662,11 @@ async function renderSettings(){
           <div class="field"><label>ชื่อเวอร์ชัน</label><input id="appVN" type="text" placeholder="1.0.1"></div>
         </div>
         <div class="field"><label>ลิงก์ดาวน์โหลด APK (Drive)</label><input id="appUrl" type="url" placeholder="https://drive.google.com/uc?export=download&confirm=t&id=..."></div>
-        <div class="field"><label>หมายเหตุอัปเดต</label><input id="appNotes" type="text" placeholder="เช่น แก้บั๊ก + ธีมใหม่"></div>
+        <div class="field"><label>หมายเหตุอัปเดต</label><input id="appNotes" type="text" placeholder="เช่น ยืนยันข้อมูลพนักงาน ตรวจ Timesheet และออกสลิป"></div>
         <label class="check" style="margin-top:10px"><input type="checkbox" id="appMand"> บังคับอัปเดตก่อนใช้งาน</label>
         <div class="notice blue" id="beVer" style="margin-top:12px">กำลังตรวจเวอร์ชันหลังบ้าน…</div>
-        <div class="toolbar"><button class="btn" id="saveAppVer">บันทึกเวอร์ชันแอป</button></div>
+        <div class="notice" id="appPolicyHint" style="margin-top:8px">ตรวจนโยบายเวอร์ชันแอป…</div>
+        <div class="toolbar"><button class="btn sub sm" id="useAppNotesTemplate">ใช้ข้อความแนะนำ</button><button class="btn" id="saveAppVer">บันทึกเวอร์ชันแอป</button></div>
       </div>
     </div>
     <div class="panel"><div class="head"><h2>สำรองข้อมูล</h2><span class="sub" style="margin-left:8px">ดึงข้อมูลออกเก็บเอง — ข้อมูลเป็นของคุณ ไม่ถูกจับเป็นตัวประกัน</span></div>
@@ -4714,6 +4715,7 @@ async function renderSettings(){
   $("#verifyAttendanceArchiveFile").onchange=(e)=>verifyAttendanceArchiveFile(e.target.files&&e.target.files[0]);
   $("#purgeOldAttendance").onclick=()=>purgeOldAttendanceDialog();
   $("#factoryResetBtn").onclick=()=>factoryResetDialog();
+  $("#useAppNotesTemplate").onclick=()=>{ $("#appNotes").value="ยืนยันข้อมูลพนักงาน ตรวจ Timesheet และออกสลิปเงินเดือน"; toast("ใส่ข้อความแนะนำแล้ว · ตรวจและบันทึกได้เลย","good"); };
   $("#saveAppVer").onclick=async(e)=>{ await withBtn(e.target, async()=>{
     try{
       await api("admin_save_settings",{settings:{
@@ -4754,7 +4756,8 @@ async function loadAppVersion(){
   try{
     const v=await api("version"); const be=$("#beVer"); if(!be) return;
     be.textContent="เวอร์ชันหลังบ้านที่ deploy อยู่: "+(v.backendVersion||"ไม่ทราบ")+" · เวอร์ชันแอปล่าสุดที่ตั้งไว้: "+(v.appVersionName||v.appVersionCode||"ยังไม่ตั้ง");
-  }catch(_){ const be=$("#beVer"); if(be){ be.textContent="ตรวจเวอร์ชันหลังบ้านไม่ได้ (ต้อง deploy Code.gs ที่มี action version ก่อน)"; } }
+    const hint=$("#appPolicyHint"); if(hint){ const oldCopy=/แก้เวลา/.test(String(s.app_update_notes||"")); const correctionOff=v.capabilities&&v.capabilities.attendanceCorrection===false; hint.className="notice "+(oldCopy?"":"blue"); hint.textContent=oldCopy?"หมายเหตุอัปเดตปัจจุบันกล่าวถึง ‘แก้เวลา’ แต่ระบบไม่เปิดใช้งานการขอแก้เวลา · ใช้ข้อความแนะนำแล้วบันทึกเพื่อแก้ไข":"นโยบายปัจจุบัน: พนักงานไม่ส่งคำขอแก้เวลา · ตรวจ Timesheet และออกสลิปจากหลังบ้าน"; if(!correctionOff) hint.textContent="ตรวจ capability หลังบ้านไม่ได้ครบ · ตรวจสอบ revision ก่อนประกาศอัปเดต"; }
+  }catch(_){ const be=$("#beVer"),hint=$("#appPolicyHint"); if(be){ be.textContent="ตรวจเวอร์ชันหลังบ้านไม่ได้ (ต้อง deploy swift-handler ที่มี action version ก่อน)"; } if(hint) hint.textContent="ยังตรวจนโยบายเวอร์ชันแอปไม่ได้"; }
 }
 
 async function loadWorkRulesSummary(){

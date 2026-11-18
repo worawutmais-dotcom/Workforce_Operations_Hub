@@ -48,3 +48,7 @@
 - ทดสอบเลขเงินเดือนจริงแบบครบวงจรบนข้อมูล UAT (อนุมัติ OT วันอาทิตย์/วันหยุด → พรีวิว → เทียบยอด → ตรวจสลิปก่อนพิมพ์)
 - ทดสอบ APK 1.0.12 บนอุปกรณ์จริง: เวลา Asia/Bangkok, GPS check-in/out และ profile reminder
 - ปรับข้อความ release note ในตั้งค่าระบบ: ข้อความ live ปัจจุบันยังกล่าวถึง “แก้เวลา” แต่ capability `attendanceCorrection` ปิดอยู่
+
+### ตรวจสภาพ Production แบบ read-only
+
+ใช้ `node tools/production_readiness_probe.mjs` เพื่อเช็ก revision, capability หลัก, เวอร์ชัน APK และลิงก์ดาวน์โหลด โดยไม่อ่านหรือเขียนข้อมูลพนักงาน/เงินเดือน. Script จะเตือนเมื่อข้อความอัปเดตยังขัดกับนโยบายปิดการแก้เวลา

@@ -77,6 +77,9 @@ const required = [
   'cc-hero-rail',
   'ยอดจ่ายสุทธิประมาณการ',
   'ตัวชี้วัดที่ต้องติดตาม',
+  'useAppNotesTemplate',
+  'appPolicyHint',
+  'พนักงานไม่ส่งคำขอแก้เวลา',
 ];
 
 const missing = required.filter((token) => !html.includes(token));
