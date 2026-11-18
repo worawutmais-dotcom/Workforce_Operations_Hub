@@ -40,13 +40,14 @@
 ## ฝั่งแอปพนักงาน (APK)
 - หน้า "เวลาทำงาน" แสดงป้าย **×N** บนวันหยุด/เสาร์/อาทิตย์ (ดึงจาก `employee_month.multiplier` ซึ่งอ่านกติกาเดียวกัน)
 - OT คิดอัตโนมัติเมื่อเช็กเอาต์เกินเวลาเลิกงาน — พนักงานขอ OT เองไม่ได้
-- เวอร์ชันล่าสุด: **1.0.12 / version code 12** · ตั้งเป็นบังคับอัปเดตแล้ว และมีลิงก์ดาวน์โหลดในระบบ
+- Source APK ปัจจุบัน: **1.0.14 / version code 14** (`employee_mobile/pubspec.yaml`) ส่วนค่าที่ตั้งอยู่บน backend จริงจากการตรวจล่าสุดคือ **1.0.12 / version code 12** — ต้องอัปโหลด APK 1.0.14 และบันทึกเวอร์ชันในตั้งค่าระบบก่อนจึงจะถือว่าเผยแพร่แล้ว
+- เวลาเช็กอิน/เช็กเอาต์ถูกเก็บเป็น UTC แต่แอปแสดงเป็น **Asia/Bangkok (UTC+7)**; มี regression test `employee_mobile/test/bangkok_attendance_time_test.dart` ครอบคลุม `02:48Z → 09:48` และเส้นแบ่งวันไทย
 
 ## ยังค้าง
 
 - Publish `admin_codex/index.html` รุ่นล่าสุดไปยังช่องทางที่ผู้ดูแลใช้งานจริง; `run.bat` เปิดได้เฉพาะ localhost
 - ทดสอบเลขเงินเดือนจริงแบบครบวงจรบนข้อมูล UAT (อนุมัติ OT วันอาทิตย์/วันหยุด → พรีวิว → เทียบยอด → ตรวจสลิปก่อนพิมพ์)
-- ทดสอบ APK 1.0.12 บนอุปกรณ์จริง: เวลา Asia/Bangkok, GPS check-in/out และ profile reminder
+- Build และเผยแพร่ APK 1.0.14 จาก source ปัจจุบัน แล้วทดสอบบนอุปกรณ์จริง: เวลา Asia/Bangkok, GPS check-in/out และ profile reminder
 - ปรับข้อความ release note ในตั้งค่าระบบ: ข้อความ live ปัจจุบันยังกล่าวถึง “แก้เวลา” แต่ capability `attendanceCorrection` ปิดอยู่
 
 ### ตรวจสภาพ Production แบบ read-only

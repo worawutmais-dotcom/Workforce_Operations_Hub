@@ -13,7 +13,7 @@
 
 ## สถานะล่าสุด (deploy แล้ว ทำงานจริง)
 ระบบ **ตัวคูณ OT/วันหยุด**, Timesheet/Payroll review และนโยบายสายสะสม deploy แล้ว; live `version` ยืนยัน revision `2026-11-18-late-absence-policy` (ดู `docs/DEPLOY_STATUS.md`).
-APK ล่าสุด **1.0.12+12** (console app-version = 12) และตั้งลิงก์อัปเดตแล้ว. งานต่อไปคือ UAT บนอุปกรณ์และ publish Admin HTML รุ่นล่าสุด.
+Source APK ปัจจุบันคือ **1.0.14+14** แต่ console ที่ตรวจ live ล่าสุดยังตั้ง app-version เป็น **1.0.12+12**. ต้องอัปโหลด APK 1.0.14 และบันทึกเวอร์ชันใน Settings ก่อนจึงจะประกาศว่าเผยแพร่แล้ว; หลังจากนั้นทำ UAT บนอุปกรณ์และ publish Admin HTML รุ่นล่าสุด.
 
 ## สิ่งที่ทำเสร็จในรอบนี้ (อยู่ใน main แล้ว)
 1. **รีแบรนด์โทนน้ำเงินเข้ม (navy #1e3a5f)** ทั้งคอนโซล + แอป + โลโก้/ไอคอน BVN
