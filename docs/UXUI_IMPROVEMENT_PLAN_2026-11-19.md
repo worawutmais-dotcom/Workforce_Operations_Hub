@@ -131,6 +131,7 @@ Dashboard แสดงข้อมูลดี แต่ผู้ใช้ยั
 node tools/admin_redesign_contract_test.mjs
 node tools/ot_multiplier_test.mjs
 node tools/shortfall_policy_test.mjs
+node tools/late_absence_policy_test.mjs
 git diff --check
 ```
 
@@ -179,17 +180,20 @@ C:\flutter\bin\flutter.bat build apk --release
 - ปุ่มยกเลิกบันทึกถูกย้ายไปเมนูรายการ เพื่อลดโอกาสลบข้อมูลโดยไม่ตั้งใจ
 - Payroll แสดงสถานะรายพนักงานจากข้อมูลจริง: `พร้อมออกสลิป`, `เวลาไม่ครบ`, `OT รออนุมัติ`, `ยังไม่ตั้งเรต`
 - แถวที่ออกสลิปได้เปิด Timesheet ก่อนเข้าสู่หน้าตรวจสลิป ส่วนแถวที่ยังไม่พร้อมพาไปแก้สาเหตุที่ถูกต้อง
-- หน้าตั้งค่าการจ่ายเงินเดือนแสดงผลกระทบก่อนบันทึก: จำนวนพนักงานที่ใช้งาน, วันทำงานต่อสัปดาห์, สถานะ SSO และนโยบายไม่ครบกะ
+- หน้าตั้งค่าการจ่ายเงินเดือนแสดงผลกระทบก่อนบันทึก: จำนวนพนักงานที่ใช้งาน, วันทำงานต่อสัปดาห์, สถานะ SSO, นโยบายไม่ครบกะ และเกณฑ์มาสายสะสม
 - Payroll มีคิว `ตรวจสลิปที่พร้อม` ซึ่งรวมเฉพาะผู้ที่ผ่านเงื่อนไข แล้วให้ตรวจ/ออกสลิปทีละคนก่อนพิมพ์
 - ปรับภาษานำทางเป็น `Dashboard`, `Timesheet`, `ทีมและอนุมัติ`, `Payroll run` เพื่อสะท้อนงานจริง ไม่ใช้คำกว้างที่ซ้ำความหมาย
 - คลิกแถว Timesheet เปิดรายละเอียดวันนั้นโดยตรง และแสดง action เวลาเข้า/ออกเฉพาะวันปัจจุบันที่จำเป็น
 - Dashboard ซ่อน KPI สถานะ `0` ที่ไม่ต้องตัดสินใจ เพื่อลดกล่องซ้ำและทำให้ข้อยกเว้นเด่นขึ้น
+- เพิ่มนโยบาย payroll ฝั่ง server: มาสายสะสมตามจำนวนวันที่ผู้ดูแลกำหนด (ค่าเริ่มต้น 4 วัน) ในงวดเดียว คิดเป็นขาดงาน 1 วัน โดยหักตามรูปแบบค่าจ้างรายวัน/รายเดือน/รายชั่วโมง และแสดงยอดหักบน Payroll run กับสลิป
 
 ### หลักฐานทดสอบแบบ local/smoke
 
 - `node tools/admin_redesign_contract_test.mjs` ผ่าน
 - `node tools/ot_multiplier_test.mjs` ผ่าน
 - `node tools/shortfall_policy_test.mjs` ผ่าน
+- `node tools/late_absence_policy_test.mjs` ผ่าน
+- `deno check` ผ่านทั้ง `swift-handler` และ `bvn-api`
 - parse JavaScript ใน `admin_codex/index.html` ผ่าน
 - static HTTP smoke ที่ `admin_codex/index.html` ตอบ 200
 - source ของ `bvn-api` และ `swift-handler` มี SHA-256 ตรงกัน

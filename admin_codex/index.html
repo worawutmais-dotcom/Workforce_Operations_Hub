@@ -2879,18 +2879,20 @@ async function doPreview(btn){
         if(incompleteByEmp.has(emp.id)){ state="blocked"; label="เวลาไม่ครบ"; action="ตรวจเวลา"; target="owner"; }
         else if(pendingOtByEmp.has(emp.id)){ state="waiting"; label="OT รออนุมัติ"; action="อนุมัติ OT"; target="approvals"; }
         else if(!ruleByEmp[emp.id]?.hasRule){ state="blocked"; label="ยังไม่ตั้งเรต"; action="ตั้งเรต"; target="payrules"; }
+        else if(line?.lateAbsenceDays){ label=`สาย ${fmtInt(line.lateDays)} วัน = ขาด ${fmtInt(line.lateAbsenceDays)} วัน`; }
         else if(!line){ state="waiting"; label="ไม่มีเวลาครบในงวด"; action="ตรวจเวลา"; target="owner"; }
         return {emp,line,state,label,action,target};
       });
       const payrollReady=payrollRows.some(r=>r.state==="ready") && payrollRows.every(r=>r.state!=="blocked"&&r.state!=="waiting");
       const pendingOtCount=pendingOtByEmp.size;
       const readyPayrollRows=payrollRows.filter(r=>r.target==="slip"&&r.line);
+      const lateAbsenceNotice=Number(data.lateAbsenceDays||0)>0?`<div class="notice" style="margin:0 0 12px;border-color:#f0d49a;background:#fff7ea"><div><b>นโยบายมาสายสะสม:</b> สาย ${fmtInt(data.lateDaysCount||0)} วัน · ทุก ${fmtInt(data.lateAbsenceThreshold||4)} วันเท่ากับขาด 1 วัน · คิดขาดงานเทียบเท่า ${fmtInt(data.lateAbsenceDays)} วัน${Number(data.totalLateAbsenceDeduction||0)>0?` · หักค่าแรงรวม −${fmtBaht(data.totalLateAbsenceDeduction)}`:""}</div></div>`:"";
       if(summary) summary.innerHTML=`
         <div class="payroll-metric"><span>พนักงานที่คำนวณได้</span><b>${fmtInt((data.lines||[]).length)} คน</b><em>มีเรตค่าจ้างและเวลาเข้าครบ</em></div>
         <div class="payroll-metric"><span>รายได้รวม</span><b>${fmtBaht(data.totalGross)}</b><em>ก่อนหักรายการ</em></div>
         <div class="payroll-metric"><span>ยอดหักรวม</span><b>${fmtBaht((data.totalAdvance||0)+(data.totalSso||0)+(data.totalOther||0))}</b><em>เบิกล่วงหน้า / ปกส. / อื่นๆ</em></div>
         <div class="payroll-metric"><span>ยอดจ่ายสุทธิ</span><b>${fmtBaht(data.totalNet!=null?data.totalNet:data.totalGross)}</b><em>${incompleteCount?`ต้องตรวจเวลา ${fmtInt(incompleteCount)} รายการ`:pendingOtCount?`OT รออนุมัติ ${fmtInt(pendingOtCount)} คน`:`ไม่มีเวลาค้างตรวจ`}</em></div>`;
-      box.innerHTML=`<div class="payroll-readiness ${payrollReady?"":"is-blocked"}"><div><span class="ready-dot"></span><b>${payrollReady?"พร้อมออกสลิป":"ยังมีรายการที่ต้องจัดการก่อนออกสลิป"}</b><span class="sub"> · ${incompleteCount?`เวลาไม่ครบ ${fmtInt(incompleteCount)} รายการ`:pendingOtCount?`OT รออนุมัติ ${fmtInt(pendingOtCount)} คน`:"ตรวจสถานะรายบุคคลด้านล่าง"}</span></div>${payrollReady?"":`<div class="toolbar"><button class="btn ghost sm" data-nav="owner">ตรวจเวลา</button><button class="btn ghost sm" data-nav="payrules">ตั้งเรต</button></div>`}</div>`+((data.shortfallPolicy&&data.shortfallPolicy!=="none"&&(data.shortDaysCount||0)>0)?`<div class="notice" style="margin:0 0 12px;border-color:#f0d49a;background:#fff7ea"><div><b>นโยบายไม่ครบกะ:</b> ${data.shortfallPolicy==="deduct_wage"?"ตัดค่าแรงตามสัดส่วน":"หัก OT เท่าชั่วโมงที่ขาด"} · มี ${fmtInt(data.shortDaysCount)} วันที่ไม่ครบกะในงวดนี้${(data.totalShortfallDeduction||0)>0?` · ตัดค่าแรงรวม −${fmtBaht(data.totalShortfallDeduction)}`:""}</div></div>`:"")+incWarn+`
+      box.innerHTML=`<div class="payroll-readiness ${payrollReady?"":"is-blocked"}"><div><span class="ready-dot"></span><b>${payrollReady?"พร้อมออกสลิป":"ยังมีรายการที่ต้องจัดการก่อนออกสลิป"}</b><span class="sub"> · ${incompleteCount?`เวลาไม่ครบ ${fmtInt(incompleteCount)} รายการ`:pendingOtCount?`OT รออนุมัติ ${fmtInt(pendingOtCount)} คน`:"ตรวจสถานะรายบุคคลด้านล่าง"}</span></div>${payrollReady?"":`<div class="toolbar"><button class="btn ghost sm" data-nav="owner">ตรวจเวลา</button><button class="btn ghost sm" data-nav="payrules">ตั้งเรต</button></div>`}</div>`+lateAbsenceNotice+((data.shortfallPolicy&&data.shortfallPolicy!=="none"&&(data.shortDaysCount||0)>0)?`<div class="notice" style="margin:0 0 12px;border-color:#f0d49a;background:#fff7ea"><div><b>นโยบายไม่ครบกะ:</b> ${data.shortfallPolicy==="deduct_wage"?"ตัดค่าแรงตามสัดส่วน":"หัก OT เท่าชั่วโมงที่ขาด"} · มี ${fmtInt(data.shortDaysCount)} วันที่ไม่ครบกะในงวดนี้${(data.totalShortfallDeduction||0)>0?` · ตัดค่าแรงรวม −${fmtBaht(data.totalShortfallDeduction)}`:""}</div></div>`:"")+incWarn+`
         <table><thead><tr><th>พนักงาน</th><th>ความพร้อม</th><th class="num">วันทำงาน</th><th class="num">ชม.ปกติ</th><th class="num">OT</th>
           <th class="num">ฐาน</th><th class="num">OT (เงิน)</th><th class="num">รวม gross</th><th class="num">หักเบิก</th><th class="num">ปกส./อื่นๆ</th><th class="num">สุทธิ</th><th data-nosort></th></tr></thead>
         <tbody>${payrollRows.map((row,idx)=>{ const l=row.line||{}; const badge=row.state==="ready"?"green":row.state==="waiting"?"amber":"red"; return `
@@ -3873,6 +3875,7 @@ function settingsDialog(s){
     field("เวลาเข้างาน", `<input id="sShift" type="time" value="${esc(normaliseTime(s.shift_start,"09:00"))}">`),
     field("เวลาเลิกงาน", `<input id="sShiftEnd" type="time" value="${esc(normaliseTime(s.shift_end,"18:00"))}">`),
     field("ผ่อนผันสาย (นาที)", `<input id="sGrace" type="number" min="0" step="1" value="${esc(s.shift_grace_min||"5")}">`),
+    field("มาสายสะสม (วัน)", `<input id="sLateAbsence" type="number" min="1" max="31" step="1" value="${esc(s.late_absence_days||"4")}">`, "ครบจำนวนนี้ในงวดเดียว = ขาดงาน 1 วัน"),
     field("พักเที่ยง (นาที)", `<input id="sLunch" type="number" min="0" step="5" value="${esc(s.lunch_break_min||"60")}">`),
     field("เริ่มคิด OT เมื่อเกิน (ชม.)", `<input id="sOtTh" type="number" min="1" max="24" step="0.5" value="${esc(s.ot_threshold_hours||"8")}">`),
     field("เตือนก่อนเข้างาน (นาที)", `<input id="sRemBef" type="number" min="0" step="1" value="${esc(s.remind_before_min||"15")}">`),
@@ -3896,7 +3899,8 @@ function settingsDialog(s){
     const workdays=[...body.querySelectorAll('#sWd input:checked')].map(c=>c.value);
     const ssoOn=$("#sSso",body).checked;
     const shortLabel={none:"ไม่ตัดค่าแรง",deduct_wage:"ตัดค่าแรงตามสัดส่วน",trim_ot:"ตัด OT ตามชั่วโมงที่ขาด"}[$("#sShort",body).value]||"—";
-    impact.firstElementChild.innerHTML=`<b>ผลกระทบก่อนบันทึก</b><br><span class="sub">มีผลกับพนักงานที่ใช้งาน ${fmtInt(active)} คน · วันทำงาน ${fmtInt(workdays.length)} วัน/สัปดาห์ · ประกันสังคม ${ssoOn?"เปิด":"ปิด"} · ไม่ครบกะ: ${esc(shortLabel)}<br>การเปลี่ยนแปลงจะใช้ในการคำนวณ Timesheet ครั้งถัดไป และไม่แก้สลิปที่ออกไปแล้ว</span>`;
+    const lateThreshold=Math.min(31,Math.max(1,Math.floor(Number($("#sLateAbsence",body).value)||4)));
+    impact.firstElementChild.innerHTML=`<b>ผลกระทบก่อนบันทึก</b><br><span class="sub">มีผลกับพนักงานที่ใช้งาน ${fmtInt(active)} คน · วันทำงาน ${fmtInt(workdays.length)} วัน/สัปดาห์ · ประกันสังคม ${ssoOn?"เปิด":"ปิด"} · ไม่ครบกะ: ${esc(shortLabel)}<br>มาสายสะสม ${fmtInt(lateThreshold)} วันในงวดเดียว = ขาดงาน 1 วัน · การเปลี่ยนแปลงจะใช้ในการคำนวณ Timesheet ครั้งถัดไป และไม่แก้สลิปที่ออกไปแล้ว</span>`;
   };
   body.querySelectorAll("input,select").forEach(control=>control.addEventListener("change",updateImpact));
   updateImpact();
@@ -3904,10 +3908,12 @@ function settingsDialog(s){
   const save=el(`<button class="btn">บันทึก</button>`);
   save.onclick=()=>withBtn(save, async ()=>{
     const workdays=[...body.querySelectorAll('#sWd input:checked')].map(c=>c.value).join(",");
+    const lateAbsenceDays=Number($("#sLateAbsence").value);
+    if(!Number.isInteger(lateAbsenceDays)||lateAbsenceDays<1||lateAbsenceDays>31){ toast("มาสายสะสมต้องเป็นจำนวนเต็ม 1–31 วัน","bad"); return; }
     try{ await api("admin_save_settings",{settings:{pay_frequency:$("#sFreq").value, pay_day_1:$("#sPay1").value.trim(), pay_day_2:$("#sPay2").value.trim(), workdays,
         sso_enabled:$("#sSso").checked, sso_rate:$("#sSsoRate").value, sso_cap:$("#sSsoCap").value,
         quota_sick:$("#sQSick").value, quota_personal:$("#sQPer").value, quota_vacation:$("#sQVac").value,
-        shift_start:$("#sShift").value, shift_end:$("#sShiftEnd").value, shift_grace_min:$("#sGrace").value, lunch_break_min:$("#sLunch").value, ot_threshold_hours:$("#sOtTh").value, holiday_ot_enabled:$("#sHolOt").checked, payroll_shortfall_policy:$("#sShort").value,
+        shift_start:$("#sShift").value, shift_end:$("#sShiftEnd").value, shift_grace_min:$("#sGrace").value, late_absence_days:lateAbsenceDays, lunch_break_min:$("#sLunch").value, ot_threshold_hours:$("#sOtTh").value, holiday_ot_enabled:$("#sHolOt").checked, payroll_shortfall_policy:$("#sShort").value,
         remind_before_min:$("#sRemBef").value, remind_checkout_after_min:$("#sRemOut").value}});
       closeModal(); toast("บันทึกการตั้งค่าแล้ว","good"); renderOwner();
     }catch(err){ toast(err.message,"bad"); }
@@ -4223,7 +4229,7 @@ async function printPayslip(l, period, isInternal=false, issuerSnapshot=null){
   // place of the employee's name on a document sent to that employee.
   const payloadName=(l.employeeName||l.name)&&String(l.employeeName||l.name)!==String(l.employeeId)?(l.employeeName||l.name):"";
   const employeeName=String(state.empById[l.employeeId]?.name||payloadName||"ไม่พบชื่อพนักงาน").trim();
-  const gross=Number(l.grossPay||0), adv=Number(l.advanceDeduction||0), sso=Number(l.sso||0), other=Number(l.otherDeduction||0);
+  const gross=Number(l.grossPay||0), adv=Number(l.advanceDeduction||0), sso=Number(l.sso||0), other=Number(l.otherDeduction||0), lateAbsenceDeduction=Number(l.lateAbsenceDeduction||0);
   const net=l.netPay!=null?Number(l.netPay):Math.max(0,gross-adv-sso-other);
   const html=`<!doctype html><html lang="th"><head><meta charset="utf-8">
     <title>${documentTitle} ${esc(employeeName)}</title>
@@ -4257,7 +4263,7 @@ async function printPayslip(l, period, isInternal=false, issuerSnapshot=null){
       </div>
       <table><thead><tr><th>รายการ</th><th class="num">จำนวน</th><th class="num">เงิน (บาท)</th></tr></thead>
         <tbody>
-          <tr><td>ค่าแรงฐาน · ${fmtInt(l.workDays)} วัน (${hrs(l.regularMinutes)})</td><td class="num">—</td><td class="num">${money(l.baseGross)}</td></tr>
+          <tr><td>ค่าแรงฐาน · ${fmtInt(l.workDays)} วัน (${hrs(l.regularMinutes)})${lateAbsenceDeduction?`<br><span style="font-size:11px;color:#51657b">รวมผลหักจากมาสายสะสม ${fmtInt(l.lateDays||0)} วัน = ขาด ${fmtInt(l.lateAbsenceDays||0)} วัน (${money(lateAbsenceDeduction)} บาท)</span>`:""}</td><td class="num">—</td><td class="num">${money(l.baseGross)}</td></tr>
           ${Number(l.otGross||0)?`<tr><td>ค่าล่วงเวลา (OT) · ${hrs(l.otMinutes)}</td><td class="num">—</td><td class="num">${money(l.otGross)}</td></tr>`:""}
         </tbody></table>
       <div class="totals">

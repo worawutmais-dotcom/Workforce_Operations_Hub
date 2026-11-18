@@ -37,7 +37,7 @@ const CORS = {
 const reply = (ok: boolean, message: string, data: unknown = null) =>
   new Response(JSON.stringify({ ok, message, data }), { headers: CORS });
 
-const BACKEND_VERSION = "2.0.0-supabase";
+const BACKEND_VERSION = "2.0.1-supabase";
 const ICT = 7 * 60;
 const todayISO = () => new Date(Date.now() + ICT * 60000).toISOString().slice(0, 10);
 const nowISO = () => new Date().toISOString();
@@ -111,7 +111,7 @@ const FINANCIAL_AUDIT_ACTIONS = new Set([
 async function audit(actor: string, action: string, target: string, detail = "") {
   if (!FINANCIAL_AUDIT_ACTIONS.has(action)) return;
   // Evidence must never turn an otherwise complete financial transaction into a failure.
-  await db.from("audit_log").insert({ ts: nowISO(), actor, action, target, detail }).then(() => undefined).catch(() => undefined);
+  try { await db.from("audit_log").insert({ ts: nowISO(), actor, action, target, detail }); } catch (_) { /* audit is best-effort */ }
 }
 
 // ---------- mobile (employee app) helpers ----------
@@ -293,15 +293,26 @@ async function previewPayroll(start: string, end: string) {
   // shortfall is tracked on every line for the Timesheet review, regardless of
   // the chosen policy.
   const shortfallPolicy = shortfallPolicyOf(settings.payroll_shortfall_policy);
+  // Company attendance policy: completed late arrivals are converted to an
+  // absence-equivalent day using the owner-configured threshold. Keep this
+  // server-side so APK and Admin cannot calculate it differently.
+  const lateAbsenceThreshold = Math.min(31, Math.max(1, Math.floor(num(settings.late_absence_days) || 4)));
+  const shiftParts = String(settings.shift_start || "09:00").split(":");
+  const shiftMinute = (Number(shiftParts[0]) || 9) * 60 + (Number(shiftParts[1]) || 0);
+  const shiftGrace = num(settings.shift_grace_min) || 5;
   Object.values(byDay).forEach((it: any) => {
     if (!it.inTs || !it.outTs || it.outTs <= it.inTs) { incompleteByEmp[it.employeeId] = (incompleteByEmp[it.employeeId] || 0) + 1; return; }
     const rule = ruleBy[it.employeeId]; if (!rule) return;
-    const line = result[it.employeeId] || { employeeId: it.employeeId, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0, shortfallMinutes: 0, shortDays: 0, shortfallDeduction: 0, otTrimmedMinutes: 0 };
+    const line = result[it.employeeId] || { employeeId: it.employeeId, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0, shortfallMinutes: 0, shortDays: 0, shortfallDeduction: 0, otTrimmedMinutes: 0, lateDays: 0, lateAbsenceDays: 0, lateAbsenceDeduction: 0 };
     const basis = lc(rule.pay_basis), rate = num(rule.base_rate), std = (num(rule.standard_hours) || 8) * 60;
     const minutes = Math.round((it.outTs - it.inTs) / 60000);
     const workedReg = Math.min(minutes, std);
     const shortfall = Math.max(0, std - minutes);
+    const checkInParts = hhmm(it.inTs).split(":");
+    const checkInMinute = (Number(checkInParts[0]) || 0) * 60 + (Number(checkInParts[1]) || 0);
+    const isLate = checkInMinute > shiftMinute + shiftGrace;
     line.workDays += 1; line.regularMinutes += workedReg;
+    if (isLate) line.lateDays += 1;
     if (shortfall > 0) { line.shortfallMinutes += shortfall; line.shortDays += 1; }
     if (basis === "daily") {
       const full = rate;
@@ -324,9 +335,24 @@ async function previewPayroll(start: string, end: string) {
       line.shortfallDeduction += ded;
     }
   });
+  // Apply the attendance policy only after normal base pay is known for every
+  // pay basis.  This preserves the actual worked-day count while making the
+  // absence-equivalent and monetary deduction explicit on the payroll line.
+  Object.values(result).forEach((line: any) => {
+    const r = ruleBy[line.employeeId]; if (!r) return;
+    const absenceDays = Math.floor((line.lateDays || 0) / lateAbsenceThreshold);
+    line.lateAbsenceDays = absenceDays;
+    if (!absenceDays) return;
+    const basis = lc(r.pay_basis), rate = num(r.base_rate), stdHours = num(r.standard_hours) || 8;
+    const dayRate = basis === "monthly" ? rate / (num(r.days_per_month) || 30)
+      : basis === "hourly" ? rate * stdHours : rate;
+    const deduction = Math.min(Math.max(0, line.baseGross), Math.max(0, dayRate * absenceDays));
+    line.baseGross -= deduction;
+    line.lateAbsenceDeduction = deduction;
+  });
   (otRes.data || []).forEach((r: any) => {
     const rule = ruleBy[r.employee_id]; if (!rule) return;
-    const line = result[r.employee_id] || { employeeId: r.employee_id, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0, shortfallMinutes: 0, shortDays: 0, shortfallDeduction: 0, otTrimmedMinutes: 0 };
+    const line = result[r.employee_id] || { employeeId: r.employee_id, regularMinutes: 0, workDays: 0, otMinutes: 0, baseGross: 0, otGross: 0, shortfallMinutes: 0, shortDays: 0, shortfallDeduction: 0, otTrimmedMinutes: 0, lateDays: 0, lateAbsenceDays: 0, lateAbsenceDeduction: 0 };
     const mult = rule.ot_enabled
       ? resolveOtMultiplier(r.work_date, holMult, holidayDays.has(r.work_date), settings, rule)
       : 0;
@@ -367,7 +393,7 @@ async function previewPayroll(start: string, end: string) {
     // exact oldest-first calculation is also used by the lock operation.
     const adv = calculatedAdv;
     const net = round(Math.max(0, gross - adv - sso - other));
-    return { ...line, baseGross: round(line.baseGross), otGross: round(line.otGross), grossPay: gross, advanceDeduction: adv, sso, otherDeduction: other, netPay: net, draftReview: !!draftByEmployee[line.employeeId], ssoEnabled, draftNote: String(draft.note || ""), shortfallMinutes: Math.round(line.shortfallMinutes || 0), shortDays: line.shortDays || 0, shortfallDeduction: round(line.shortfallDeduction || 0), otTrimmedMinutes: Math.round(line.otTrimmedMinutes || 0) };
+    return { ...line, baseGross: round(line.baseGross), otGross: round(line.otGross), grossPay: gross, advanceDeduction: adv, sso, otherDeduction: other, netPay: net, draftReview: !!draftByEmployee[line.employeeId], ssoEnabled, draftNote: String(draft.note || ""), shortfallMinutes: Math.round(line.shortfallMinutes || 0), shortDays: line.shortDays || 0, shortfallDeduction: round(line.shortfallDeduction || 0), otTrimmedMinutes: Math.round(line.otTrimmedMinutes || 0), lateDays: line.lateDays || 0, lateAbsenceDays: line.lateAbsenceDays || 0, lateAbsenceDeduction: round(line.lateAbsenceDeduction || 0) };
   });
   const sum = (k: string) => round(lines.reduce((s: number, l: any) => s + (l[k] || 0), 0));
   return {
@@ -375,8 +401,9 @@ async function previewPayroll(start: string, end: string) {
     disclaimer: "ประมาณการ: หัก = เบิกล่วงหน้า + ประกันสังคม + หักอื่นๆ",
     lines, incompleteDays,
     shortfallPolicy,
+    lateAbsenceThreshold,
     totalGross: sum("grossPay"), totalAdvance: sum("advanceDeduction"), totalSso: sum("sso"), totalOther: sum("otherDeduction"), totalNet: sum("netPay"),
-    totalShortfallDeduction: sum("shortfallDeduction"), shortDaysCount: lines.reduce((s: number, l: any) => s + (l.shortDays || 0), 0),
+    totalShortfallDeduction: sum("shortfallDeduction"), shortDaysCount: lines.reduce((s: number, l: any) => s + (l.shortDays || 0), 0), lateDaysCount: lines.reduce((s: number, l: any) => s + (l.lateDays || 0), 0), lateAbsenceDays: lines.reduce((s: number, l: any) => s + (l.lateAbsenceDays || 0), 0), totalLateAbsenceDeduction: sum("lateAbsenceDeduction"),
   };
 }
 
@@ -384,7 +411,7 @@ async function previewPayroll(start: string, end: string) {
 const H: Record<string, (p: any) => Promise<Response>> = {
   async version() {
     const s = await settingsMap();
-    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-17-shortfall-policy", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: false, otCalendar: true, timesheetReview: true, payrollReview: true, payrollPaymentControl: true, employeeDeleteRemovesAttendance: true, factoryResetWhereFix: true, payrollShortfallPolicy: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
+    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-18-late-absence-policy", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: false, otCalendar: true, timesheetReview: true, payrollReview: true, payrollPaymentControl: true, employeeDeleteRemovesAttendance: true, factoryResetWhereFix: true, payrollShortfallPolicy: true, payrollLateAbsencePolicy: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
   },
   async public_branding() {
     const s = await settingsMap();
@@ -576,6 +603,10 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     if (Object.prototype.hasOwnProperty.call(inc, "payroll_shortfall_policy") &&
       !["none", "deduct_wage", "trim_ot"].includes(lc(inc.payroll_shortfall_policy)))
       return reply(false, "นโยบายเวลาทำงานไม่ครบไม่ถูกต้อง");
+    if (Object.prototype.hasOwnProperty.call(inc, "late_absence_days")) {
+      const n = Number(inc.late_absence_days);
+      if (!Number.isInteger(n) || n < 1 || n > 31) return reply(false, "จำนวนวันมาสายสะสมต้องเป็นจำนวนเต็ม 1–31 วัน");
+    }
     const rows = Object.keys(inc).filter((k) => !["action", "adminToken", "settings"].includes(k)).map((k) => ({ key: k, value: String(inc[k] ?? "") }));
     if (rows.length) { const { error } = await db.from("settings").upsert(rows, { onConflict: "key" }); if (error) return reply(false, error.message); }
     return reply(true, "บันทึกการตั้งค่าแล้ว");

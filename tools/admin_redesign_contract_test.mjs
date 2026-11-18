@@ -56,6 +56,9 @@ const required = [
   'openAttendanceRecordDialog',
   'รายละเอียด Timesheet',
   'ระบบจะไม่แก้ยอดเงินเดือนย้อนหลังจนกว่าจะคำนวณ Payroll run ใหม่',
+  'นโยบายมาสายสะสม',
+  'lateAbsenceThreshold||4',
+  'มาสายสะสม (วัน)',
 ];
 
 const missing = required.filter((token) => !html.includes(token));
