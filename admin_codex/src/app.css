@@ -1402,3 +1402,37 @@
     .time-ledger-actions,.payroll-table-tools{width:100%}.time-ledger-actions select{flex:1}.time-range{width:100%;overflow:auto;flex-wrap:nowrap;padding-bottom:2px}.time-range>*{flex:none}
     .panel .body.flush>table{min-width:620px}
   }
+
+  /* Route-specific repairs. These areas receive real names, long policy text
+     and several actions at once, so their hierarchy must survive narrower
+     laptop screens without relying on clipped text. */
+  .bvn-route .directory-page-head{gap:10px;margin-bottom:10px;padding-bottom:10px}
+  .bvn-route .directory-page-head h2{font-size:19px;line-height:1.25}.bvn-route .directory-page-head p{font-size:11px}
+  .bvn-route .directory-count{font-size:10px}.bvn-route .directory-count b{font-size:18px}
+  .people-workspace{gap:12px}.people-directory .head,.people-queue .head{min-height:44px}
+  .people-directory-title{gap:7px;flex-wrap:wrap}.people-directory-title h2{font-size:15px}
+  .people-tools{gap:6px;padding:9px 12px;flex-wrap:wrap;background:#fbfcfd}
+  .people-search{max-width:260px;min-width:150px}.people-profile-filter{max-width:100%;overflow:auto}
+  .people-profile-filter button{flex:none;font-size:10px;padding:5px 7px}.people-summary{gap:8px;font-size:10px}
+  .employee-table-wrap{min-height:280px}.employee-table{min-width:670px}.employee-table th{padding:8px 10px}.employee-table td{padding:8px 10px;font-size:11px}
+  .employee-name{min-width:160px;gap:8px}.employee-name strong{max-width:190px}.employee-avatar{width:27px;height:27px;border-radius:8px}
+  .people-queue-note{font-size:10px;margin-bottom:9px}.people-queue .subtabs{margin-top:0}
+  .appr-stats{gap:8px;margin:10px 0}.appr-stat{min-height:70px;padding:9px 10px}.appr-stat .n{font-size:22px}.appr-stat .l{font-size:10px}
+  .approval-row{gap:8px;padding:8px 10px}.approval-row .approval-actions{gap:4px}.approval-impact{margin-top:4px;font-size:9px}
+  .approval-support-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,1fr);gap:10px;margin-top:10px}
+  #page-settings .settings-workspace{gap:10px}#page-settings .setting-group-label{margin:9px 0 -1px;font-size:10px}
+  #page-settings .settings-workspace>.panel{border-left-width:2px}#page-settings .settings-workspace>.panel .head{align-items:center}
+  #page-settings .settings-workspace>.panel .head h2{font-size:12px}#page-settings .settings-workspace>.panel .head .sub{font-size:10px}
+  #page-settings .grid2{gap:9px}#page-settings .grid3{gap:9px}#page-settings .metric{padding:9px 10px;border-radius:8px}
+  #page-invoices .toolbar,#page-payroll .toolbar{gap:6px}.notice{padding:8px 10px;font-size:11px;margin-bottom:10px}
+  @media(max-width:1080px){
+    .people-workspace{grid-template-columns:minmax(0,1fr) 292px}.people-summary{display:none}
+    .approval-support-grid{grid-template-columns:1fr}
+  }
+  @media(max-width:760px){
+    .bvn-route .directory-page-head{display:block}.bvn-route .directory-count{margin-top:6px}
+    .people-workspace{grid-template-columns:1fr}.people-queue{order:2}.people-search{max-width:none;flex:1 1 100%}
+    .employee-table-wrap{max-height:none}.appr-stats{grid-template-columns:1fr 1fr}.appr-stat:last-child{grid-column:1/-1}
+    .approval-row{align-items:flex-start;flex-wrap:wrap}.approval-row .approval-actions{margin-left:auto}
+    #page-settings .settings-workspace>.panel .head{align-items:flex-start}.settings-workspace .head .spacer{display:none}
+  }

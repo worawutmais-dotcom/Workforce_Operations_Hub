@@ -1546,7 +1546,7 @@ async function renderApprovals(){
         <button class="btn ok sm" id="addOtBtn" style="margin-left:8px">บันทึก OT</button></div>
         <div class="body flush" id="apList"></div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="approval-support-grid">
         <div class="panel" style="margin-top:0"><div class="head"><h2>ใครลาวันไหน</h2><div class="spacer"></div>
           <button class="btn sub sm" id="calPrev">‹</button><span id="calLabel" style="min-width:110px;text-align:center;font-weight:600"></span><button class="btn sub sm" id="calNext">›</button></div>
           <div class="body" id="leaveCalWrap"></div>
