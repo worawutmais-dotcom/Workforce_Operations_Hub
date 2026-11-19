@@ -84,7 +84,7 @@
 
   /* ---------- Login ---------- */
   #login{position:fixed;inset:0;display:grid;place-items:center;
-    background:radial-gradient(1200px 700px at 15% -10%,#152c47,#0b1b2d 62%),var(--navy);padding:20px;z-index:40}
+    background:radial-gradient(1200px 700px at 15% -10%,var(--blue-ink),#0b1b2d 62%),var(--navy);padding:20px;z-index:40}
   .login-card{width:100%;max-width:412px;background:var(--card);border-radius:22px;
     padding:36px 34px;box-shadow:0 40px 90px rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.06)}
   .login-card .logo{font-weight:600;font-size:18px;letter-spacing:0;color:var(--ink);display:flex;flex-direction:column}
@@ -119,7 +119,7 @@
      as a modern enterprise console rather than the old olive slab. */
   .side{background:var(--card);color:var(--ink);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;border-right:1px solid var(--line)}
   .side .brand{font-weight:600;font-size:14px;letter-spacing:0;padding:17px 16px 15px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line-soft)}
-  .side .brand::before{content:"BVN";display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;letter-spacing:.4px;width:32px;height:32px;border-radius:10px;background:linear-gradient(145deg,#2b4d72,#152c47);flex:none;box-shadow:0 3px 8px rgba(30,58,95,.28)}
+  .side .brand::before{content:"BVN";display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;letter-spacing:.4px;width:32px;height:32px;border-radius:10px;background:linear-gradient(145deg,#2b4d72,var(--blue-ink));flex:none;box-shadow:0 3px 8px rgba(30,58,95,.28)}
   .side .brand small{display:block;font-weight:400;color:var(--muted);font-size:10px;margin-top:2px;letter-spacing:.2px}
   .nav{display:flex;flex-direction:column;gap:3px;padding:12px 11px;flex:1;overflow:auto}
   .nav-section{margin:17px 10px 6px;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;opacity:.78}
@@ -427,13 +427,13 @@
   .clock-meter{justify-self:end;min-width:160px;padding-left:20px;border-left:1px solid #354332}.clock-meter b{display:block;font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}.clock-meter span{display:block;margin-top:2px;color:#b9cbb0;font-size:11px}.clock-meter .meter-track{height:6px;margin-top:10px;background:#354332;border-radius:3px;overflow:hidden}.clock-meter .meter-fill{height:100%;background:#8ade4f;border-radius:3px}
   .dashboard-pulse{margin-top:16px}.dashboard-pulse .cards{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.dashboard-pulse .card{padding:14px 16px;border-radius:12px}.dashboard-pulse .card .label{font-size:11px}.dashboard-pulse .card .value{margin:5px 0 2px;font-size:24px}.dashboard-pulse .card:first-child{display:none}
   .dashboard-work{grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr)!important;gap:16px!important;margin-top:16px!important}.dashboard-work .panel .head{padding:13px 16px}.dashboard-work .panel .body{padding:14px 16px}.dashboard-work .track{height:7px;background:#eef1f6;border-radius:4px;overflow:hidden}:root[data-theme="dark"] .dashboard-work .track{background:#29302a}
-  .dashboard-shortcuts{margin-top:16px!important}.dashboard-shortcuts .body{gap:8px}.dashboard-shortcuts .btn.ghost{background:#e9eef5;color:#152c47;border:0}:root[data-theme="dark"] .dashboard-shortcuts .btn.ghost{background:#0f2338;color:#cdd9ea}
+  .dashboard-shortcuts{margin-top:16px!important}.dashboard-shortcuts .body{gap:8px}.dashboard-shortcuts .btn.ghost{background:#e9eef5;color:var(--blue-ink);border:0}:root[data-theme="dark"] .dashboard-shortcuts .btn.ghost{background:#0f2338;color:#cdd9ea}
   @media(max-width:1040px){.clock-dock{grid-template-columns:1fr 1fr}.clock-meter{justify-self:start;border-left:0;border-top:1px solid #354332;padding:12px 0 0;grid-column:1/-1;width:100%}.clock-meter .meter-track{max-width:320px}}@media(max-width:720px){.clock-dock{grid-template-columns:1fr;gap:16px;padding:18px}.clock-actions{grid-template-columns:1fr}.clock-secondary{min-height:40px}.clock-meter{grid-column:auto}.dashboard-pulse .cards{grid-template-columns:1fr 1fr}.dashboard-pulse .card:first-child{display:block}}@media(max-width:480px){.dashboard-pulse .cards{grid-template-columns:1fr}.clock-primary{min-height:68px}}
 
   /* Light-only shell: the workbench remains prominent through structure,
      not a dark surface. Orange is reserved for the attendance action. */
-  .side{background:#fff;color:#0f172a;border-right-color:#eef1f6}.side .brand{color:#0f172a}.side .brand small{color:#94a3b8}.side .brand::before{background:#1e3a5f;color:#fff}.nav-section{color:#94a3b8}.nav button{color:#475569}.nav button:hover{background:#f8fafc;color:#0f172a}.nav button.active{background:#e9eef5;color:#152c47;box-shadow:inset 0 0 0 1px #cdd9ea}.nav .pill{background:#d85e0d;color:#fff}.side .foot{border-top-color:#eef1f6;color:#94a3b8}.side .foot b{color:#0f172a}.side .foot a{color:#a9470a}
-  .clock-dock{background:#fff;color:#0f172a;border-color:#eef1f6}.clock-dock .dock-kicker{color:#475569}.clock-dock .dock-kicker i{background:#1e3a5f}.clock-dock p{color:#475569}.clock-secondary{color:#152c47;border-color:#90a8c6;background:#fff}.clock-secondary:hover{background:#e9eef5;border-color:#6b86aa}.clock-meter{border-left-color:#eef1f6}.clock-meter span{color:#94a3b8}.clock-meter .meter-track{background:#eef1f6}.clock-meter .meter-fill{background:#1e3a5f}@media(max-width:1040px){.clock-meter{border-top-color:#eef1f6}}
+  .side{background:#fff;color:#0f172a;border-right-color:#eef1f6}.side .brand{color:#0f172a}.side .brand small{color:#94a3b8}.side .brand::before{background:var(--blue);color:#fff}.nav-section{color:#94a3b8}.nav button{color:#475569}.nav button:hover{background:#f8fafc;color:#0f172a}.nav button.active{background:#e9eef5;color:var(--blue-ink);box-shadow:inset 0 0 0 1px #cdd9ea}.nav .pill{background:#d85e0d;color:#fff}.side .foot{border-top-color:#eef1f6;color:#94a3b8}.side .foot b{color:#0f172a}.side .foot a{color:#a9470a}
+  .clock-dock{background:#fff;color:#0f172a;border-color:#eef1f6}.clock-dock .dock-kicker{color:#475569}.clock-dock .dock-kicker i{background:var(--blue)}.clock-dock p{color:#475569}.clock-secondary{color:var(--blue-ink);border-color:#90a8c6;background:#fff}.clock-secondary:hover{background:#e9eef5;border-color:#6b86aa}.clock-meter{border-left-color:#eef1f6}.clock-meter span{color:#94a3b8}.clock-meter .meter-track{background:#eef1f6}.clock-meter .meter-fill{background:var(--blue)}@media(max-width:1040px){.clock-meter{border-top-color:#eef1f6}}
 
   /* Attendance summary: compact, row-first and audit-friendly. The calendar
      remains one click away, but the dashboard no longer spends its primary
@@ -483,21 +483,21 @@
   body,:root[data-theme="dark"] body{background:var(--bg);color:var(--ink);font-size:13px;line-height:1.45}
   #login{background:
     radial-gradient(900px 520px at 50% -10%, rgba(123,150,196,.38), transparent 60%),
-    linear-gradient(162deg,#27496d 0%,#1e3a5f 42%,#0b1b2d 100%)}
+    linear-gradient(162deg,#27496d 0%,var(--blue) 42%,#0b1b2d 100%)}
   .login-card{max-width:404px;background:var(--card);border:1px solid rgba(255,255,255,.08);border-radius:20px;
     padding:38px 34px 30px;box-shadow:0 34px 80px rgba(8,18,32,.46),0 2px 10px rgba(8,18,32,.28)}
   .login-card .logo{font-size:21px;color:var(--ink);align-items:flex-start}
   .login-card .logo::before{width:56px;height:56px;font-size:17px;border-radius:16px;margin-bottom:16px;color:#fff;border:0;
-    background:linear-gradient(145deg,#2b4d72,#1e3a5f);box-shadow:0 10px 22px rgba(30,58,95,.38)}
+    background:linear-gradient(145deg,#2b4d72,var(--blue));box-shadow:0 10px 22px rgba(30,58,95,.38)}
   .login-card .logo small{font-size:12px;color:var(--muted);letter-spacing:0;margin-top:6px}
   .login-card .field input{height:44px;border-radius:11px}
-  .login-card #loginBtn{width:100%;height:47px;border-radius:12px;margin-top:18px;background:#1e3a5f;border-color:#1e3a5f;color:#fff;font-weight:600;font-size:14px;box-shadow:0 8px 18px rgba(30,58,95,.28)}
+  .login-card #loginBtn{width:100%;height:47px;border-radius:12px;margin-top:18px;background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600;font-size:14px;box-shadow:0 8px 18px rgba(30,58,95,.28)}
   .login-card #loginBtn:hover{background:#27496d;border-color:#27496d}
   .login-card .hint{color:var(--muted)}
   .side{background:#fff;color:var(--ink);border-right:1px solid var(--line);box-shadow:none}
   #app{grid-template-columns:224px minmax(0,1fr)}
   .side .brand{padding:20px 18px 16px;font-size:15px;color:var(--ink);gap:10px;border-bottom:1px solid var(--line-soft)}
-  .side .brand::before{width:34px;height:34px;color:#1e3a5f;border-color:#1e3a5f;background:#fff}
+  .side .brand::before{width:34px;height:34px;color:var(--blue);border-color:var(--blue);background:#fff}
   .side .brand small{font-size:10px;margin-top:2px;letter-spacing:0;color:var(--muted)}
   .nav{padding:12px 10px;gap:2px}.nav-section{margin:14px 8px 5px;color:#788790;font-size:10px;font-weight:600;letter-spacing:0;text-transform:none}
   .nav button{min-height:32px;padding:6px 10px;gap:9px;border-radius:8px;color:#50616b;font-size:12px}
