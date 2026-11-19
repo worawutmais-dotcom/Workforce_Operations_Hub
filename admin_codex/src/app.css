@@ -1736,3 +1736,23 @@
   @media(max-width:1180px){#page-dashboard .cc-lower #peoplePulse.people-pulse-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
   @media(max-width:760px){#page-dashboard .cc-lower #peoplePulse.people-pulse-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
   @media(max-width:480px){#page-dashboard .cc-lower #peoplePulse.people-pulse-grid{grid-template-columns:1fr!important}}
+
+  /* Grouped work queue with an explicit first-priority row.  It keeps routine
+     profile completion quiet while making payroll-impacting work unmistakable. */
+  #page-dashboard .cc-decide .head{padding:9px 12px!important}
+  #page-dashboard .cc-decide .head>button i{margin-left:4px;font-style:normal;font-size:13px}
+  #page-dashboard .wq-title{display:flex;align-items:center;gap:8px}.wq-title>span{display:inline-flex;align-items:center;min-height:19px;padding:1px 6px;border-radius:999px;background:#eef3f7;color:#567088;font-size:9px;font-weight:500}
+  #page-dashboard .work-queue{padding:7px 9px 10px!important;background:#fff}
+  #page-dashboard .wq-group+.wq-group{margin-top:9px}
+  #page-dashboard .wq-group-head{display:flex;align-items:center;gap:6px;min-height:25px;padding:0 5px;color:#47627a}
+  #page-dashboard .wq-group-head b{font-size:10px!important;font-weight:500!important}.wq-group-head em{display:grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#edf3f7;color:#53708a;font-size:9px;font-style:normal;font-weight:500}
+  #page-dashboard .wq-group-icon{display:grid;place-items:center;width:17px;height:17px;color:#477091}.wq-group-icon svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  #page-dashboard .wq-rows{overflow:hidden;border:1px solid #e0e8ef;border-radius:7px;background:#fff}
+  #page-dashboard .wq-row{display:grid;grid-template-columns:25px minmax(0,1fr) auto auto;align-items:center;gap:7px;min-height:46px;padding:6px 7px;border-bottom:1px solid #e8eef3;cursor:pointer;transition:background .12s ease}
+  #page-dashboard .wq-row:last-child{border-bottom:0}.wq-row:hover{background:#f7fafc}.wq-row:focus-visible{outline:2px solid #2670c9;outline-offset:-2px}
+  #page-dashboard .wq-row.is-priority{position:relative;background:#fff8f8}.wq-row.is-priority:before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:0 3px 3px 0;background:#cf4052}
+  #page-dashboard .wq-kind{display:grid;place-items:center;width:25px;height:25px;border-radius:6px;background:#eef3f7;color:#54718b;font-size:9px;font-weight:500}.wq-kind svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}.wq-kind.red{background:#fff0f2;color:#c43f50}.wq-kind.amber{background:#fff4e2;color:#ad6900}.wq-kind.blue{background:#edf5fc;color:#33698f}.wq-kind.green{background:#eaf8f0;color:#177a50}
+  #page-dashboard .wq-copy{min-width:0}.wq-copy b{display:block;overflow:hidden;color:#233b52;font-size:11px;line-height:1.25;font-weight:500!important;text-overflow:ellipsis;white-space:nowrap}.wq-copy span{display:block;overflow:hidden;margin-top:2px;color:#71869a;font-size:9px;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}
+  #page-dashboard .wq-urgent{padding:3px 6px;border-radius:999px;background:#ffe6ea;color:#b23849;font-size:8.5px;font-weight:500;white-space:nowrap}
+  #page-dashboard .wq-row .aq-action{display:flex;align-items:center;gap:4px;min-height:25px;padding:3px 7px!important;border-radius:5px!important;background:#eff4f8!important;border-color:#d5e0e8!important;color:#294a68!important;font-size:9px!important;font-weight:500!important;white-space:nowrap}.wq-row .aq-action i{font-size:15px;font-style:normal;line-height:10px}.wq-row.is-priority .aq-action{background:#173b62!important;border-color:#173b62!important;color:#fff!important}
+  @media(max-width:520px){#page-dashboard .wq-row{grid-template-columns:25px minmax(0,1fr) auto}.wq-row .wq-urgent{display:none}.wq-row .aq-action{font-size:0!important;padding:4px 7px!important}.wq-row .aq-action i{font-size:16px!important}}

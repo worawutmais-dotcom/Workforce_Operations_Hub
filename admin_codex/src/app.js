@@ -688,8 +688,19 @@ async function renderDashboard(data, preloaded={}){
       if(canFinance&&actionQueue.length===0&&payrollEligible>0) actionQueue.push({kind:"payroll",name:"งวดเงินเดือนปัจจุบัน",detail:`คำนวณได้ ${fmtInt(payrollEligible)} คน · พร้อมตรวจและออกสลิป`,cta:"ออกสลิป",target:"payroll",priority:3});
       actionQueue.sort((a,b)=>a.priority-b.priority);
       const queueStyle={time:"red",ot:"amber",profile:"blue",leave:"blue",payroll:"green"};
-      const decideHtml=(leaveD._loadError||timeD._loadError)?`<div class="empty">โหลดรายการคิวงานไม่สำเร็จ</div>`
-        :actionQueue.length?actionQueue.slice(0,5).map(item=>`<div class="dash-row action-queue-row" data-action-target="${esc(item.target)}" data-owner-filter="${esc(item.filter||"")}" style="cursor:pointer"><span class="badge ${queueStyle[item.kind]||"grey"}">${item.kind==="time"?"เวลา":item.kind==="ot"?"OT":item.kind==="leave"?"ลา":item.kind==="profile"?"ข้อมูล":"เงินเดือน"}</span><div style="flex:1;min-width:0"><div class="aq-name">${esc(item.name)}</div><div class="sub">${esc(item.detail)}</div></div><button class="btn sub sm aq-action" type="button" data-action-target="${esc(item.target)}" data-owner-filter="${esc(item.filter||"")}">${esc(item.cta)}</button></div>`).join("")
+      const queueGroups=[
+        {key:"time",title:"ตรวจเวลา",icon:"clock",kinds:["time"]},
+        {key:"profile",title:"ข้อมูลพนักงาน",icon:"profile",kinds:["profile"]},
+        {key:"approval",title:"คำขอรออนุมัติ",icon:"approval",kinds:["ot","leave"]},
+        {key:"payroll",title:"เงินเดือน",icon:"payroll",kinds:["payroll"]}
+      ];
+      const queueIcon={clock:lineIcon("clock"),profile:lineIcon("users"),approval:lineIcon("approve"),payroll:lineIcon("bill")};
+      const workQueueHtml=(leaveD._loadError||timeD._loadError)?`<div class="empty">โหลดรายการคิวงานไม่สำเร็จ</div>`
+        :actionQueue.length?queueGroups.map(group=>{
+          const items=actionQueue.filter(item=>group.kinds.includes(item.kind)).slice(0,4);
+          if(!items.length) return "";
+          return `<section class="wq-group wq-${group.key}"><div class="wq-group-head"><span class="wq-group-icon">${queueIcon[group.icon]}</span><b>${group.title}</b><em>${fmtInt(items.length)}</em></div><div class="wq-rows">${items.map((item,index)=>`<div class="wq-row${index===0&&item.priority===0?" is-priority":""}" data-action-target="${esc(item.target)}" data-owner-filter="${esc(item.filter||"")}" role="button" tabindex="0"><span class="wq-kind ${queueStyle[item.kind]||"grey"}">${item.kind==="time"?lineIcon("clock"):item.kind==="profile"?lineIcon("users"):item.kind==="ot"?"OT":item.kind==="leave"?"ลา":lineIcon("bill")}</span><div class="wq-copy"><b>${esc(item.name)}</b><span>${esc(item.detail)}</span></div>${index===0&&item.priority===0?'<span class="wq-urgent">เร่งด่วน</span>':""}<button class="btn sub sm aq-action" type="button" data-action-target="${esc(item.target)}" data-owner-filter="${esc(item.filter||"")}">${esc(item.cta)}<i>›</i></button></div>`).join("")}</div></section>`;
+        }).join("")
         :`<div class="empty">วันนี้ไม่มีรายการค้างตรวจ</div>`;
       // Payday reminder: when the pay cycle is near/at/overdue, nudge the owner to
       // review timesheets and issue payslips. Window = 3 days before → 2 days after.
@@ -758,7 +769,7 @@ async function renderDashboard(data, preloaded={}){
           </section>
           <section class="cc-work">
             <div class="cc-left-stack">
-              <div class="panel cc-decide"><div class="head"><b>งานที่ต้องจัดการ</b><span class="sub" style="margin-left:8px">เรียงตามผลกระทบต่อเงินเดือน</span><div class="spacer"></div><button class="btn sub sm" data-nav="approvals">เปิดคำขอทั้งหมด</button></div><div class="body flush dash-list">${decideHtml}</div></div>
+              <div class="panel cc-decide"><div class="head"><div class="wq-title"><b>งานที่ต้องจัดการ</b><span>${fmtInt(actionQueue.length)} รายการ</span></div><div class="spacer"></div><button class="btn sub sm" data-nav="approvals">เปิดคำขอทั้งหมด <i>⌄</i></button></div><div class="body flush work-queue">${workQueueHtml}</div></div>
               <section class="panel site-policy dashboard-checkin-sites" aria-label="จุดเช็กอินที่อนุญาต"><div class="head"><div><b>จุดเช็กอินที่อนุญาต</b><span class="sub" style="margin-left:8px">นโยบายพื้นที่สำหรับการเช็กอิน</span></div><div class="spacer"></div><button class="btn sm" id="siteAddBtn">เพิ่มจุด</button></div><div class="site-policy-note">พนักงานเช็กอินได้เมื่ออยู่ในรัศมีของจุดที่เปิดใช้งาน · เช็กเอาต์ได้ทุกพื้นที่</div><div class="body flush"><table id="siteTable"><thead><tr><th>พื้นที่</th><th class="num">รัศมี</th><th>สถานะ</th><th data-nosort></th></tr></thead><tbody id="siteRows"><tr><td colspan="4"><div class="empty">กำลังโหลดจุดเช็กอิน…</div></td></tr></tbody></table></div></section>
             </div>
             <div class="panel team-register hr-team"><div class="head"><div><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">เลือกชื่อเพื่อดูเวลาเข้า–ออกและประวัติ</span></div><div class="spacer"></div><div class="team-status-summary" aria-label="สรุปสถานะทีม"><span class="not-in">ยังไม่เข้า <b>${fmtInt(cOut)}</b></span><span class="working">ทำงาน <b>${fmtInt(cOn+cLate)}</b></span><span class="finished">ออกแล้ว <b>${fmtInt(cDone)}</b></span></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เข้างาน</span><span>ออกงาน</span><span>สถานะ</span><span>การทำงาน</span></div><div class="team-grid">${teamHtml}</div></div></div>
@@ -797,6 +808,12 @@ async function renderDashboard(data, preloaded={}){
       ev.stopPropagation();
       if(b.dataset.ownerFilter) ownerState.filter=b.dataset.ownerFilter;
       go(b.dataset.actionTarget);
+    });
+    node.querySelectorAll(".wq-row[data-action-target]").forEach(row=>row.onkeydown=(ev)=>{
+      if(ev.key!=="Enter"&&ev.key!==" ") return;
+      ev.preventDefault();
+      if(row.dataset.ownerFilter) ownerState.filter=row.dataset.ownerFilter;
+      go(row.dataset.actionTarget);
     });
     node.querySelectorAll("[data-calendar]").forEach(b=>{ b.onclick=()=>openAttendanceCalendar(b.dataset.calendar, attendanceDays, attendanceD, owner); b.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openAttendanceCalendar(b.dataset.calendar, attendanceDays, attendanceD, owner); } }; });
     node.querySelectorAll('[data-checkin]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); quickClock(b.dataset.checkin,"check_in",b); });

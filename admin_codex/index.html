@@ -1746,6 +1746,26 @@
   @media(max-width:1180px){#page-dashboard .cc-lower #peoplePulse.people-pulse-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
   @media(max-width:760px){#page-dashboard .cc-lower #peoplePulse.people-pulse-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
   @media(max-width:480px){#page-dashboard .cc-lower #peoplePulse.people-pulse-grid{grid-template-columns:1fr!important}}
+
+  /* Grouped work queue with an explicit first-priority row.  It keeps routine
+     profile completion quiet while making payroll-impacting work unmistakable. */
+  #page-dashboard .cc-decide .head{padding:9px 12px!important}
+  #page-dashboard .cc-decide .head>button i{margin-left:4px;font-style:normal;font-size:13px}
+  #page-dashboard .wq-title{display:flex;align-items:center;gap:8px}.wq-title>span{display:inline-flex;align-items:center;min-height:19px;padding:1px 6px;border-radius:999px;background:#eef3f7;color:#567088;font-size:9px;font-weight:500}
+  #page-dashboard .work-queue{padding:7px 9px 10px!important;background:#fff}
+  #page-dashboard .wq-group+.wq-group{margin-top:9px}
+  #page-dashboard .wq-group-head{display:flex;align-items:center;gap:6px;min-height:25px;padding:0 5px;color:#47627a}
+  #page-dashboard .wq-group-head b{font-size:10px!important;font-weight:500!important}.wq-group-head em{display:grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#edf3f7;color:#53708a;font-size:9px;font-style:normal;font-weight:500}
+  #page-dashboard .wq-group-icon{display:grid;place-items:center;width:17px;height:17px;color:#477091}.wq-group-icon svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  #page-dashboard .wq-rows{overflow:hidden;border:1px solid #e0e8ef;border-radius:7px;background:#fff}
+  #page-dashboard .wq-row{display:grid;grid-template-columns:25px minmax(0,1fr) auto auto;align-items:center;gap:7px;min-height:46px;padding:6px 7px;border-bottom:1px solid #e8eef3;cursor:pointer;transition:background .12s ease}
+  #page-dashboard .wq-row:last-child{border-bottom:0}.wq-row:hover{background:#f7fafc}.wq-row:focus-visible{outline:2px solid #2670c9;outline-offset:-2px}
+  #page-dashboard .wq-row.is-priority{position:relative;background:#fff8f8}.wq-row.is-priority:before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:0 3px 3px 0;background:#cf4052}
+  #page-dashboard .wq-kind{display:grid;place-items:center;width:25px;height:25px;border-radius:6px;background:#eef3f7;color:#54718b;font-size:9px;font-weight:500}.wq-kind svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}.wq-kind.red{background:#fff0f2;color:#c43f50}.wq-kind.amber{background:#fff4e2;color:#ad6900}.wq-kind.blue{background:#edf5fc;color:#33698f}.wq-kind.green{background:#eaf8f0;color:#177a50}
+  #page-dashboard .wq-copy{min-width:0}.wq-copy b{display:block;overflow:hidden;color:#233b52;font-size:11px;line-height:1.25;font-weight:500!important;text-overflow:ellipsis;white-space:nowrap}.wq-copy span{display:block;overflow:hidden;margin-top:2px;color:#71869a;font-size:9px;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}
+  #page-dashboard .wq-urgent{padding:3px 6px;border-radius:999px;background:#ffe6ea;color:#b23849;font-size:8.5px;font-weight:500;white-space:nowrap}
+  #page-dashboard .wq-row .aq-action{display:flex;align-items:center;gap:4px;min-height:25px;padding:3px 7px!important;border-radius:5px!important;background:#eff4f8!important;border-color:#d5e0e8!important;color:#294a68!important;font-size:9px!important;font-weight:500!important;white-space:nowrap}.wq-row .aq-action i{font-size:15px;font-style:normal;line-height:10px}.wq-row.is-priority .aq-action{background:#173b62!important;border-color:#173b62!important;color:#fff!important}
+  @media(max-width:520px){#page-dashboard .wq-row{grid-template-columns:25px minmax(0,1fr) auto}.wq-row .wq-urgent{display:none}.wq-row .aq-action{font-size:0!important;padding:4px 7px!important}.wq-row .aq-action i{font-size:16px!important}}
 </style>
 </head>
 <body>
@@ -2527,8 +2547,19 @@ async function renderDashboard(data, preloaded={}){
       if(canFinance&&actionQueue.length===0&&payrollEligible>0) actionQueue.push({kind:"payroll",name:"งวดเงินเดือนปัจจุบัน",detail:`คำนวณได้ ${fmtInt(payrollEligible)} คน · พร้อมตรวจและออกสลิป`,cta:"ออกสลิป",target:"payroll",priority:3});
       actionQueue.sort((a,b)=>a.priority-b.priority);
       const queueStyle={time:"red",ot:"amber",profile:"blue",leave:"blue",payroll:"green"};
-      const decideHtml=(leaveD._loadError||timeD._loadError)?`<div class="empty">โหลดรายการคิวงานไม่สำเร็จ</div>`
-        :actionQueue.length?actionQueue.slice(0,5).map(item=>`<div class="dash-row action-queue-row" data-action-target="${esc(item.target)}" data-owner-filter="${esc(item.filter||"")}" style="cursor:pointer"><span class="badge ${queueStyle[item.kind]||"grey"}">${item.kind==="time"?"เวลา":item.kind==="ot"?"OT":item.kind==="leave"?"ลา":item.kind==="profile"?"ข้อมูล":"เงินเดือน"}</span><div style="flex:1;min-width:0"><div class="aq-name">${esc(item.name)}</div><div class="sub">${esc(item.detail)}</div></div><button class="btn sub sm aq-action" type="button" data-action-target="${esc(item.target)}" data-owner-filter="${esc(item.filter||"")}">${esc(item.cta)}</button></div>`).join("")
+      const queueGroups=[
+        {key:"time",title:"ตรวจเวลา",icon:"clock",kinds:["time"]},
+        {key:"profile",title:"ข้อมูลพนักงาน",icon:"profile",kinds:["profile"]},
+        {key:"approval",title:"คำขอรออนุมัติ",icon:"approval",kinds:["ot","leave"]},
+        {key:"payroll",title:"เงินเดือน",icon:"payroll",kinds:["payroll"]}
+      ];
+      const queueIcon={clock:lineIcon("clock"),profile:lineIcon("users"),approval:lineIcon("approve"),payroll:lineIcon("bill")};
+      const workQueueHtml=(leaveD._loadError||timeD._loadError)?`<div class="empty">โหลดรายการคิวงานไม่สำเร็จ</div>`
+        :actionQueue.length?queueGroups.map(group=>{
+          const items=actionQueue.filter(item=>group.kinds.includes(item.kind)).slice(0,4);
+          if(!items.length) return "";
+          return `<section class="wq-group wq-${group.key}"><div class="wq-group-head"><span class="wq-group-icon">${queueIcon[group.icon]}</span><b>${group.title}</b><em>${fmtInt(items.length)}</em></div><div class="wq-rows">${items.map((item,index)=>`<div class="wq-row${index===0&&item.priority===0?" is-priority":""}" data-action-target="${esc(item.target)}" data-owner-filter="${esc(item.filter||"")}" role="button" tabindex="0"><span class="wq-kind ${queueStyle[item.kind]||"grey"}">${item.kind==="time"?lineIcon("clock"):item.kind==="profile"?lineIcon("users"):item.kind==="ot"?"OT":item.kind==="leave"?"ลา":lineIcon("bill")}</span><div class="wq-copy"><b>${esc(item.name)}</b><span>${esc(item.detail)}</span></div>${index===0&&item.priority===0?'<span class="wq-urgent">เร่งด่วน</span>':""}<button class="btn sub sm aq-action" type="button" data-action-target="${esc(item.target)}" data-owner-filter="${esc(item.filter||"")}">${esc(item.cta)}<i>›</i></button></div>`).join("")}</div></section>`;
+        }).join("")
         :`<div class="empty">วันนี้ไม่มีรายการค้างตรวจ</div>`;
       // Payday reminder: when the pay cycle is near/at/overdue, nudge the owner to
       // review timesheets and issue payslips. Window = 3 days before → 2 days after.
@@ -2597,7 +2628,7 @@ async function renderDashboard(data, preloaded={}){
           </section>
           <section class="cc-work">
             <div class="cc-left-stack">
-              <div class="panel cc-decide"><div class="head"><b>งานที่ต้องจัดการ</b><span class="sub" style="margin-left:8px">เรียงตามผลกระทบต่อเงินเดือน</span><div class="spacer"></div><button class="btn sub sm" data-nav="approvals">เปิดคำขอทั้งหมด</button></div><div class="body flush dash-list">${decideHtml}</div></div>
+              <div class="panel cc-decide"><div class="head"><div class="wq-title"><b>งานที่ต้องจัดการ</b><span>${fmtInt(actionQueue.length)} รายการ</span></div><div class="spacer"></div><button class="btn sub sm" data-nav="approvals">เปิดคำขอทั้งหมด <i>⌄</i></button></div><div class="body flush work-queue">${workQueueHtml}</div></div>
               <section class="panel site-policy dashboard-checkin-sites" aria-label="จุดเช็กอินที่อนุญาต"><div class="head"><div><b>จุดเช็กอินที่อนุญาต</b><span class="sub" style="margin-left:8px">นโยบายพื้นที่สำหรับการเช็กอิน</span></div><div class="spacer"></div><button class="btn sm" id="siteAddBtn">เพิ่มจุด</button></div><div class="site-policy-note">พนักงานเช็กอินได้เมื่ออยู่ในรัศมีของจุดที่เปิดใช้งาน · เช็กเอาต์ได้ทุกพื้นที่</div><div class="body flush"><table id="siteTable"><thead><tr><th>พื้นที่</th><th class="num">รัศมี</th><th>สถานะ</th><th data-nosort></th></tr></thead><tbody id="siteRows"><tr><td colspan="4"><div class="empty">กำลังโหลดจุดเช็กอิน…</div></td></tr></tbody></table></div></section>
             </div>
             <div class="panel team-register hr-team"><div class="head"><div><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">เลือกชื่อเพื่อดูเวลาเข้า–ออกและประวัติ</span></div><div class="spacer"></div><div class="team-status-summary" aria-label="สรุปสถานะทีม"><span class="not-in">ยังไม่เข้า <b>${fmtInt(cOut)}</b></span><span class="working">ทำงาน <b>${fmtInt(cOn+cLate)}</b></span><span class="finished">ออกแล้ว <b>${fmtInt(cDone)}</b></span></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เข้างาน</span><span>ออกงาน</span><span>สถานะ</span><span>การทำงาน</span></div><div class="team-grid">${teamHtml}</div></div></div>
@@ -2636,6 +2667,12 @@ async function renderDashboard(data, preloaded={}){
       ev.stopPropagation();
       if(b.dataset.ownerFilter) ownerState.filter=b.dataset.ownerFilter;
       go(b.dataset.actionTarget);
+    });
+    node.querySelectorAll(".wq-row[data-action-target]").forEach(row=>row.onkeydown=(ev)=>{
+      if(ev.key!=="Enter"&&ev.key!==" ") return;
+      ev.preventDefault();
+      if(row.dataset.ownerFilter) ownerState.filter=row.dataset.ownerFilter;
+      go(row.dataset.actionTarget);
     });
     node.querySelectorAll("[data-calendar]").forEach(b=>{ b.onclick=()=>openAttendanceCalendar(b.dataset.calendar, attendanceDays, attendanceD, owner); b.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openAttendanceCalendar(b.dataset.calendar, attendanceDays, attendanceD, owner); } }; });
     node.querySelectorAll('[data-checkin]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); quickClock(b.dataset.checkin,"check_in",b); });
