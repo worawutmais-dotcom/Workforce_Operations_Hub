@@ -339,7 +339,7 @@ async function logout(){
 // Employee master data and approval decisions used to be exposed as three
 // separate screens. They are one operational workflow, so old URLs now lead
 // to the combined workspace instead of creating competing sources of truth.
-const LEGACY_ROUTE_REDIRECT={employees:"people",approvals:"people"};
+const LEGACY_ROUTE_REDIRECT={employees:"people",approvals:"people",invoices:"dashboard"};
 const PAGES = {
   dashboard:{title:"Dashboard", sub:"ภาพรวมทีมและงานที่ต้องตัดสินใจ", load:()=>renderDashboard()},
   owner:{title:"Timesheet", sub:"ตรวจเวลาเข้า–ออกและแก้ไขเฉพาะรายการที่ได้รับอนุญาต", load:()=>renderOwner()},
@@ -349,16 +349,15 @@ const PAGES = {
   payroll:{title:"Payroll run", sub:"ตรวจ Timesheet ปรับรายการ และออกสลิป", load:()=>renderPayroll()},
   advances:{title:"เงินล่วงหน้า", sub:"รายการค้างอนุมัติ จ่าย และหักคืน", load:()=>renderAdvances()},
   payrules:{title:"ค่าจ้างและ OT", sub:"นโยบายบริษัทและอัตราค่าจ้างรายบุคคล", load:()=>renderPayrules()},
-  invoices:{title:"ใบแจ้งหนี้ลูกค้า", sub:"ออกเอกสาร ติดตามยอด และบันทึกการรับชำระ", load:()=>renderInvoices()},
   settings:{title:"ตั้งค่าระบบ", sub:"บริษัท เอกสาร นโยบาย ความปลอดภัย และข้อมูล", load:()=>renderSettings()},
   audit:{title:"บันทึกการใช้งาน", sub:"ใครทำอะไรเมื่อไหร่ (audit trail)", load:()=>renderAudit()},
 };
 const ROLE_LABEL={owner:"เจ้าของระบบ",manager:"ผู้จัดการ",operations:"ฝ่ายปฏิบัติการ",finance:"ฝ่ายการเงิน"};
 const ROLE_PAGES={
-  owner:["dashboard","owner","people","payroll","advances","payrules","invoices","settings"],
-  manager:["dashboard","owner","people","payroll","advances","payrules","invoices"],
+  owner:["dashboard","owner","people","payroll","advances","payrules","settings"],
+  manager:["dashboard","owner","people","payroll","advances","payrules"],
   operations:["dashboard","people","advances"],
-  finance:["dashboard","payroll","payrules","invoices"],
+  finance:["dashboard","payroll","payrules"],
 };
 function allowedPages(){ return ROLE_PAGES[state.role]||ROLE_PAGES.owner; }
 function applyRoleNavigation(){
@@ -734,7 +733,7 @@ async function renderDashboard(data, preloaded={}){
           ${(cLate||mPend||Number(data.exceptions))?`<section class="cc-metrics" aria-label="ตัวชี้วัดที่ต้องติดตาม">
             ${cLate?`<button class="cc-stat s-amber" data-nav="owner"><span class="cc-stat-ic">${SVG.late}</span><span class="cc-stat-l">มาสาย</span><b>${fmtInt(cLate)}</b><small>${fmtInt(pLate)}% ของทีม</small></button>`:""}
             ${mPend?`<button class="cc-stat s-indigo" data-nav="approvals"><span class="cc-stat-ic">${SVG.inbox}</span><span class="cc-stat-l">รออนุมัติ</span><b>${fmtInt(mPend)}</b><small>ลา ${fmtInt(mLeave)} · OT ${fmtInt(mOt)} · ${_thMon}</small></button>`:""}
-            ${Number(data.exceptions)?`<button class="cc-stat s-rose" data-nav="owner"><span class="cc-stat-ic">${SVG.search}</span><span class="cc-stat-l">ต้องตรวจเวลา</span><b>${fmtInt(data.exceptions)}</b><small>${canFinance&&Number(data.overdueInvoices)>0?`Invoice เกิน ${fmtBaht(data.overdueInvoices)}`:"ตรวจให้ครบก่อนปิดรอบ"}</small></button>`:""}
+            ${Number(data.exceptions)?`<button class="cc-stat s-rose" data-nav="owner"><span class="cc-stat-ic">${SVG.search}</span><span class="cc-stat-l">ต้องตรวจเวลา</span><b>${fmtInt(data.exceptions)}</b><small>ตรวจให้ครบก่อนปิดรอบ</small></button>`:""}
           </section>`:""}
           <section class="cc-split">
             <div class="panel cc-arrival"><div class="head"><div><b>ช่วงเวลาเข้างานของทีม</b><span class="sub" style="margin-left:8px">วันนี้ · พีคสุด ${fmtInt(arrivalPeak)} คน</span></div></div><div class="body"><div class="cc-arrival-chart"><div class="cc-bars">${arrivalBars}</div><div class="cc-axis">${arrivalLabels}</div></div></div></div>
@@ -746,7 +745,7 @@ async function renderDashboard(data, preloaded={}){
           </section>
           <section class="cc-lower"><section class="panel dashboard-personal-time" aria-label="เวลาทำงานรายบุคคล"><div class="head"><div><b>แนวโน้มเวลาทำงานรายบุคคล</b><span class="sub" style="margin-left:8px">สรุปเดือนนี้ · เลือกพนักงานเพื่อดูรายละเอียด</span></div></div><div class="body"><div id="peoplePulse"><div class="empty">กำลังโหลดสรุปรายบุคคล…</div></div></div></section><section class="panel site-policy dashboard-checkin-sites" aria-label="จุดเช็กอินที่อนุญาต"><div class="head"><div><b>จุดเช็กอินที่อนุญาต</b><span class="sub" style="margin-left:8px">นโยบายพื้นที่สำหรับการเช็กอิน</span></div><div class="spacer"></div><button class="btn sm" id="siteAddBtn">เพิ่มจุด</button></div><div class="site-policy-note">พนักงานเช็กอินได้เมื่ออยู่ในรัศมีของจุดที่เปิดใช้งาน · เช็กเอาต์ได้ทุกพื้นที่</div><div class="body flush"><table id="siteTable"><thead><tr><th>พื้นที่</th><th class="num">รัศมี</th><th>สถานะ</th><th data-nosort></th></tr></thead><tbody id="siteRows"><tr><td colspan="4"><div class="empty">กำลังโหลดจุดเช็กอิน…</div></td></tr></tbody></table></div></section></section>
           ${dashboardTeamCalendarHtml(calendarMonth, team, calendarDays, dashSettings.workdays, leaves)}
-          <div class="toolbar dash-short"><button class="btn ghost" data-act="emp">เพิ่มพนักงาน</button><button class="btn ghost" data-act="ot">บันทึก OT</button>${canFinance?`<button class="btn ghost" data-act="inv">ออกใบแจ้งหนี้</button><button class="btn ghost" data-nav="payroll">ตรวจเงินเดือน</button>`:""}</div>
+          <div class="toolbar dash-short"><button class="btn ghost" data-act="emp">เพิ่มพนักงาน</button><button class="btn ghost" data-act="ot">บันทึก OT</button>${canFinance?`<button class="btn ghost" data-nav="payroll">ตรวจเงินเดือน</button>`:""}</div>
         </div>`;
     } else {
       // Finance-only account: focused financial summary (unchanged layout).
@@ -755,23 +754,22 @@ async function renderDashboard(data, preloaded={}){
           <div class="card"><div class="label">ยอดสุทธิต้องจ่ายงวดนี้</div>
             ${owner._loadError?`<div class="value">—</div><div class="note bad">โหลดข้อมูลการเงินไม่สำเร็จ</div>`:`<div class="value">${fmtBaht(totalNet)}</div>
             <div class="note">gross ${fmtBaht(owner.totalGross||0)} · ${fmtInt(owner.paidCount||0)} คน</div>`}</div>
-          <div class="card"><div class="label">Invoice เกินกำหนด</div>
-            <div class="value">${fmtBaht(data.overdueInvoices)}</div>
-            <div class="note ${Number(data.overdueInvoices)>0?"bad":""}">ยอดที่ยัง issued และเลยกำหนด</div></div>
+          <div class="card"><div class="label">เวลาค้างตรวจ</div>
+            <div class="value">${fmtInt(payrollIncomplete)}</div>
+            <div class="note ${payrollIncomplete?"bad":""}">${payrollIncomplete?"ตรวจให้ครบก่อนออกสลิป":"ไม่มีรายการค้าง"}</div></div>
         </div></div>
         <div style="display:grid;grid-template-columns:1fr;gap:18px;margin-top:18px" class="dash-grid"></div>
         <div class="panel dashboard-shortcuts"><div class="head"><b>งานอื่น</b></div>
           <div class="body toolbar">
-            <button class="btn ghost" data-act="inv">ออกใบแจ้งหนี้</button>
             <button class="btn ghost" data-nav="payroll">พรีวิวเงินเดือน</button>
             <div class="spacer"></div>
             <span class="sub">งวดล่าสุด: ${data.latestPayrollId?`<b>${esc(data.latestPayrollId)}</b> <span class="badge ${data.latestPayrollStatus==="locked"?"blue":"grey"}">${esc(data.latestPayrollStatus||"—")}</span>`:"ยังไม่มีงวดที่ล็อก"}</span>
           </div>
         </div>`;
       const financialGrid=node.querySelector(".dash-grid");
-      if(financialGrid) financialGrid.innerHTML=`<div class="panel" style="margin:0;grid-column:1/-1"><div class="head"><b>สรุปงวดเงินเดือนปัจจุบัน</b><span class="sub" style="margin-left:8px">${owner.period?`${fmtDate(owner.period.start)} – ${fmtDate(owner.period.end)}`:"กำลังโหลดงวดปัจจุบัน"}</span><div class="spacer"></div><button class="btn sub sm" data-nav="payroll">ตรวจ Timesheet</button></div><div class="body"><div class="dash-main-grid"><div class="finance-box"><span>ยอดก่อนหัก</span><b class="f-value">${owner._loadError?"—":fmtBaht(owner.totalGross)}</b><small>พนักงาน ${owner._loadError?"—":fmtInt(owner.paidCount||0)} คน</small></div><div class="finance-box"><span>รายการหักทั้งหมด</span><b class="f-value">${owner._loadError?"—":fmtBaht(Number(owner.totalAdvance||0)+Number(owner.totalSso||0)+Number(owner.totalOther||0))}</b><small>ล่วงหน้า · SSO · หักอื่น</small></div><div class="finance-box"><span>ยอดสุทธิตาม Timesheet</span><b class="f-value">${owner._loadError?"—":fmtBaht(totalNet)}</b><small>${owner._loadError?"โหลดข้อมูลการเงินไม่สำเร็จ":"ตรวจ Timesheet ก่อนออกสลิป"}</small></div><div class="finance-box"><span>Invoice เกินกำหนด</span><b class="f-value">${fmtBaht(data.overdueInvoices)}</b><small>${Number(data.overdueInvoices)>0?"ต้องติดตามก่อนสิ้นงวด":"ไม่มีรายการค้างเกินกำหนด"}</small></div></div></div></div>`;
-      const hero=el(`<section class="ops-hero"><div><div class="hero-kicker"><i class="live"></i> BVN FINANCE · ${fmtDate(todayISO())}</div><h2>${Number(data.overdueInvoices||0)>0?"มี Invoice เกินกำหนดต้องติดตาม":"ภาพรวมการเงินพร้อมตรวจสอบ"}</h2><p>ดูยอดค่าแรง พรีวิวเงินเดือน และติดตามใบแจ้งหนี้จากทางลัดด้านล่าง</p><div class="hero-actions"><button class="btn" data-nav="payroll">พรีวิวเงินเดือน</button><button class="btn ghost" data-nav="invoices">เปิดใบแจ้งหนี้</button></div></div><div class="hero-attendance"><div class="ring-in" style="width:46px;height:46px">฿</div><div><b>ยอดสุทธิงวดนี้</b><span>${owner._loadError?"โหลดข้อมูลไม่สำเร็จ":fmtBaht(totalNet)}</span></div></div></section>`);
-      const priority=el(`<section class="action-grid" aria-label="งานสำคัญ"><button class="action-card ${Number(data.overdueInvoices)>0?"danger":""}" data-nav="invoices"><span class="a-icon">฿</span><span><b>Invoice เกินกำหนด ${fmtBaht(data.overdueInvoices)}</b><span>ติดตามยอดค้างชำระก่อนออกบิลใหม่</span></span></button></section>`);
+      if(financialGrid) financialGrid.innerHTML=`<div class="panel" style="margin:0;grid-column:1/-1"><div class="head"><b>สรุปงวดเงินเดือนปัจจุบัน</b><span class="sub" style="margin-left:8px">${owner.period?`${fmtDate(owner.period.start)} – ${fmtDate(owner.period.end)}`:"กำลังโหลดงวดปัจจุบัน"}</span><div class="spacer"></div><button class="btn sub sm" data-nav="payroll">ตรวจ Timesheet</button></div><div class="body"><div class="dash-main-grid"><div class="finance-box"><span>ยอดก่อนหัก</span><b class="f-value">${owner._loadError?"—":fmtBaht(owner.totalGross)}</b><small>พนักงาน ${owner._loadError?"—":fmtInt(owner.paidCount||0)} คน</small></div><div class="finance-box"><span>รายการหักทั้งหมด</span><b class="f-value">${owner._loadError?"—":fmtBaht(Number(owner.totalAdvance||0)+Number(owner.totalSso||0)+Number(owner.totalOther||0))}</b><small>ล่วงหน้า · SSO · หักอื่น</small></div><div class="finance-box"><span>ยอดสุทธิตาม Timesheet</span><b class="f-value">${owner._loadError?"—":fmtBaht(totalNet)}</b><small>${owner._loadError?"โหลดข้อมูลการเงินไม่สำเร็จ":"ตรวจ Timesheet ก่อนออกสลิป"}</small></div><div class="finance-box"><span>เวลาค้างตรวจ</span><b class="f-value">${owner._loadError?"—":fmtInt(payrollIncomplete)}</b><small>${payrollIncomplete?"ตรวจให้ครบก่อนออกสลิป":"ไม่มีรายการค้าง"}</small></div></div></div></div>`;
+      const hero=el(`<section class="ops-hero"><div><div class="hero-kicker"><i class="live"></i> BVN FINANCE · ${fmtDate(todayISO())}</div><h2>${payrollIncomplete?"มีรายการเวลาที่ต้องตรวจก่อนออกสลิป":"ภาพรวมเงินเดือนพร้อมตรวจสอบ"}</h2><p>ดูยอดค่าแรง ตรวจ Timesheet และออกสลิปเงินเดือนได้จากหน้าเดียว</p><div class="hero-actions"><button class="btn" data-nav="payroll">พรีวิวเงินเดือน</button></div></div><div class="hero-attendance"><div class="ring-in" style="width:46px;height:46px">฿</div><div><b>ยอดสุทธิงวดนี้</b><span>${owner._loadError?"โหลดข้อมูลไม่สำเร็จ":fmtBaht(totalNet)}</span></div></div></section>`);
+      const priority=el(`<section class="action-grid" aria-label="งานสำคัญ"><button class="action-card ${payrollIncomplete?"warn":""}" data-nav="payroll"><span class="a-icon">฿</span><span><b>${payrollIncomplete?`ตรวจเวลา ${fmtInt(payrollIncomplete)} รายการ`:`ตรวจและออกสลิป ${fmtInt(payrollEligible)} คน`}</b><span>${payrollIncomplete?"ตรวจ Timesheet ให้ครบก่อนออกสลิป":"เปิดงวดเงินเดือนเพื่อดูยอดและออกสลิป"}</span></span></button></section>`);
       node.prepend(hero); hero.after(priority);
     }
     node.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>go(b.dataset.nav));
@@ -786,7 +784,6 @@ async function renderDashboard(data, preloaded={}){
     node.querySelectorAll('[data-act="clock"]').forEach(b=>b.onclick=()=>adminAttendanceDialog());
     node.querySelectorAll('[data-act="emp"]').forEach(b=>b.onclick=()=>employeeDialog(null));
     node.querySelectorAll('[data-act="ot"]').forEach(b=>b.onclick=()=>addOvertimeDialog());
-    node.querySelectorAll('[data-act="inv"]').forEach(b=>b.onclick=()=>newInvoiceDialog());
     node.querySelectorAll("[data-team-cal-nav]").forEach(b=>b.onclick=()=>{
       const base=_dashCalendarMonth||new Date();
       const offset=b.dataset.teamCalNav==="prev"?-1:1;
@@ -3254,34 +3251,34 @@ async function invoiceSettingsDialog(){
   try{ settings=(await api("admin_get_settings")).settings||{}; }
   catch(err){ toast(err.message||"โหลดการตั้งค่าหัวบิลไม่สำเร็จ","bad"); return; }
   const issuer=invoiceIssuer(settings), body=el(`<div>
-    <div class="notice blue">ข้อมูลนี้จะแสดงในใบแจ้งหนี้ที่พิมพ์หลังจากบันทึก การเปลี่ยนค่าไม่แก้ยอดหรือสถานะบิลเดิม</div>
+    <div class="notice blue">ข้อมูลนี้จะแสดงบน Timesheet และสลิปเงินเดือนที่ออกหลังจากบันทึก การเปลี่ยนค่าไม่แก้เอกสารเดิม</div>
     <div class="grid2">
       ${field("ชื่อบริษัท / ร้าน", `<input id="invCompany" maxlength="160" value="${esc(issuer.name)}">`).outerHTML}
       ${field("ชื่อภาษาอังกฤษ", `<input id="invCompanyEn" maxlength="160" value="${esc(issuer.nameEn)}">`).outerHTML}
     </div>
-    ${field("ที่อยู่ในใบแจ้งหนี้", `<textarea id="invAddress" maxlength="500" rows="3">${esc(issuer.address)}</textarea>`).outerHTML}
+    ${field("ที่อยู่บริษัท", `<textarea id="invAddress" maxlength="500" rows="3">${esc(issuer.address)}</textarea>`).outerHTML}
     <div class="grid2">
       ${field("โทรศัพท์", `<input id="invPhone" maxlength="80" value="${esc(issuer.phone)}">`).outerHTML}
       ${field("เลขประจำตัวผู้เสียภาษี", `<input id="invTaxId" maxlength="40" value="${esc(issuer.taxId)}">`).outerHTML}
-      ${field("เลขนำหน้าบิล", `<input id="invPrefix" maxlength="20" value="${esc(issuer.prefix)}" placeholder="เช่น INV">`).outerHTML}
+      ${field("เลขนำหน้าเอกสาร", `<input id="invPrefix" maxlength="20" value="${esc(issuer.prefix)}" placeholder="เช่น PAY">`).outerHTML}
       ${field("VAT (%)", `<input id="invVat" type="number" min="0" max="100" step="0.01" value="${esc(issuer.vatRate)}">`).outerHTML}
     </div>
-    ${field("ข้อความท้ายบิล", `<input id="invFooter" maxlength="300" value="${esc(issuer.footer)}">`).outerHTML}
-    <div class="field"><label>โลโก้บนเอกสาร</label><input id="invLogo" type="file" accept="image/png,image/jpeg,image/webp"><div class="hint">PNG, JPG หรือ WEBP · ระบบย่อภาพก่อนอัปโหลดและเก็บใน Supabase Storage · ใช้กับใบแจ้งหนี้, Timesheet และสลิปเงินเดือน</div><div id="invLogoPreview" style="margin-top:8px">${printLogoMarkup(issuer,"invoice-logo-preview")}</div></div>
+    ${field("ข้อความท้ายเอกสาร", `<input id="invFooter" maxlength="300" value="${esc(issuer.footer)}">`).outerHTML}
+    <div class="field"><label>โลโก้บนเอกสาร</label><input id="invLogo" type="file" accept="image/png,image/jpeg,image/webp"><div class="hint">PNG, JPG หรือ WEBP · ระบบย่อภาพก่อนอัปโหลดและเก็บใน Supabase Storage · ใช้กับ Timesheet และสลิปเงินเดือน</div><div id="invLogoPreview" style="margin-top:8px">${printLogoMarkup(issuer,"invoice-logo-preview")}</div></div>
   </div>`);
   const fileInput=$("#invLogo",body), preview=$("#invLogoPreview",body);
   fileInput.onchange=()=>{ const f=fileInput.files&&fileInput.files[0]; if(!f) return; const url=URL.createObjectURL(f); preview.innerHTML=`<img src="${esc(url)}" alt="ตัวอย่างโลโก้ใหม่" style="max-width:110px;max-height:72px;object-fit:contain;border:1px solid var(--line);border-radius:8px;padding:5px;background:#fff"> <span class="sub">จะอัปโหลดเมื่อกดบันทึก</span>`; };
   const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
-  const save=el(`<button class="btn">บันทึกหัวบิล</button>`);
+  const save=el(`<button class="btn">บันทึกข้อมูลเอกสาร</button>`);
   save.onclick=()=>withBtn(save, async ()=>{
     const payload={invoice_company_name:$("#invCompany",body).value,invoice_company_name_en:$("#invCompanyEn",body).value,invoice_address:$("#invAddress",body).value,invoice_phone:$("#invPhone",body).value,invoice_tax_id:$("#invTaxId",body).value,invoice_prefix:$("#invPrefix",body).value,invoice_vat_rate:$("#invVat",body).value,invoice_footer:$("#invFooter",body).value};
     const saved=await api("admin_save_settings",{settings:payload});
     let finalSettings=saved.settings||payload;
     const file=fileInput.files&&fileInput.files[0];
     if(file){ const packed=await compressInvoiceLogo(file); const uploaded=await api("admin_upload_invoice_logo",packed); finalSettings={...finalSettings,...(uploaded.settings||{})}; }
-    state.invoiceSettings=finalSettings; closeModal(); toast(file?"บันทึกหัวบิลและอัปโหลดโลโก้แล้ว":"บันทึกหัวบิลแล้ว","good"); renderInvoices();
+    state.invoiceSettings=finalSettings; closeModal(); toast(file?"บันทึกข้อมูลเอกสารและอัปโหลดโลโก้แล้ว":"บันทึกข้อมูลเอกสารแล้ว","good"); renderSettings();
   });
-  openModal("ตั้งค่าหัวบิล",body,[cancel,save]);
+  openModal("บริษัทและโลโก้เอกสาร",body,[cancel,save]);
 }
 
 async function newInvoiceDialog(){
@@ -3431,6 +3428,8 @@ async function renderSettings(){
     ${groupTabsHtml("settings")}
     <div class="settings-workspace">
     <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">การควบคุมระบบ</div><h2>ตั้งค่าบริษัทและการดูแลข้อมูล</h2><p>แก้เฉพาะกติกาที่มีผลกับการเช็กอิน ค่าจ้าง และเอกสารทั้งระบบ</p></div><div class="directory-count">ระดับสิทธิ์<br><b>${esc(ROLE_LABEL[state.role]||"ผู้ดูแล")}</b></div></div>
+    <div class="setting-group-label">ข้อมูลเอกสาร</div>
+    <div class="panel"><div class="head"><h2>บริษัทและโลโก้เอกสาร</h2><span class="sub" style="margin-left:8px">ใช้กับ Timesheet และสลิปเงินเดือน</span><div class="spacer"></div><button class="btn" id="editDocumentIdentity">แก้ไขข้อมูลเอกสาร</button></div><div class="body"><p class="sub" style="margin:0">ตั้งชื่อบริษัท ที่อยู่ เลขผู้เสียภาษี ผู้ลงนาม และโลโก้ที่ปรากฏบนเอกสารพนักงาน</p></div></div>
     <div class="setting-group-label">นโยบายบริษัท</div>
     <div class="panel"><div class="head"><h2>เงินสมทบกองทุนประกันสังคม</h2><span class="sub" style="margin-left:8px">นโยบายเดียว ใช้กับสลิปของพนักงานทุกคน</span>
       <div class="spacer"></div><button class="btn" id="editSocialSecurity">ตั้งค่าประกันสังคม</button></div>
@@ -3497,6 +3496,7 @@ async function renderSettings(){
     const k=(($("#setApikey")&&$("#setApikey").value)||"").trim();
     state.endpoint=v; state.apikey=k; LS.setItem("bvn_endpoint", v); LS.setItem("bvn_apikey", k); clearApiReadCache(); syncBackendBadge(); toast("บันทึกการเชื่อมต่อแล้ว","good"); };
   $("#addAdmin").onclick=()=>adminUserDialog(null);
+  $("#editDocumentIdentity").onclick=()=>invoiceSettingsDialog();
   $("#editWorkRules").onclick=async()=>{
     try{ const d=await api("admin_get_settings"); workScheduleDialog(d.settings||{}); }
     catch(err){ toast(err.message,"bad"); }
@@ -3807,7 +3807,6 @@ function quickCreateMenu(btn){
   openRowMenu(r.right-176, r.bottom+6, [
     {label:"เพิ่มพนักงาน", fn:()=>employeeDialog(null)},
     {label:"บันทึก OT", fn:()=>addOvertimeDialog()},
-    {label:"ออกใบแจ้งหนี้", fn:()=>newInvoiceDialog()},
   ]);
 }
 
@@ -3818,7 +3817,6 @@ function syncQuickAction(){
   const actions={
     owner:{label:"ลงเวลาแทน", fn:()=>adminAttendanceDialog()},
     employees:{label:"+ เพิ่มพนักงาน", fn:()=>employeeDialog(null)},
-    invoices:{label:"+ ออกใบแจ้งหนี้", fn:()=>newInvoiceDialog()},
     approvals:{label:"งานรออนุมัติ", fn:()=>go("approvals")},
   };
   const action=actions[page];

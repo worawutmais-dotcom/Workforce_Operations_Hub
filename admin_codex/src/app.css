@@ -1436,3 +1436,29 @@
     .approval-row{align-items:flex-start;flex-wrap:wrap}.approval-row .approval-actions{margin-left:auto}
     #page-settings .settings-workspace>.panel .head{align-items:flex-start}.settings-workspace .head .spacer{display:none}
   }
+
+  /* Dashboard lower deck: two intentionally short operational panels, then
+     one full-width monthly control.  The old equal-height grid made the site
+     table look abandoned and made the calendar appear split in half. */
+  #page-dashboard .cc-lower{grid-template-columns:minmax(0,1fr) minmax(0,390px);gap:12px;align-items:start}
+  #page-dashboard .cc-lower .panel{min-height:0!important}
+  #page-dashboard .dashboard-personal-time .body{padding:10px 12px!important}
+  #page-dashboard .dashboard-checkin-sites .head{min-height:38px!important;padding:8px 10px!important}
+  #page-dashboard .dashboard-checkin-sites .site-policy-note{padding:7px 10px;font-size:10px;line-height:1.35}
+  #page-dashboard #siteTable{width:100%;min-width:0!important;table-layout:fixed}
+  #page-dashboard #siteTable th,#page-dashboard #siteTable td{padding:7px 8px;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #page-dashboard #siteTable th:nth-child(1){width:auto}#page-dashboard #siteTable th:nth-child(2){width:66px}#page-dashboard #siteTable th:nth-child(3){width:58px}#page-dashboard #siteTable th:nth-child(4){width:48px}
+  #page-dashboard .dashboard-checkin-sites .site-name-cell{gap:7px;min-width:0}.dashboard-checkin-sites .site-pin{width:25px;height:25px;border-radius:7px}
+  #page-dashboard .dashboard-checkin-sites .site-name-txt{overflow:hidden}.dashboard-checkin-sites .site-name-txt b,.dashboard-checkin-sites .site-name-txt .sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #page-dashboard .dashboard-checkin-sites .site-name-txt b{font-size:11px}.dashboard-checkin-sites .site-name-txt .sub{font-size:9px}.dashboard-checkin-sites .radius-badge{padding:2px 5px;font-size:9px}
+  #page-dashboard .dashboard-checkin-sites .row-actions .btn{min-height:23px;padding:3px 5px;font-size:9px}
+  #page-dashboard .dashboard-team-calendar{width:100%;margin-top:0!important;border-top-width:2px!important}
+  #page-dashboard .dashboard-team-calendar>.head{min-height:38px!important;padding:7px 10px!important}
+  #page-dashboard .dashboard-team-calendar>.body{padding:8px 10px!important}
+  #page-dashboard .team-cal-sum{margin-bottom:5px}.team-cal-legend{padding-bottom:6px!important}.team-cal-grid{gap:3px!important}
+  #page-dashboard .team-cal-day{min-height:44px!important;padding:4px 5px!important;border-radius:6px!important}
+  #page-dashboard .team-cal-day.blank{min-height:0!important;height:0;padding:0!important;border:0!important;background:transparent!important}
+  #page-dashboard .team-cal-day .tcd-date{font-size:10px!important}.team-cal-day .tcd-today{font-size:7px!important;padding:1px 4px!important}
+  #page-dashboard .team-cal-day .tcd-foot{gap:2px!important}.team-cal-day .tcd-bar{height:2px!important}.team-cal-day .tcd-fig{font-size:8px!important}
+  #page-dashboard .team-cal-day .tcd-chip{font-size:7px!important;padding:0 3px!important}.team-cal-day .tcd-chip i{width:4px!important;height:4px!important}
+  @media(max-width:1040px){#page-dashboard .cc-lower{grid-template-columns:1fr}.dashboard-checkin-sites #siteTable th:nth-child(4),.dashboard-checkin-sites #siteTable td:nth-child(4){display:none}}
