@@ -1870,25 +1870,54 @@ async function payrollTimesheetDialog(line, period){
       const worked=d.workedMinutes?(short?`<span style="color:#c9780f;font-weight:700">${fmtHours(d.workedMinutes)}</span> <small style="color:#c9780f">−${fmtHours(STD-d.workedMinutes)}</small>`:fmtHours(d.workedMinutes)):"—";
       return `<tr><td>${fmtDate(d.date)}</td><td class="num">${esc(d.checkIn||"—")}</td><td class="num">${esc(d.checkOut||"—")}</td><td class="num">${worked}</td><td>${special?`${esc(special.label)} <b>${premium}</b>`:"—"}</td><td>${status}</td></tr>`;
     }).join("");
-    const net=line.netPay!=null?line.netPay:line.grossPay;
+    const gross=Number(line.grossPay||0), adv=Number(line.advanceDeduction||0), sso=Number(line.sso||0);
+    let otherDed=Number(line.otherDeduction||0); const draftNote0=line.draftNote||"";
+    const calcNet=(o)=>Math.max(0, gross-adv-sso-(Number(o)||0));
+    const net=line.netPay!=null?line.netPay:calcNet(otherDed);
     body.innerHTML=`
-      <div class="notice blue"><div><b>ก่อนออกสลิป: ตรวจเวลาและอัตราพิเศษ</b><br><span class="sub">×N มาจากปฏิทินตัวคูณที่หลังบ้านตั้งไว้เท่านั้น ไม่คำนวณจาก APK</span></div></div>
+      <div class="notice blue"><div><b>ขั้นตอน: ตรวจเวลา → วิเคราะห์/ปรับรายการหัก → ออกสลิป</b><br><span class="sub">×N มาจากปฏิทินตัวคูณหลังบ้าน · เบิกล่วงหน้า/ประกันสังคมคิดตามนโยบาย · แก้ได้เฉพาะ “หักอื่น”</span></div></div>
       <div class="grid2" style="margin:12px 0">
         <div class="field"><label>พนักงาน</label><b>${esc(empName(line.employeeId))}</b><span class="sub">${esc(line.employeeId)}</span></div>
-        <div class="field"><label>งวด</label><b>${fmtDate(period.start)} – ${fmtDate(period.end)}</b><span class="sub">ยอดสุทธิประมาณการ ${fmtBaht(net)}</span></div>
+        <div class="field"><label>งวด</label><b>${fmtDate(period.start)} – ${fmtDate(period.end)}</b><span class="sub">ฐาน ${fmtBaht(line.baseGross)} · OT ${fmtBaht(line.otGross)}</span></div>
       </div>
-      <div style="max-height:42vh;overflow:auto;border:1px solid var(--line);border-radius:10px"><table><thead><tr><th>วันที่</th><th class="num">เข้า</th><th class="num">ออก</th><th class="num">เวลาทำงาน</th><th>อัตราพิเศษ</th><th>สถานะ</th></tr></thead><tbody>${rows||`<tr><td colspan="6" class="empty">ยังไม่มีบันทึกเวลาในงวดนี้</td></tr>`}</tbody></table></div>
+      <div style="max-height:34vh;overflow:auto;border:1px solid var(--line);border-radius:10px"><table><thead><tr><th>วันที่</th><th class="num">เข้า</th><th class="num">ออก</th><th class="num">เวลาทำงาน</th><th>อัตราพิเศษ</th><th>สถานะ</th></tr></thead><tbody>${rows||`<tr><td colspan="6" class="empty">ยังไม่มีบันทึกเวลาในงวดนี้</td></tr>`}</tbody></table></div>
       ${(line.shortDays||0)>0?`<div class="notice" style="margin-top:12px;border-color:#f0d49a;background:#fff7ea"><div><b>ทำงานไม่ครบกะ ${fmtInt(line.shortDays)} วัน</b> · ขาดรวม ${fmtHours(line.shortfallMinutes||0)}${(line.shortfallDeduction||0)>0?` · ตัดค่าแรง <b>−${fmtBaht(line.shortfallDeduction)}</b>`:""}${(line.otTrimmedMinutes||0)>0?` · หัก OT <b>−${fmtHours(line.otTrimmedMinutes)}</b>`:""}${!(line.shortfallDeduction||0)&&!(line.otTrimmedMinutes||0)?` · <span class="sub">นโยบายปัจจุบัน: ไม่ตัด</span>`:""}<br><span class="sub">ปรับนโยบายได้ที่ ตั้งค่า → ตั้งค่าการจ่ายเงินเดือน → เมื่อทำงานไม่ครบกะ</span></div></div>`:""}
-      <div class="notice" style="margin-top:12px"><div><b>ยอดสำหรับออกสลิป:</b> ฐาน ${fmtBaht(line.baseGross)} · OT ${fmtBaht(line.otGross)} · หัก ${fmtBaht((line.advanceDeduction||0)+(line.sso||0)+(line.otherDeduction||0))} · <b>สุทธิ ${fmtBaht(net)}</b></div></div>`;
+      <div class="panel" style="margin:12px 0 0"><div class="head"><b>วิเคราะห์ยอด & รายการหัก</b><span class="sub" style="margin-left:8px">ปรับ “หักอื่น” แล้วบันทึก ก่อนออกสลิป</span></div>
+        <div class="body">
+          <div style="display:flex;flex-direction:column;gap:7px;font-size:13px">
+            <div style="display:flex;justify-content:space-between"><span class="sub">รายได้ก่อนหัก</span><b>${fmtBaht(gross)}</b></div>
+            <div style="display:flex;justify-content:space-between"><span class="sub">เบิกล่วงหน้า (ตามจ่ายจริง)</span><b style="color:var(--red)">${adv?'−'+fmtBaht(adv):'—'}</b></div>
+            <div style="display:flex;justify-content:space-between"><span class="sub">ประกันสังคม (ตามนโยบาย)</span><b style="color:var(--red)">${sso?'−'+fmtBaht(sso):'—'}</b></div>
+          </div>
+          <div class="grid2" style="margin-top:12px">
+            <div class="field"><label>หักอื่น (บาท)</label><input id="tsOther" type="number" min="0" step="1" value="${otherDed||0}"></div>
+            <div class="field"><label>เหตุผลการหักอื่น</label><input id="tsNote" type="text" maxlength="500" placeholder="ต้องระบุถ้ามีหักอื่น" value="${esc(draftNote0)}"></div>
+          </div>
+          <div class="notice" style="margin-top:12px;align-items:center"><div><b>เงินได้สุทธิ</b><br><span class="sub">รายได้ − เบิก − ปกส. − หักอื่น</span></div><b id="tsNet" style="font-size:22px;color:var(--blue-ink)">${fmtBaht(net)}</b></div>
+        </div>
+      </div>`;
+    const otherInput=body.querySelector("#tsOther"), noteInput=body.querySelector("#tsNote"), netEl=body.querySelector("#tsNet");
+    const reNet=()=>{ netEl.textContent=fmtBaht(calcNet(otherInput.value)); };
+    otherInput.oninput=reNet;
+    const saveDraft=async(btn)=>{
+      const o=Math.max(0,Number(otherInput.value)||0), note=(noteInput.value||"").trim();
+      if(o>0&&!note){ toast("กรุณาระบุเหตุผลสำหรับรายการหักอื่น","bad"); noteInput.focus(); return false; }
+      return await withBtn(btn, async()=>{
+        try{ await api("admin_save_payroll_draft",{startDate:period.start,endDate:period.end,employeeId:line.employeeId,otherDeduction:o,note});
+          line.otherDeduction=o; line.draftNote=note; line.netPay=calcNet(o); otherDed=o; reNet();
+          invalidateVolatile&&invalidateVolatile(); toast("บันทึกรายการหักแล้ว","good"); return true;
+        }catch(err){ toast(err.message||"บันทึกไม่สำเร็จ","bad"); return false; }
+      });
+    };
     const calendar=el(`<button class="btn sub">ดูบันทึกเวลา</button>`);
     calendar.onclick=()=>openAttendanceCalendar(line.employeeId);
-    const rules=el(`<button class="btn sub">ตั้งค่า ×N / OT</button>`);
-    rules.onclick=()=>{ closeModal(); go("payrules"); };
     const printTimesheetBtn=el(`<button class="btn sub">พิมพ์ Timesheet</button>`);
     printTimesheetBtn.onclick=()=>printTimesheet(line,period,attendance.days||[],specialByDate);
-    const draft=el(`<button class="btn">ออกสลิป</button>`);
-    draft.onclick=()=>issuePayslipWithAdminPassword({startDate:period.start,endDate:period.end},line.employeeId);
-    const modalFooter=$("#modal .m-foot"); if(modalFooter){ modalFooter.prepend(calendar,rules,printTimesheetBtn,draft); }
+    const saveBtn=el(`<button class="btn sub">บันทึกรายการหัก</button>`);
+    saveBtn.onclick=()=>saveDraft(saveBtn);
+    const issue=el(`<button class="btn">ออกสลิป</button>`);
+    issue.onclick=()=>withBtn(issue, async()=>{ const ok=await saveDraft(issue); if(ok===false) return; await issuePayslip({startDate:period.start,endDate:period.end},line.employeeId); });
+    const modalFooter=$("#modal .m-foot"); if(modalFooter){ modalFooter.prepend(calendar,printTimesheetBtn,saveBtn,issue); }
   }catch(err){ body.innerHTML=`<div class="empty">${esc(err.message||"โหลด Timesheet ไม่สำเร็จ")}</div>`; }
 }
 
