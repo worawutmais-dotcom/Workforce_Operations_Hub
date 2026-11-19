@@ -1666,6 +1666,28 @@
   #page-dashboard .cc-work .tc-actions .btn.sub:not(:disabled){background:#173b62!important;border-color:#173b62!important;color:#fff!important}
   #page-dashboard .cc-work .tc-actions .btn:disabled{opacity:1!important;background:#edf1f4!important;border-color:#d7e0e8!important;color:#8a9aaa!important}
   #page-dashboard .cc-work .tc-actions .btn:not(:disabled):hover{filter:brightness(.92)!important}
+
+  /* Dashboard summary, option 1: a single white decision strip.  The only
+     colour is in the icon and number, leaving the team register as the page's
+     visual focus. */
+  #page-dashboard .cc-summary-tiles{display:grid!important;grid-template-columns:128px repeat(4,minmax(0,1fr))!important;gap:0!important;align-items:stretch;background:#fff!important;border:1px solid #d8e3eb!important;border-radius:8px!important;box-shadow:0 1px 2px rgba(20,35,49,.05)!important;overflow:hidden}
+  #page-dashboard .cc-summary-label{display:flex;flex-direction:column;justify-content:center;gap:3px;padding:10px 14px;background:#f3f7fa;border-right:1px solid #d8e3eb;color:#24445f}
+  #page-dashboard .cc-summary-label span{font-size:11px;font-weight:500}.cc-summary-label small{font-size:9px;color:#71869a}
+  #page-dashboard .cc-summary-tiles .cc-stat{display:grid!important;grid-template-columns:28px minmax(0,1fr) auto;grid-template-rows:auto auto;column-gap:8px;align-content:center;min-height:64px!important;padding:9px 12px!important;background:#fff!important;color:#21384e!important;border:0!important;border-right:1px solid #e1e8ee!important;border-radius:0!important;box-shadow:none!important;filter:none!important;transform:none!important}
+  #page-dashboard .cc-summary-tiles .cc-stat:last-child{border-right:0!important}
+  #page-dashboard .cc-summary-tiles .cc-stat:after{display:none!important}
+  #page-dashboard .cc-summary-tiles .cc-stat-ic{position:static!important;grid-row:1 / span 2;display:grid;place-items:center;width:28px!important;height:28px!important;margin:0!important;border-radius:6px!important;opacity:1!important}
+  #page-dashboard .cc-summary-tiles .cc-stat-ic svg{width:16px!important;height:16px!important}
+  #page-dashboard .cc-summary-tiles .cc-stat-l{align-self:end;color:#61788d!important;font-size:10px!important;font-weight:400!important;line-height:1.1}
+  #page-dashboard .cc-summary-tiles .cc-stat b{grid-column:3;grid-row:1 / span 2;align-self:center;margin:0!important;color:inherit!important;font-size:25px!important;font-weight:500!important;line-height:1!important}
+  #page-dashboard .cc-summary-tiles .cc-stat small{grid-column:2;align-self:start;margin:2px 0 0!important;color:#778b9e!important;font-size:8.5px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #page-dashboard .cc-summary-tiles .cc-stat:hover{background:#f7fafc!important;filter:none!important;transform:none!important}
+  #page-dashboard .cc-summary-tiles .s-blue{color:#1769c2!important}.cc-summary-tiles .s-blue .cc-stat-ic{background:#eaf2fd;color:#1769c2}
+  #page-dashboard .cc-summary-tiles .s-amber{color:#ad6800!important}.cc-summary-tiles .s-amber .cc-stat-ic{background:#fff3df;color:#ad6800}
+  #page-dashboard .cc-summary-tiles .s-rose{color:#bf4051!important}.cc-summary-tiles .s-rose .cc-stat-ic{background:#fff0f2;color:#bf4051}
+  #page-dashboard .cc-summary-tiles .s-green{color:#167a50!important}.cc-summary-tiles .s-green .cc-stat-ic{background:#eaf8f1;color:#167a50}
+  @media(max-width:1100px){#page-dashboard .cc-summary-tiles{grid-template-columns:128px repeat(2,minmax(0,1fr))!important}#page-dashboard .cc-summary-label{grid-row:1 / span 2}#page-dashboard .cc-summary-tiles .cc-stat:nth-child(3){border-right:0!important}#page-dashboard .cc-summary-tiles .cc-stat:nth-child(2),#page-dashboard .cc-summary-tiles .cc-stat:nth-child(3){border-bottom:1px solid #e1e8ee!important}}
+  @media(max-width:620px){#page-dashboard .cc-summary-tiles{grid-template-columns:1fr 1fr!important}#page-dashboard .cc-summary-label{grid-column:1/-1;grid-row:auto;border-right:0;border-bottom:1px solid #d8e3eb}.cc-summary-tiles .cc-stat{min-height:58px!important;padding:8px 10px!important}.cc-summary-tiles .cc-stat:nth-child(3){border-right:1px solid #e1e8ee!important}.cc-summary-tiles .cc-stat:nth-child(2),.cc-summary-tiles .cc-stat:nth-child(3){border-bottom:1px solid #e1e8ee!important}}
 </style>
 </head>
 <body>
@@ -2494,6 +2516,7 @@ async function renderDashboard(data, preloaded={}){
             </div>
           </section>
           <section class="cc-metrics cc-summary-tiles" aria-label="สรุปงานประจำวัน">
+            <div class="cc-summary-label"><span>สรุปงานวันนี้</span><small>กดดูรายละเอียด</small></div>
             <button class="cc-stat s-blue" data-nav="owner"><span class="cc-stat-ic">${SVG.clock}</span><span class="cc-stat-l">ลงเวลาแล้ว</span><b>${fmtInt(cOn+cLate+cDone)}</b><small>จาก ${fmtInt(team.length)} คนในทีม</small></button>
             <button class="cc-stat s-amber" data-nav="owner"><span class="cc-stat-ic">${SVG.late}</span><span class="cc-stat-l">ยังไม่เข้างาน</span><b>${fmtInt(cOut)}</b><small>${cLate?`มาสาย ${fmtInt(cLate)} คน`:"ติดตามก่อนเริ่มกะ"}</small></button>
             <button class="cc-stat s-rose" data-nav="owner"><span class="cc-stat-ic">${SVG.search}</span><span class="cc-stat-l">ต้องตรวจเวลา</span><b>${fmtInt(data.exceptions)}</b><small>${Number(data.exceptions)?"ตรวจให้ครบก่อนปิดรอบ":"ไม่มีรายการค้างตรวจ"}</small></button>

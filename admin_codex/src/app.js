@@ -735,6 +735,7 @@ async function renderDashboard(data, preloaded={}){
             </div>
           </section>
           <section class="cc-metrics cc-summary-tiles" aria-label="สรุปงานประจำวัน">
+            <div class="cc-summary-label"><span>สรุปงานวันนี้</span><small>กดดูรายละเอียด</small></div>
             <button class="cc-stat s-blue" data-nav="owner"><span class="cc-stat-ic">${SVG.clock}</span><span class="cc-stat-l">ลงเวลาแล้ว</span><b>${fmtInt(cOn+cLate+cDone)}</b><small>จาก ${fmtInt(team.length)} คนในทีม</small></button>
             <button class="cc-stat s-amber" data-nav="owner"><span class="cc-stat-ic">${SVG.late}</span><span class="cc-stat-l">ยังไม่เข้างาน</span><b>${fmtInt(cOut)}</b><small>${cLate?`มาสาย ${fmtInt(cLate)} คน`:"ติดตามก่อนเริ่มกะ"}</small></button>
             <button class="cc-stat s-rose" data-nav="owner"><span class="cc-stat-ic">${SVG.search}</span><span class="cc-stat-l">ต้องตรวจเวลา</span><b>${fmtInt(data.exceptions)}</b><small>${Number(data.exceptions)?"ตรวจให้ครบก่อนปิดรอบ":"ไม่มีรายการค้างตรวจ"}</small></button>
