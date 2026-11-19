@@ -849,23 +849,37 @@ async function renderPeoplePulse(team, shiftMin, workdays){
     const people=(team||[]).filter(e=>String(e.status||"").toLowerCase()==="active");
     if(!people.length){ box.innerHTML=`<div class="empty">ยังไม่มีพนักงานที่ใช้งานอยู่</div>`; return; }
     box.className="people-pulse-grid"; box.style.display=""; box.style.gridTemplateColumns=""; box.style.gap="";
-    box.innerHTML=`<div class="pulse-legend">
+    const stats=people.map(e=>{ const s=by[e.id]||{present:0,late:0}; const onTime=Math.max(0,s.present-s.late), late=s.late, absent=Math.max(0,expected-s.present); return {e,present:s.present,onTime,late,absent}; });
+    const agg=(k)=>stats.reduce((a,x)=>a+x[k],0);
+    const tPresent=agg("present"), tOn=agg("onTime"), tLate=agg("late"), tAbs=agg("absent");
+    const monthLabel=`${CAL_TH_MON[now.getMonth()]} ${now.getFullYear()+543}`;
+    const teamRate=tPresent?Math.round(tOn/tPresent*100):0;
+    box.innerHTML=`<div class="pulse-summary">
+        <div class="pulse-sum-head"><div><div class="pulse-sum-title">สรุปเดือน ${monthLabel}</div><div class="sub">${fmtInt(people.length)} คน · วันทำงานผ่านมา ${fmtInt(expected)} วัน · ตรงเวลาเฉลี่ย ${teamRate}%</div></div></div>
+        <div class="pulse-sum-figs">
+          <div class="psf"><span>มาทำงาน</span><b>${fmtInt(tPresent)}</b></div>
+          <div class="psf ok"><span>ตรงเวลา</span><b>${fmtInt(tOn)}</b></div>
+          <div class="psf warn"><span>สาย</span><b>${fmtInt(tLate)}</b></div>
+          <div class="psf bad"><span>ขาด</span><b>${fmtInt(tAbs)}</b></div>
+        </div>
+      </div>
+      <div class="pulse-legend">
         <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#10b981;vertical-align:-1px"></span> มาตรงเวลา</span>
         <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#f59e0b;vertical-align:-1px"></span> สาย</span>
         <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#f43f5e;vertical-align:-1px"></span> ขาด</span>
-      </div>`+people.map(e=>{
-      const s=by[e.id]||{present:0,late:0}, onTime=Math.max(0,s.present-s.late), late=s.late, absent=Math.max(0,expected-s.present);
+      </div>`+stats.map(({e,present,onTime,late,absent})=>{
       const tot=(onTime+late+absent)||1;
       const pOn=Math.round(onTime/tot*100), pLate=Math.round(late/tot*100), pAbs=Math.max(0,100-pOn-pLate);
+      const rate=present?Math.round(onTime/present*100):0;
       return `<button class="pulse-card" data-calendar="${esc(e.id)}" aria-label="เปิดปฏิทิน ${esc(e.name)}">
         <svg viewBox="0 0 42 42" width="44" height="44" style="flex:none">
           <circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--line-soft)" stroke-width="5"></circle>
           <circle cx="21" cy="21" r="15.915" fill="none" stroke="#10b981" stroke-width="5" pathLength="100" stroke-dasharray="${pOn} ${100-pOn}" stroke-dashoffset="25"></circle>
           <circle cx="21" cy="21" r="15.915" fill="none" stroke="#f59e0b" stroke-width="5" pathLength="100" stroke-dasharray="${pLate} ${100-pLate}" stroke-dashoffset="${25-pOn}"></circle>
           <circle cx="21" cy="21" r="15.915" fill="none" stroke="#f43f5e" stroke-width="5" pathLength="100" stroke-dasharray="${pAbs} ${100-pAbs}" stroke-dashoffset="${25-pOn-pLate}"></circle>
-          <text x="21" y="24" text-anchor="middle" style="font-size:10px;font-weight:700;fill:var(--ink)">${fmtInt(s.present)}</text>
+          <text x="21" y="24" text-anchor="middle" style="font-size:10px;font-weight:700;fill:var(--ink)">${fmtInt(present)}</text>
         </svg>
-        <span style="flex:1;min-width:0"><span style="font-size:12px;font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.name)}</span>
+        <span style="flex:1;min-width:0"><span style="font-size:12px;font-weight:700;display:flex;justify-content:space-between;gap:6px"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.name)}</span><span class="pulse-rate ${rate>=90?"ok":rate>=70?"warn":"bad"}">${rate}%</span></span>
           <span class="sub" style="font-size:10px;display:block;margin-top:2px"><span style="color:#047857">มา ${fmtInt(onTime)}</span> · <span style="color:#b45309">สาย ${fmtInt(late)}</span> · <span style="color:#be123c">ขาด ${fmtInt(absent)}</span></span></span>
       </button>`;
     }).join("");
