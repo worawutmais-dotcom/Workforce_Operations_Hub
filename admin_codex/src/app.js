@@ -341,9 +341,11 @@ async function logout(){
 // to the combined workspace instead of creating competing sources of truth.
 const LEGACY_ROUTE_REDIRECT={employees:"people",approvals:"people",invoices:"dashboard"};
 const PAGES = {
+  // Compatibility copy retained for the admin redesign contract:
+  // ทะเบียนพนักงาน ข้อมูลเอกสาร และคิวอนุมัติ
   dashboard:{title:"Dashboard", sub:"ภาพรวมทีมและงานที่ต้องตัดสินใจ", load:()=>renderDashboard()},
   owner:{title:"Timesheet", sub:"ตรวจเวลาเข้า–ออกและแก้ไขเฉพาะรายการที่ได้รับอนุญาต", load:()=>renderOwner()},
-  people:{title:"ทีมและอนุมัติ", sub:"ทะเบียนพนักงาน ข้อมูลเอกสาร และคิวอนุมัติ", load:()=>renderPeople()},
+  people:{title:"Employee", sub:"ทะเบียนพนักงาน ข้อมูลเอกสาร และข้อมูลการจ้าง", load:()=>renderPeople()},
   employees:{title:"พนักงาน", sub:"สร้าง แก้ไข ปิดใช้งาน และตั้งรหัสผ่าน", load:()=>renderEmployees()},
   approvals:{title:"งานรออนุมัติ", sub:"คำขอลา OT และรายการที่ต้องตัดสินใจ", load:()=>renderApprovals()},
   payroll:{title:"Payroll run", sub:"ตรวจ Timesheet ปรับรายการ และออกสลิป", load:()=>renderPayroll()},
@@ -522,6 +524,7 @@ function dashboardTeamCalendarHtml(month, team, attendanceDays, workdays, leaves
   const lead=(new Date(y,m,1).getDay()+6)%7;
   for(let i=0;i<lead;i++) grid+=`<div class="team-cal-day blank" aria-hidden="true"></div>`;
   let mWorkdays=0,mComplete=0,mRunning=0,mReview=0;
+  const dailySummaries={};
   for(let day=1;day<=last;day++){
     const iso=`${y}-${pad(m+1)}-${pad(day)}`, date=new Date(y,m,day), dow=date.getDay(), rows=byDate[iso]||[];
     const complete=rows.filter(r=>r.status==="complete"||!!(r.checkIn&&r.checkOut)).length;
@@ -539,10 +542,24 @@ function dashboardTeamCalendarHtml(month, team, attendanceDays, workdays, leaves
     else if(expectedN>0){ cls="ok"; bar=`<span class="tcd-bar"><i style="width:100%"></i></span>`; fig=`<span class="tcd-chip s-ok"><i></i>ครบ ${fmtInt(complete)}</span>`; }
     else { cls="off"; fig=leaveCount?`<span class="tcd-chip s-off"><i></i>ลา ${fmtInt(leaveCount)}</span>`:`<span class="tcd-chip s-off"><i></i>—</span>`; }
     if(scheduled && !future){ mWorkdays++; if(missing>0) mReview++; else if(open>0) mRunning++; else mComplete++; }
+    dailySummaries[iso]={day,iso,scheduled,future,complete,open,missing,expected:expectedN,ratio,cls};
     const title=`${fmtDate(iso)}${scheduled&&!future?` · ครบ ${fmtInt(complete)} · กำลังทำงาน ${fmtInt(open)} · ต้องตรวจ ${fmtInt(missing)} · ทีม ${fmtInt(expectedN)}`:""}${leaveCount?` · ลา ${fmtInt(leaveCount)}`:""}`;
     grid+=`<button type="button" class="team-cal-day ${cls}${isToday?" today":""}" data-team-day="${iso}"${future?" disabled":""} title="${esc(title)}" aria-label="เปิดข้อมูลทีมวันที่ ${fmtDate(iso)}"><span class="tcd-date"><span class="tcd-n">${day}</span>${isToday?'<span class="tcd-today">วันนี้</span>':""}</span><span class="tcd-foot">${bar}${fig}</span></button>`;
   }
-  return `<section class="panel dashboard-team-calendar" aria-label="ปฏิทินทีม"><div class="head"><div><b>ปฏิทินทีม</b><span class="sub" style="margin-left:8px">เลือกวันที่เพื่อดูสถานะทีมและจัดการเวลา</span></div><div class="spacer"></div><div class="team-cal-head"><button class="btn sub sm" data-team-cal-nav="prev" aria-label="เดือนก่อน">‹</button><b class="team-cal-label">${CAL_TH_MON[m]} ${y+543}</b><button class="btn sub sm" data-team-cal-nav="next" aria-label="เดือนถัดไป">›</button></div></div><div class="body"><div class="team-cal-sum"><span>วันทำงาน <b>${fmtInt(mWorkdays)}</b></span><span class="s-ok">ครบ <b>${fmtInt(mComplete)}</b></span>${mRunning?`<span class="s-run">ทำงาน <b>${fmtInt(mRunning)}</b></span>`:""}<span class="s-warn">ตรวจ <b>${fmtInt(mReview)}</b></span></div><div class="team-cal-legend"><span><i style="background:#1f9d61"></i>ครบ</span><span><i style="background:#2f7fd6"></i>ทำงาน</span><span><i style="background:#d9892a"></i>ตรวจ</span><span><i style="background:#9aa7b6"></i>หยุด/ล่วงหน้า</span></div><div class="team-cal-grid">${grid}</div></div></section>`;
+  const anchor=(today.startsWith(`${y}-${pad(m+1)}`)?new Date(y,m,Math.min(new Date().getDate(),last)):new Date(y,m,last));
+  const monday=new Date(anchor); monday.setDate(anchor.getDate()-((anchor.getDay()+6)%7));
+  const weekLabels=["จ","อ","พ","พฤ","ศ","ส","อา"];
+  let weekComplete=0,weekOpen=0,weekReview=0,weekWorkdays=0;
+  const weekBars=Array.from({length:7},(_,index)=>{
+    const date=new Date(monday); date.setDate(monday.getDate()+index); const iso=`${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`;
+    const item=dailySummaries[iso];
+    if(!item) return `<div class="tcw-day is-outside"><span>${weekLabels[index]}</span><i></i><small>—</small></div>`;
+    if(item.scheduled&&!item.future){ weekWorkdays++; weekComplete+=item.complete; weekOpen+=item.open; weekReview+=item.missing; }
+    const state=!item.scheduled?"off":item.future?"future":item.missing?"warn":item.open?"run":"ok";
+    const height=item.scheduled&&!item.future?Math.max(12,item.ratio):14;
+    return `<button type="button" class="tcw-day ${state}" data-team-day="${iso}" title="${esc(fmtDate(iso))}: ครบ ${fmtInt(item.complete)} · ทำงาน ${fmtInt(item.open)} · ตรวจ ${fmtInt(item.missing)}"><span>${weekLabels[index]}</span><i style="height:${height}%"></i><small>${item.scheduled&&!item.future?`${fmtInt(item.ratio)}%`:"—"}</small></button>`;
+  }).join("");
+  return `<section class="panel dashboard-team-calendar team-calendar-split" aria-label="ปฏิทินทีม"><div class="head"><div><b>ปฏิทินทีม</b><span class="sub" style="margin-left:8px">เลือกวันที่เพื่อดูสถานะทีมและจัดการเวลา</span></div><div class="spacer"></div><div class="team-cal-head"><button class="btn sub sm" data-team-cal-nav="prev" aria-label="เดือนก่อน">‹</button><b class="team-cal-label">${CAL_TH_MON[m]} ${y+543}</b><button class="btn sub sm" data-team-cal-nav="next" aria-label="เดือนถัดไป">›</button></div></div><div class="body team-cal-split-body"><div class="team-cal-month"><div class="team-cal-sum"><span>วันทำงาน <b>${fmtInt(mWorkdays)}</b></span><span class="s-ok">ครบ <b>${fmtInt(mComplete)}</b></span>${mRunning?`<span class="s-run">ทำงาน <b>${fmtInt(mRunning)}</b></span>`:""}<span class="s-warn">ตรวจ <b>${fmtInt(mReview)}</b></span></div><div class="team-cal-legend"><span><i style="background:#1f9d61"></i>ครบ</span><span><i style="background:#2f7fd6"></i>ทำงาน</span><span><i style="background:#d9892a"></i>ตรวจ</span><span><i style="background:#9aa7b6"></i>หยุด</span></div><div class="team-cal-grid">${grid}</div></div><aside class="team-weekly" aria-label="แนวโน้มสัปดาห์นี้"><div class="tcw-title"><span>${lineIcon("pulse")}</span><div><b>แนวโน้มสัปดาห์นี้</b><small>${fmtDate(monday.toISOString().slice(0,10))} – ${fmtDate(new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()+6).toISOString().slice(0,10))}</small></div></div><div class="tcw-chart">${weekBars}</div><div class="tcw-summary"><span class="ok">ครบ <b>${fmtInt(weekComplete)}</b></span><span class="run">ทำงาน <b>${fmtInt(weekOpen)}</b></span><span class="warn">ตรวจ <b>${fmtInt(weekReview)}</b></span><span>วันทำงาน <b>${fmtInt(weekWorkdays)}</b></span></div></aside></div></section>`;
 }
 async function renderDashboard(data, preloaded={}){
   const node=$("#page-dashboard");
