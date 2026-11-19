@@ -4,6 +4,11 @@
 
 BVN Package internal workforce system: employee mobile attendance, Windows Python Admin, Google Sheets audit datastore, and headless Google Apps Script mobile gateway. It is not yet a legally complete payroll/accounting system.
 
+## 2026-11-19 — BVN control-room visual direction
+
+- Dashboard now uses BVN's own operations-console treatment: graphite/ink navigation, neutral work canvas, and four semantic summary tiles for recorded attendance, not-yet-checked-in staff, attendance exceptions, and payroll-slip readiness. The colour is functional rather than decorative, and every tile links to the matching work queue.
+- This is deliberately inspired by conventional back-office information hierarchy only; it does not reuse the reference application's branding, icons, content, or layout.
+
 ## ⚠️ Build workflow — admin console (read before editing)
 
 `admin_codex/index.html` is now a **BUILD ARTIFACT**, not a source file. **Do NOT hand-edit it.**
