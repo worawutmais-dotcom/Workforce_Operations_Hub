@@ -699,10 +699,16 @@ async function renderDashboard(data, preloaded={}){
           <div class="pa-body"><b>${payInfo.diffDays<=0?"ถึงกำหนดรอบจ่ายเงินเดือนแล้ว":`อีก ${fmtInt(payInfo.diffDays)} วันถึงรอบจ่ายเงินเดือน`} · วันจ่าย ${fmtDate(payInfo.nextISO)}</b><span>${payrollIncomplete?`ยังมีเวลาไม่ครบ ${fmtInt(payrollIncomplete)} รายการ — ตรวจ timesheet ให้ครบก่อนออกสลิป`:"เวลาครบแล้ว — ตรวจยอดและออกสลิปเงินเดือนได้เลย"}</span></div>
           <div class="pa-actions"><button class="btn sub sm" data-nav="owner">ตรวจ timesheet</button><button class="btn sm" data-nav="payroll">ออกสลิปเงินเดือน</button></div>
         </section>` : "";
-      // ---- Workforce status ring (SVG donut) ----
-      const RC=339.29, ringTotal=team.length||1; let _roff=0;
-      const ringArcs=[{v:cOn,c:"#10b981"},{v:cLate,c:"#f59e0b"},{v:cDone,c:"#6b8fc7"},{v:cOut,c:"#d7dfe9"}]
-        .filter(s=>s.v>0).map(s=>{ const len=s.v/ringTotal*RC; const arc=`<circle class="cc-arc" cx="64" cy="64" r="54" stroke="${s.c}" stroke-dasharray="${len.toFixed(2)} ${(RC-len).toFixed(2)}" stroke-dashoffset="${(-_roff).toFixed(2)}"></circle>`; _roff+=len; return arc; }).join("");
+      // ---- Live staffing instrument: the dashboard's first reading, not a decorative chart. ----
+      const ringTotal=team.length||1;
+      const staffingStates=[
+        {key:"on",label:"ตรงเวลา",value:cOn,icon:"approve"},
+        {key:"late",label:"มาสาย",value:cLate,icon:"alert"},
+        {key:"done",label:"ออกแล้ว",value:cDone,icon:"clock"},
+        {key:"out",label:"ยังไม่เข้า",value:cOut,icon:"pulse"}
+      ];
+      const staffingBar=staffingStates.map(state=>`<i class="is-${state.key}" style="width:${(state.value/ringTotal*100).toFixed(2)}%"></i>`).join("");
+      const staffingRows=staffingStates.map(state=>`<div class="cc-staff-row ${state.key}"><span class="cc-staff-icon">${lineIcon(state.icon)}</span><span>${state.label}</span><b>${fmtInt(state.value)}</b></div>`).join("");
       const shiftEnd=dashSettings.shift_end||"18:00";
       const workdaysCount=String(dashSettings.workdays||"1,2,3,4,5").split(",").filter(x=>x!=="").length;
       const heroHeadline = team.length ? (cOut===0?"ทีมเข้างานครบทุกคนแล้ว":`เข้างานแล้ว ${fmtInt(cOn+cLate+cDone)} จาก ${fmtInt(team.length)} คน`) : "ยังไม่มีพนักงานที่ใช้งาน";
@@ -718,8 +724,11 @@ async function renderDashboard(data, preloaded={}){
           <section class="cc-hero" aria-label="สถานะทีมวันนี้">
             <div class="cc-ring-panel">
               <div class="cc-shift-live"><i></i>สถานะกะงานแบบเรียลไทม์</div>
-              <div class="cc-ring-core"><div class="cc-ring"><svg viewBox="0 0 128 128" aria-hidden="true"><g transform="rotate(-90 64 64)"><circle class="cc-track" cx="64" cy="64" r="54"></circle>${ringArcs}</g></svg><div class="cc-ring-center"><b>${fmtInt(cOn+cLate)}</b><span>/ ${fmtInt(team.length)} คน</span><small>กำลังปฏิบัติงาน</small></div></div>
-              <div class="cc-legend"><div class="lg"><i style="background:#10b981"></i>ออนไลน์<b>${fmtInt(cOn)}</b></div><div class="lg"><i style="background:#f59e0b"></i>มาสาย<b>${fmtInt(cLate)}</b></div><div class="lg"><i style="background:#6b8fc7"></i>ออกแล้ว<b>${fmtInt(cDone)}</b></div><div class="lg"><i style="background:#d7dfe9"></i>ยังไม่เข้า<b>${fmtInt(cOut)}</b></div></div></div>
+              <div class="cc-staffing-core">
+                <div class="cc-staffing-figure"><span class="cc-staffing-icon">${lineIcon("pulse")}</span><div><span>กำลังทำงาน</span><b>${fmtInt(cOn+cLate)} <small>/ ${fmtInt(team.length)} คน</small></b></div></div>
+                <div class="cc-staffing-rows">${staffingRows}</div>
+              </div>
+              <div class="cc-staffing-bar" aria-label="สัดส่วนสถานะทีม">${staffingBar}</div>
               <div class="cc-shift-stats"><div><span>เริ่มกะ</span><b>${esc(dashShiftStart)} น.</b></div><div><span>ติดตามเวลา</span><b>${fmtInt(data.exceptions)} รายการ</b></div></div>
             </div>
             <div class="cc-hero-main">
