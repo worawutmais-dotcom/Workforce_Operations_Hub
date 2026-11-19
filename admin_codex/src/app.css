@@ -248,6 +248,21 @@
   .pulse-rate{font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;flex:none}
   .pulse-rate.ok{color:#047857;background:#d1fae5}.pulse-rate.warn{color:#b45309;background:#fef3e2}.pulse-rate.bad{color:#be123c;background:#fff0f2}
   @media(max-width:620px){.people-pulse-grid .pulse-summary{flex-direction:column;align-items:stretch}.pulse-sum-figs{justify-content:space-between;gap:8px}.pulse-sum-figs .psf{text-align:center}}
+  /* Premium team-month summary: navy card + on-time ring + proportion bar */
+  .people-pulse-grid .pulse-summary.premium{grid-column:1/-1;display:flex;flex-wrap:nowrap;align-items:center;justify-content:flex-start;gap:18px;padding:15px 18px;margin-bottom:8px;border:0;border-radius:14px;background:linear-gradient(135deg,#1e3a5f,#152c47);color:#fff;box-shadow:0 12px 26px -16px rgba(16,36,56,.55)}
+  .pulse-summary.premium .ps-ring{display:flex;flex-direction:column;align-items:center;gap:3px;flex:none}
+  .pulse-summary.premium .ps-ring span{font-size:9px;color:rgba(255,255,255,.72)}
+  .pulse-summary.premium .ps-body{flex:1;min-width:0}
+  .pulse-summary.premium .ps-title{font-size:15px;font-weight:700;color:#fff}
+  .pulse-summary.premium .ps-sub{font-size:10.5px;color:rgba(255,255,255,.72);margin-top:1px}
+  .pulse-summary.premium .ps-bar{display:flex;height:7px;border-radius:999px;overflow:hidden;margin:9px 0 10px;background:rgba(255,255,255,.14)}
+  .pulse-summary.premium .ps-bar i{display:block;height:100%}
+  .pulse-summary.premium .pulse-sum-figs{display:flex;gap:18px;flex-wrap:wrap}
+  .pulse-summary.premium .psf{text-align:left;min-width:48px}
+  .pulse-summary.premium .psf span{color:rgba(255,255,255,.7);font-size:9.5px}
+  .pulse-summary.premium .psf b{color:#fff;font-size:19px}
+  .pulse-summary.premium .psf.ok b{color:#6ee7b7}.pulse-summary.premium .psf.warn b{color:#fcd34d}.pulse-summary.premium .psf.bad b{color:#fda4af}
+  @media(max-width:620px){.people-pulse-grid .pulse-summary.premium{flex-direction:column;align-items:stretch}.pulse-summary.premium .ps-ring{flex-direction:row;justify-content:center;gap:8px}.pulse-summary.premium .pulse-sum-figs{justify-content:space-between}}
   .pulse-card{display:flex;align-items:center;gap:10px;padding:9px 10px;cursor:pointer;text-align:left;border:1px solid var(--line);border-radius:12px;background:var(--card);box-shadow:var(--shadow);transition:transform .14s ease,box-shadow .14s ease,border-color .14s ease}
   .pulse-card:hover{transform:translateY(-1px);border-color:#b7c6d8;box-shadow:var(--shadow-lg)}.pulse-card:focus-visible{outline:0;box-shadow:var(--ring)}
   .cal-status-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:2px 0 13px}.cal-status-strip .cal-stat{padding:8px 9px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}.cal-status-strip .cal-stat b{display:block;font-size:12px;font-variant-numeric:tabular-nums}.cal-status-strip .cal-stat span{display:block;font-size:10px;color:var(--muted);margin-top:2px}.cal-status-strip .cal-stat.ok{background:var(--green-soft);border-color:#9fe5c7}.cal-status-strip .cal-stat.wait{background:var(--amber-soft);border-color:#f8d691}.cal-status-strip .cal-stat.today{background:var(--blue-soft);border-color:#bdcce0}

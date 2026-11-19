@@ -862,13 +862,27 @@ async function renderPeoplePulse(team, shiftMin, workdays){
     const tPresent=agg("present"), tOn=agg("onTime"), tLate=agg("late"), tAbs=agg("absent");
     const monthLabel=`${CAL_TH_MON[now.getMonth()]} ${now.getFullYear()+543}`;
     const teamRate=tPresent?Math.round(tOn/tPresent*100):0;
-    box.innerHTML=`<div class="pulse-summary">
-        <div class="pulse-sum-head"><div><div class="pulse-sum-title">สรุปเดือน ${monthLabel}</div><div class="sub">${fmtInt(people.length)} คน · วันทำงานผ่านมา ${fmtInt(expected)} วัน · ตรงเวลาเฉลี่ย ${teamRate}%</div></div></div>
-        <div class="pulse-sum-figs">
-          <div class="psf"><span>มาทำงาน</span><b>${fmtInt(tPresent)}</b></div>
-          <div class="psf ok"><span>ตรงเวลา</span><b>${fmtInt(tOn)}</b></div>
-          <div class="psf warn"><span>สาย</span><b>${fmtInt(tLate)}</b></div>
-          <div class="psf bad"><span>ขาด</span><b>${fmtInt(tAbs)}</b></div>
+    const sumTot=(tOn+tLate+tAbs)||1;
+    const barOn=Math.round(tOn/sumTot*100), barLate=Math.round(tLate/sumTot*100), barAbs=Math.max(0,100-barOn-barLate);
+    box.innerHTML=`<div class="pulse-summary premium">
+        <div class="ps-ring">
+          <svg viewBox="0 0 42 42" width="60" height="60" aria-hidden="true">
+            <circle cx="21" cy="21" r="15.915" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="4"></circle>
+            <circle cx="21" cy="21" r="15.915" fill="none" stroke="#34e4a8" stroke-width="4" pathLength="100" stroke-dasharray="${teamRate} ${100-teamRate}" stroke-dashoffset="25" stroke-linecap="round"></circle>
+            <text x="21" y="24" text-anchor="middle" style="font-size:11px;font-weight:700;fill:#fff">${teamRate}%</text>
+          </svg>
+          <span>ตรงเวลาเฉลี่ย</span>
+        </div>
+        <div class="ps-body">
+          <div class="ps-title">สรุปเดือน ${monthLabel}</div>
+          <div class="ps-sub">${fmtInt(people.length)} คน · วันทำงานผ่านมา ${fmtInt(expected)} วัน</div>
+          <div class="ps-bar" title="มาตรงเวลา ${fmtInt(tOn)} · สาย ${fmtInt(tLate)} · ขาด ${fmtInt(tAbs)}">${barOn?`<i style="width:${barOn}%;background:#10b981"></i>`:""}${barLate?`<i style="width:${barLate}%;background:#f59e0b"></i>`:""}${barAbs?`<i style="width:${barAbs}%;background:#f43f5e"></i>`:""}</div>
+          <div class="pulse-sum-figs">
+            <div class="psf"><span>มาทำงาน</span><b>${fmtInt(tPresent)}</b></div>
+            <div class="psf ok"><span>ตรงเวลา</span><b>${fmtInt(tOn)}</b></div>
+            <div class="psf warn"><span>สาย</span><b>${fmtInt(tLate)}</b></div>
+            <div class="psf bad"><span>ขาด</span><b>${fmtInt(tAbs)}</b></div>
+          </div>
         </div>
       </div>
       <div class="pulse-legend">
