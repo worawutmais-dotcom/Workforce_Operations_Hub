@@ -1780,6 +1780,16 @@
   #page-dashboard .tcw-day{display:flex;flex-direction:column;align-items:center;justify-content:end;gap:4px;height:100%;padding:0;border:0;background:transparent;color:#627a8f;font:inherit;cursor:pointer}.tcw-day>span{font-size:9px}.tcw-day i{display:block;width:100%;min-height:4px;border-radius:4px 4px 1px 1px;background:#42bd8d}.tcw-day small{font-size:9px;font-variant-numeric:tabular-nums}.tcw-day.warn i{background:#d9941e}.tcw-day.run i{background:#3f82c2}.tcw-day.off i,.tcw-day.future i,.tcw-day.is-outside i{background:#d8e0e7}.tcw-day:hover i{filter:brightness(.9)}.tcw-day:focus-visible{outline:2px solid #276fc6;outline-offset:2px;border-radius:3px}
   #page-dashboard .tcw-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.tcw-summary span{display:flex;align-items:baseline;justify-content:space-between;gap:6px;padding:6px 7px;border:1px solid #e0e8ef;border-radius:6px;background:#fff;color:#667d91;font-size:9px}.tcw-summary b{color:#27445d;font-size:14px;font-weight:500!important;font-variant-numeric:tabular-nums}.tcw-summary .ok b{color:#168451}.tcw-summary .run b{color:#286eae}.tcw-summary .warn b{color:#ae6800}
   @media(max-width:980px){#page-dashboard .team-cal-split-body{grid-template-columns:1fr}.team-cal-month{border-right:0!important;border-bottom:1px solid #dfe8ef}.team-weekly{display:none}}
+
+  /* Employee is now a dedicated directory. Approval decisions are operated
+     from the Dashboard, beside the action queue that explains their impact. */
+  .employee-workspace{grid-template-columns:minmax(0,1fr)!important}
+  #page-dashboard .dashboard-approval-queue{border-top:2px solid #b98316!important}
+  #page-dashboard .dashboard-approval-queue .head{background:#fffaf1!important;border-top:0!important}
+  #page-dashboard .dashboard-approval-queue .body{padding:9px 10px!important}
+  #page-dashboard .daq-note{margin:0 0 8px;color:#6f8294;font-size:10px;line-height:1.4}
+  #page-dashboard .daq-tabs{display:flex;gap:4px;margin-bottom:8px;padding:3px;border-radius:7px;background:#f0f4f7}.daq-tabs button{flex:1;min-height:27px;padding:3px 6px;border:0;border-radius:5px;background:transparent;color:#5d7489;font:inherit;font-size:10px;cursor:pointer}.daq-tabs button.active{background:#fff;color:#24445f;box-shadow:0 1px 2px rgba(28,50,70,.12)}.daq-tabs button b{font-size:10px;font-weight:500}
+  #page-dashboard .daq-list{display:none;overflow:hidden;border:1px solid #e0e8ef;border-radius:7px}.daq-list.active{display:block}.daq-row{display:grid;grid-template-columns:41px minmax(0,1fr) auto;gap:7px;align-items:center;min-height:45px;padding:6px 7px;border-bottom:1px solid #e7edf2}.daq-row:last-child{border-bottom:0}.daq-kind{display:grid;place-items:center;min-height:23px;padding:2px 4px;border-radius:5px;background:#eef4fa;color:#426b90;font-size:9px;font-weight:500}.daq-kind.ot{background:#eaf7f0;color:#167a50}.daq-kind.leave{background:#edf4fb;color:#316b9a}.daq-kind.advance{background:#fff4e1;color:#a76600}.daq-copy{min-width:0}.daq-copy b,.daq-copy span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.daq-copy b{color:#29445d;font-size:10px;font-weight:500!important}.daq-copy span{margin-top:2px;color:#778b9e;font-size:9px}.daq-actions{display:flex;gap:3px}.daq-actions .btn{min-height:23px!important;padding:3px 5px!important;font-size:8.5px!important}.daq-empty{padding:22px 10px;color:#8092a3;text-align:center;font-size:10px}
 </style>
 </head>
 <body>
@@ -2451,12 +2461,13 @@ async function renderDashboard(data, preloaded={}){
     const calendarMonth=_dashCalendarMonth||new Date();
     const calendarStart=`${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth()+1).padStart(2,"0")}-01`;
     const calendarEnd=`${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth()+1).padStart(2,"0")}-${String(new Date(calendarMonth.getFullYear(),calendarMonth.getMonth()+1,0).getDate()).padStart(2,"0")}`;
-    const [leaveD, timeD, attendanceD, setD, calendarD] = await Promise.all([
+    const [leaveD, timeD, attendanceD, setD, calendarD, advanceD] = await Promise.all([
       preloaded.leaveD || optional(canOperations,"admin_list_leave_requests",{requests:[]}),
       preloaded.timeD || optional(canOperations,"admin_list_time_requests",{requests:[]}),
       preloaded.attendanceD || optional(canOperations,"admin_attendance_days",{days:[]}),
       optional(canOperations,"admin_get_settings",{settings:{}}),
       canOperations ? api("admin_attendance_days",{startDate:calendarStart,endDate:calendarEnd}).catch(error=>({days:[],_loadError:error.message})) : Promise.resolve({days:[],_restricted:true}),
+      optional(canFinance,"admin_list_advances",{advances:[]}),
     ]);
     const dashSettings=setD.settings||{};
     const dashShiftStart=dashSettings.shift_start||"09:00", dashGrace=Number(dashSettings.shift_grace_min||5);
@@ -2495,7 +2506,8 @@ async function renderDashboard(data, preloaded={}){
           <button class="att-clock out" data-checkout="${esc(e.id)}"${(!inDone||outDone)?" disabled":""} title="ลงเวลาออกงานให้ ${esc(e.name)}">ออก</button>
         </span></div>`;
     }).join(""):`<div class="empty">ยังไม่มีรายชื่อพนักงานที่ใช้งานอยู่</div>`;
-    const pendL=leaves.filter(r=>r.status==="pending"), pendT=times.filter(r=>r.status==="pending");
+      const pendL=leaves.filter(r=>r.status==="pending"), pendT=times.filter(r=>r.status==="pending");
+      const pendAdv=(advanceD.advances||[]).filter(r=>r.status==="pending");
     setApprovalBadge(pendL.length+pendT.length);
     // Pending approvals scoped to the current month (for the "วันนี้" notification).
     const _ymNow=todayISO().slice(0,7), _inMonth=(d)=>String(d||"").slice(0,7)===_ymNow;
@@ -2572,9 +2584,9 @@ async function renderDashboard(data, preloaded={}){
       const incompleteRows=attendanceDays.filter(d=>d.date<=todayAtt&&d.status!=="complete");
       const actionQueue=[];
       incompleteRows.forEach(d=>actionQueue.push({kind:"time",name:d.name||empName(d.employeeId)||d.employeeId,detail:`${fmtDate(d.date)} · ${d.checkIn?"ยังไม่ได้เช็กเอาต์":"เวลาเข้า–ออกไม่ครบ"}`,cta:"ตรวจเวลา",target:"owner",filter:"review",priority:0}));
-      pendT.filter(r=>String(r.requestType||"").toLowerCase()==="overtime").forEach(r=>actionQueue.push({kind:"ot",name:empName(r.employeeId),detail:`${fmtDate(r.workDate)} · ${fmtHours(r.requestedMinutes)} · รออนุมัติก่อนนำไปคำนวณเงินเดือน`,cta:"อนุมัติ OT",target:"approvals",priority:1}));
+      pendT.filter(r=>String(r.requestType||"").toLowerCase()==="overtime").forEach(r=>actionQueue.push({kind:"ot",name:empName(r.employeeId),detail:`${fmtDate(r.workDate)} · ${fmtHours(r.requestedMinutes)} · รออนุมัติก่อนนำไปคำนวณเงินเดือน`,cta:"อนุมัติ OT",target:"dashboard-approvals",priority:1}));
       dashboardTeam.filter(e=>!e.nationalId||!e.phone).forEach(e=>actionQueue.push({kind:"profile",name:e.name||e.id,detail:`ข้อมูลเอกสารยังไม่ครบ · ${!e.nationalId?"ยังไม่มีเลขบัตรประชาชน":"ยังไม่มีเบอร์โทรศัพท์"}`,cta:"จัดการข้อมูล",target:"people",priority:2}));
-      pendL.forEach(r=>actionQueue.push({kind:"leave",name:empName(r.employeeId),detail:`${fmtDate(r.startDate||r.leaveDate||r.workDate)} · คำขอลารออนุมัติ`,cta:"พิจารณา",target:"approvals",priority:2}));
+      pendL.forEach(r=>actionQueue.push({kind:"leave",name:empName(r.employeeId),detail:`${fmtDate(r.startDate||r.leaveDate||r.workDate)} · คำขอลารออนุมัติ`,cta:"พิจารณา",target:"dashboard-approvals",priority:2}));
       if(canFinance&&actionQueue.length===0&&payrollEligible>0) actionQueue.push({kind:"payroll",name:"งวดเงินเดือนปัจจุบัน",detail:`คำนวณได้ ${fmtInt(payrollEligible)} คน · พร้อมตรวจและออกสลิป`,cta:"ออกสลิป",target:"payroll",priority:3});
       actionQueue.sort((a,b)=>a.priority-b.priority);
       const queueStyle={time:"red",ot:"amber",profile:"blue",leave:"blue",payroll:"green"};
@@ -2592,6 +2604,15 @@ async function renderDashboard(data, preloaded={}){
           return `<section class="wq-group wq-${group.key}"><div class="wq-group-head"><span class="wq-group-icon">${queueIcon[group.icon]}</span><b>${group.title}</b><em>${fmtInt(items.length)}</em></div><div class="wq-rows">${items.map((item,index)=>`<div class="wq-row${index===0&&item.priority===0?" is-priority":""}" data-action-target="${esc(item.target)}" data-owner-filter="${esc(item.filter||"")}" role="button" tabindex="0"><span class="wq-kind ${queueStyle[item.kind]||"grey"}">${item.kind==="time"?lineIcon("clock"):item.kind==="profile"?lineIcon("users"):item.kind==="ot"?"OT":item.kind==="leave"?"ลา":lineIcon("bill")}</span><div class="wq-copy"><b>${esc(item.name)}</b><span>${esc(item.detail)}</span></div>${index===0&&item.priority===0?'<span class="wq-urgent">เร่งด่วน</span>':""}<button class="btn sub sm aq-action" type="button" data-action-target="${esc(item.target)}" data-owner-filter="${esc(item.filter||"")}">${esc(item.cta)}<i>›</i></button></div>`).join("")}</div></section>`;
         }).join("")
         :`<div class="empty">วันนี้ไม่มีรายการค้างตรวจ</div>`;
+      const approvalSets={
+        ot:pendT.filter(r=>r.requestType==="overtime").map(r=>({kind:"OT",name:empName(r.employeeId),detail:`${fmtDate(r.workDate)} · ${fmtHours(r.requestedMinutes)}${r.reason?` · ${r.reason}`:""}`,requestId:r.requestId})),
+        leave:pendL.map(r=>({kind:"การลา",name:empName(r.employeeId),detail:`${r.leaveType||"ลา"} · ${fmtDate(r.startDate)}${r.endDate&&r.endDate!==r.startDate?` – ${fmtDate(r.endDate)}`:""}`,requestId:r.requestId})),
+        advance:pendAdv.map(r=>({kind:"เบิกเงิน",name:r.name||empName(r.employeeId),detail:`${fmtBaht(r.amount)}${r.reason?` · ${r.reason}`:""}`,advanceId:r.advanceId}))
+      };
+      const approvalTotal=approvalSets.ot.length+approvalSets.leave.length+approvalSets.advance.length;
+      const initialApprovalMode=approvalSets.ot.length?"ot":approvalSets.leave.length?"leave":"advance";
+      const approvalTabLabel={ot:"OT",leave:"การลา",advance:"เบิกเงิน"};
+      const dashboardApprovalHtml=`<section class="panel dashboard-approval-queue" id="dashboardApprovals" aria-label="คิวอนุมัติ"><div class="head"><div class="wq-title"><b>คิวอนุมัติ</b><span>${fmtInt(approvalTotal)} รายการ</span></div><div class="spacer"></div><button class="btn ok sm" type="button" id="dashAddOt">บันทึก OT</button></div><div class="body"><p class="daq-note">คำขอที่อนุมัติแล้วจึงจะนำไปคำนวณเงินเดือนได้</p><div class="daq-tabs" role="tablist">${Object.keys(approvalSets).map(mode=>`<button type="button" data-daq-mode="${mode}" class="${mode===initialApprovalMode?"active":""}">${approvalTabLabel[mode]} <b>${fmtInt(approvalSets[mode].length)}</b></button>`).join("")}</div>${Object.entries(approvalSets).map(([mode,items])=>`<div class="daq-list ${mode===initialApprovalMode?"active":""}" data-daq-list="${mode}">${items.length?items.map(item=>`<div class="daq-row"><span class="daq-kind ${mode}">${esc(item.kind)}</span><div class="daq-copy"><b>${esc(item.name)}</b><span>${esc(item.detail)}</span></div><div class="daq-actions">${mode==="advance"?`<button class="btn ok sm" data-daq-advance="${esc(item.advanceId)}">อนุมัติ</button><button class="btn danger sm" data-daq-advance-reject="${esc(item.advanceId)}">ปฏิเสธ</button>`:`<button class="btn ok sm" data-daq-approve="${mode}:${esc(item.requestId)}">อนุมัติ</button><button class="btn danger sm" data-daq-reject="${mode}:${esc(item.requestId)}">ปฏิเสธ</button>`}</div></div>`).join(""):`<div class="daq-empty">ไม่มีคำขอรออนุมัติ</div>`}</div>`).join("")}</div></section>`;
       // Payday reminder: when the pay cycle is near/at/overdue, nudge the owner to
       // review timesheets and issue payslips. Window = 3 days before → 2 days after.
       const payInfo = canFinance ? nextPaydayInfo(dashSettings) : null;
@@ -2659,7 +2680,8 @@ async function renderDashboard(data, preloaded={}){
           </section>
           <section class="cc-work">
             <div class="cc-left-stack">
-              <div class="panel cc-decide"><div class="head"><div class="wq-title"><b>งานที่ต้องจัดการ</b><span>${fmtInt(actionQueue.length)} รายการ</span></div><div class="spacer"></div><button class="btn sub sm" data-nav="approvals">เปิดคำขอทั้งหมด <i>⌄</i></button></div><div class="body flush work-queue">${workQueueHtml}</div></div>
+              <div class="panel cc-decide"><div class="head"><div class="wq-title"><b>งานที่ต้องจัดการ</b><span>${fmtInt(actionQueue.length)} รายการ</span></div><div class="spacer"></div><button class="btn sub sm" data-daq-focus>เปิดคิวอนุมัติ <i>⌄</i></button></div><div class="body flush work-queue">${workQueueHtml}</div></div>
+              ${dashboardApprovalHtml}
               <section class="panel site-policy dashboard-checkin-sites" aria-label="จุดเช็กอินที่อนุญาต"><div class="head"><div><b>จุดเช็กอินที่อนุญาต</b><span class="sub" style="margin-left:8px">นโยบายพื้นที่สำหรับการเช็กอิน</span></div><div class="spacer"></div><button class="btn sm" id="siteAddBtn">เพิ่มจุด</button></div><div class="site-policy-note">พนักงานเช็กอินได้เมื่ออยู่ในรัศมีของจุดที่เปิดใช้งาน · เช็กเอาต์ได้ทุกพื้นที่</div><div class="body flush"><table id="siteTable"><thead><tr><th>พื้นที่</th><th class="num">รัศมี</th><th>สถานะ</th><th data-nosort></th></tr></thead><tbody id="siteRows"><tr><td colspan="4"><div class="empty">กำลังโหลดจุดเช็กอิน…</div></td></tr></tbody></table></div></section>
             </div>
             <div class="panel team-register hr-team"><div class="head"><div><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">เลือกชื่อเพื่อดูเวลาเข้า–ออกและประวัติ</span></div><div class="spacer"></div><div class="team-status-summary" aria-label="สรุปสถานะทีม"><span class="not-in">ยังไม่เข้า <b>${fmtInt(cOut)}</b></span><span class="working">ทำงาน <b>${fmtInt(cOn+cLate)}</b></span><span class="finished">ออกแล้ว <b>${fmtInt(cDone)}</b></span></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เข้างาน</span><span>ออกงาน</span><span>สถานะ</span><span>การทำงาน</span></div><div class="team-grid">${teamHtml}</div></div></div>
@@ -2696,6 +2718,11 @@ async function renderDashboard(data, preloaded={}){
     node.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>go(b.dataset.nav));
     node.querySelectorAll("[data-action-target]").forEach(b=>b.onclick=(ev)=>{
       ev.stopPropagation();
+      if(b.dataset.actionTarget==="dashboard-approvals"){
+        const queue=node.querySelector("#dashboardApprovals");
+        if(queue) queue.scrollIntoView({behavior:"smooth",block:"center"});
+        return;
+      }
       if(b.dataset.ownerFilter) ownerState.filter=b.dataset.ownerFilter;
       go(b.dataset.actionTarget);
     });
@@ -2705,6 +2732,26 @@ async function renderDashboard(data, preloaded={}){
       if(row.dataset.ownerFilter) ownerState.filter=row.dataset.ownerFilter;
       go(row.dataset.actionTarget);
     });
+    const dashApproval=node.querySelector("#dashboardApprovals");
+    if(dashApproval){
+      dashApproval.querySelectorAll("[data-daq-mode]").forEach(tab=>tab.onclick=()=>{
+        const mode=tab.dataset.daqMode;
+        dashApproval.querySelectorAll("[data-daq-mode]").forEach(x=>x.classList.toggle("active",x===tab));
+        dashApproval.querySelectorAll("[data-daq-list]").forEach(x=>x.classList.toggle("active",x.dataset.daqList===mode));
+      });
+      dashApproval.querySelectorAll("[data-daq-approve]").forEach(button=>button.onclick=()=>{
+        const [mode,id]=button.dataset.daqApprove.split(":");
+        if(mode==="ot") reviewTime(button,id,"approved"); else reviewLeave(button,id,"approved");
+      });
+      dashApproval.querySelectorAll("[data-daq-reject]").forEach(button=>button.onclick=()=>{
+        const [mode,id]=button.dataset.daqReject.split(":");
+        if(mode==="ot") reviewTime(button,id,"rejected"); else reviewLeave(button,id,"rejected");
+      });
+      dashApproval.querySelectorAll("[data-daq-advance]").forEach(button=>button.onclick=()=>decideAdvance(button.dataset.daqAdvance,"approved"));
+      dashApproval.querySelectorAll("[data-daq-advance-reject]").forEach(button=>button.onclick=()=>decideAdvance(button.dataset.daqAdvanceReject,"rejected"));
+      const addOt=dashApproval.querySelector("#dashAddOt"); if(addOt) addOt.onclick=()=>addOvertimeDialog();
+    }
+    node.querySelectorAll("[data-daq-focus]").forEach(button=>button.onclick=()=>node.querySelector("#dashboardApprovals")?.scrollIntoView({behavior:"smooth",block:"center"}));
     node.querySelectorAll("[data-calendar]").forEach(b=>{ b.onclick=()=>openAttendanceCalendar(b.dataset.calendar, attendanceDays, attendanceD, owner); b.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openAttendanceCalendar(b.dataset.calendar, attendanceDays, attendanceD, owner); } }; });
     node.querySelectorAll('[data-checkin]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); quickClock(b.dataset.checkin,"check_in",b); });
     node.querySelectorAll('[data-checkout]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); quickClock(b.dataset.checkout,"check_out",b); });
@@ -3029,18 +3076,6 @@ async function renderPeople(){
           </div>
           <div class="employee-table-wrap"><div id="pList"></div></div>
         </section>
-        <aside class="panel people-queue" style="margin:0">
-          <div class="head"><h2>คิวอนุมัติ</h2><span class="badge ${pendingCount?"amber":"grey"}" style="margin-left:8px">${fmtInt(pendingCount)}</span></div>
-          <div class="body">
-            <p class="people-queue-note">ตรวจคำขอที่รอการตัดสินใจ โดยข้อมูลพนักงานอยู่ในตารางด้านซ้าย</p>
-            <div class="subtabs" id="pModes">
-              <button data-mode="ot">OT${modeCount("ot")?` ${modeCount("ot")}`:""}</button>
-              <button data-mode="leave">การลา${modeCount("leave")?` ${modeCount("leave")}`:""}</button>
-              <button data-mode="advance">เบิกเงิน${modeCount("advance")?` ${modeCount("advance")}`:""}</button>
-            </div>
-            <div id="pModeBody"></div>
-          </div>
-        </aside>
       </div>`;
     const drawList=(q="")=>{
       q=q.trim().toLowerCase();
@@ -3102,13 +3137,12 @@ async function renderPeople(){
       if($("#pGoRules")) $("#pGoRules").onclick=()=>go("payrules");
       if($("#pAddOt")) $("#pAddOt").onclick=()=>addOvertimeDialog();
     };
-    drawList(); drawMode(); loadPwRequests(); loadIdentityRequests();
+    drawList(); loadPwRequests(); loadIdentityRequests();
     $("#pSearch").oninput=e=>drawList(e.target.value);
     node.querySelectorAll("[data-profile-filter]").forEach(button=>button.onclick=()=>{ _peopleProfileFilter=button.dataset.profileFilter; node.querySelectorAll("[data-profile-filter]").forEach(x=>x.classList.toggle("active",x===button)); drawList($("#pSearch").value); });
     $("#pAdd").onclick=()=>employeeDialog(null);
     $("#pDemo").onclick=()=>openThreeMonthPayrollDemo();
     $("#pExport").onclick=()=>exportEmployeesCSV();
-    $("#pModes").querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{ _peopleMode=b.dataset.mode; drawMode(); });
   }catch(err){ errorBox(node, err, renderPeople); }
 }
 
