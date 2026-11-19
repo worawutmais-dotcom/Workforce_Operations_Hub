@@ -22,19 +22,19 @@
      ================================================================ */
   :root{
     /* Brand & surfaces */
-    --navy:#1e2818;--navy2:#304020;--panel:#304020;--ink:#172014;--muted:#697362;
-    --line:#e6ebe2;--line-soft:#f1f5ee;--bg:#f7f9f5;--card:#ffffff;
+    --navy:#0f172a;--navy2:#304020;--panel:#ffffff;--ink:#0f172a;--muted:#64748b;
+    --line:#eef1f6;--line-soft:#f4f6fb;--bg:#f8fafc;--card:#ffffff;
     /* Primary accent (navy brand) */
     --blue:#1e3a5f;--blue-ink:#152c47;--blue-soft:#e9eef5;
     /* Semantic status */
-    --green:#168b45;--green-soft:#e6f8ea;--amber:#d9731a;--amber-soft:#fbeede;
-    --red:#c93b3b;--red-soft:#fbe9e9;
+    --green:#10b981;--green-soft:#d1fae5;--amber:#f59e0b;--amber-soft:#fef3e2;
+    --red:#f43f5e;--red-soft:#fff0f2;
     /* Radius */
-    --radius:12px;--radius-sm:8px;--radius-lg:16px;
+    --radius:14px;--radius-sm:9px;--radius-lg:16px;
     /* Elevation */
-    --shadow:0 1px 2px rgba(20,30,20,.04),0 4px 14px rgba(20,30,20,.05);
-    --shadow-lg:0 12px 32px rgba(20,30,20,.12);
-    --ring:0 0 0 3px rgba(47,158,63,.22);
+    --shadow:0 1px 2px rgba(15,23,42,.04),0 4px 16px rgba(15,23,42,.05);
+    --shadow-lg:0 14px 34px rgba(15,23,42,.10);
+    --ring:0 0 0 3px rgba(30,58,95,.2);
     /* Spacing scale (4px base) — adopt in NEW styles instead of raw px */
     --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;--space-6:32px;--space-8:48px;
     /* Type scale (body = --text-base) */
@@ -55,12 +55,12 @@
 
   /* ---------- Dark mode ---------- */
   :root[data-theme="dark"]{
-    --navy:#f7fff0;--ink:#f3f8ee;--muted:#9aa891;
-    --line:#273222;--line-soft:#1b241a;--bg:#0e120c;--card:#161d13;
-    --blue:#5bbe55;--blue-ink:#bfe7b4;--blue-soft:#182912;
-    --green-soft:#113721;--amber-soft:#2f1f12;--red-soft:#321a1a;
-    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 22px rgba(0,0,0,.4);
-    --shadow-lg:0 16px 44px rgba(0,0,0,.55);
+    --navy:#eef1f5;--ink:#eef1f5;--muted:#94a3b8;
+    --line:#232c3a;--line-soft:#1a2130;--bg:#0b0f17;--card:#141a24;--panel:#141a24;
+    --blue:#6b86aa;--blue-ink:#cdd9ea;--blue-soft:#0b1b2d;
+    --green:#34d399;--green-soft:#0c3b2e;--amber:#fbbf24;--amber-soft:#3a2a0a;
+    --red:#fb7185;--red-soft:#3a1420;
+    --shadow:none;--shadow-lg:none;
   }
   :root[data-theme="dark"] body{background:var(--bg)}
   :root[data-theme="dark"] .topbar{background:rgba(21,29,18,.88)}
@@ -390,8 +390,6 @@
   /* ---------- Unslop pass: quiet operational chrome ----------
      BVN uses lime for a selected/complete state and orange for attention.
      Surfaces stay neutral so tables and decisions carry the visual hierarchy. */
-  :root{--bg:#f8fafc;--card:#ffffff;--ink:#0f172a;--muted:#64748b;--line:#eef1f6;--line-soft:#f4f6fb;--panel:#ffffff;--navy:#0f172a;--blue:#1e3a5f;--blue-ink:#152c47;--blue-soft:#e9eef5;--shadow:0 1px 2px rgba(15,23,42,.04),0 4px 16px rgba(15,23,42,.05);--shadow-lg:0 14px 34px rgba(15,23,42,.10);--ring:0 0 0 3px rgba(30,58,95,.18)}
-  :root[data-theme="dark"]{--bg:#0b0f17;--card:#141a24;--ink:#eef1f5;--muted:#94a3b8;--line:#232c3a;--line-soft:#1a2130;--panel:#141a24;--navy:#eef1f5;--blue:#6b86aa;--blue-ink:#cdd9ea;--blue-soft:#0b1b2d;--shadow:none;--shadow-lg:none}
   body,:root[data-theme="dark"] body{background:var(--bg);font-size:13px;line-height:1.5}
   #login{background:#111510}
   .login-card{border-radius:16px;box-shadow:0 20px 48px rgba(0,0,0,.22)}
@@ -482,23 +480,6 @@
      quiet, dense and printable. This final layer deliberately overrides
      early visual experiments so every Admin page shares one system.
      ----------------------------------------------------------------- */
-  :root{
-    --bg:#f8fafc;--card:#ffffff;--panel:#ffffff;--ink:#0f172a;--navy:#0f172a;
-    --muted:#64748b;--line:#eef1f6;--line-soft:#f4f6fb;
-    --blue:#1e3a5f;--blue-ink:#152c47;--blue-soft:#e9eef5;
-    --green:#10b981;--green-soft:#d1fae5;--amber:#f59e0b;--amber-soft:#fef3e2;
-    --red:#f43f5e;--red-soft:#fff0f2;--radius:14px;--radius-sm:9px;
-    --shadow:0 1px 2px rgba(15,23,42,.04),0 4px 16px rgba(15,23,42,.05);--shadow-lg:0 14px 34px rgba(15,23,42,.10);
-    --ring:0 0 0 3px rgba(30,58,95,.2);
-  }
-  :root[data-theme="dark"]{
-    --bg:#0b0f17;--card:#141a24;--panel:#141a24;--ink:#eef1f5;--navy:#eef1f5;
-    --muted:#94a3b8;--line:#232c3a;--line-soft:#1a2130;
-    --blue:#6b86aa;--blue-ink:#cdd9ea;--blue-soft:#0b1b2d;
-    --green:#34d399;--green-soft:#0c3b2e;--amber:#fbbf24;--amber-soft:#3a2a0a;
-    --red:#fb7185;--red-soft:#3a1420;
-    --shadow:none;--shadow-lg:none;
-  }
   body,:root[data-theme="dark"] body{background:var(--bg);color:var(--ink);font-size:13px;line-height:1.45}
   #login{background:
     radial-gradient(900px 520px at 50% -10%, rgba(123,150,196,.38), transparent 60%),
