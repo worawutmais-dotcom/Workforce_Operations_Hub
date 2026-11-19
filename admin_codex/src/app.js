@@ -803,8 +803,7 @@ async function renderDashboard(data, preloaded={}){
             </div>
             <div class="panel team-register hr-team"><div class="head"><div><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">เลือกชื่อเพื่อดูเวลาเข้า–ออกและประวัติ</span></div><div class="spacer"></div><div class="team-status-summary" aria-label="สรุปสถานะทีม"><span class="not-in">ยังไม่เข้า <b>${fmtInt(cOut)}</b></span><span class="working">ทำงาน <b>${fmtInt(cOn+cLate)}</b></span><span class="finished">ออกแล้ว <b>${fmtInt(cDone)}</b></span></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เข้างาน</span><span>ออกงาน</span><span>สถานะ</span><span>การทำงาน</span></div><div class="team-grid">${teamHtml}</div></div></div>
           </section>
-          <section class="cc-lower"><section class="panel dashboard-personal-time" aria-label="เวลาทำงานรายบุคคล"><div class="head"><div><b>แนวโน้มเวลาทำงานรายบุคคล</b><span class="sub" style="margin-left:8px">สรุปเดือนนี้ · เลือกพนักงานเพื่อดูรายละเอียด</span></div></div><div class="body"><div id="peoplePulse"><div class="empty">กำลังโหลดสรุปรายบุคคล…</div></div></div></section></section>
-          ${dashboardTeamCalendarHtml(calendarMonth, team, calendarDays, dashSettings.workdays, leaves)}
+          <section class="cc-lower"><section class="panel dashboard-personal-time" aria-label="แนวโน้มเวลาทำงานรายบุคคล"><div class="head"><div><b>แนวโน้มเวลาทำงานรายบุคคล</b><span class="sub" style="margin-left:8px">จัดลำดับความเสี่ยงของทีมในเดือนนี้</span></div></div><div class="body"><div id="peoplePulse"><div class="empty">กำลังโหลดสรุปรายบุคคล…</div></div></div></section><section class="panel dashboard-payroll-readiness" aria-label="ความพร้อมสำหรับจ่ายเงินเดือน"><div class="head"><div><b>ความพร้อมสำหรับจ่ายเงินเดือน</b><span class="sub" style="margin-left:8px">ตรวจความครบถ้วนก่อนออกสลิป</span></div></div><div class="body"><div id="peopleReadiness"><div class="empty">กำลังประเมินความพร้อม…</div></div></div></section></section>
           <div class="toolbar dash-short"><button class="btn ghost" data-act="emp">เพิ่มพนักงาน</button><button class="btn ghost" data-act="ot">บันทึก OT</button>${canFinance?`<button class="btn ghost" data-nav="payroll">ตรวจเงินเดือน</button>`:""}</div>
         </div>`;
     } else {
@@ -946,7 +945,6 @@ async function renderPeoplePulse(team, shiftMin, workdays){
     }
     const people=(team||[]).filter(e=>String(e.status||"").toLowerCase()==="active");
     if(!people.length){ box.innerHTML=`<div class="empty">ยังไม่มีพนักงานที่ใช้งานอยู่</div>`; return; }
-    box.className="people-pulse-grid"; box.style.display=""; box.style.gridTemplateColumns=""; box.style.gap="";
     const stats=people.map(e=>{ const s=by[e.id]||{present:0,late:0}; const onTime=Math.max(0,s.present-s.late), late=s.late, absent=Math.max(0,expected-s.present); return {e,present:s.present,onTime,late,absent}; });
     const agg=(k)=>stats.reduce((a,x)=>a+x[k],0);
     const tPresent=agg("present"), tOn=agg("onTime"), tLate=agg("late"), tAbs=agg("absent");
@@ -954,48 +952,20 @@ async function renderPeoplePulse(team, shiftMin, workdays){
     const teamRate=tPresent?Math.round(tOn/tPresent*100):0;
     const sumTot=(tOn+tLate+tAbs)||1;
     const barOn=Math.round(tOn/sumTot*100), barLate=Math.round(tLate/sumTot*100), barAbs=Math.max(0,100-barOn-barLate);
-    box.innerHTML=`<div class="pulse-summary premium">
-        <div class="ps-ring">
-          <svg viewBox="0 0 42 42" width="60" height="60" aria-hidden="true">
-            <circle cx="21" cy="21" r="15.915" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="4"></circle>
-            <circle cx="21" cy="21" r="15.915" fill="none" stroke="#34e4a8" stroke-width="4" pathLength="100" stroke-dasharray="${teamRate} ${100-teamRate}" stroke-dashoffset="25" stroke-linecap="round"></circle>
-            <text x="21" y="24" text-anchor="middle" style="font-size:11px;font-weight:700;fill:#fff">${teamRate}%</text>
-          </svg>
-          <span>ตรงเวลาเฉลี่ย</span>
-        </div>
-        <div class="ps-body">
-          <div class="ps-title">สรุปเดือน ${monthLabel}</div>
-          <div class="ps-sub">${fmtInt(people.length)} คน · วันทำงานผ่านมา ${fmtInt(expected)} วัน</div>
-          <div class="ps-bar" title="มาตรงเวลา ${fmtInt(tOn)} · สาย ${fmtInt(tLate)} · ขาด ${fmtInt(tAbs)}">${barOn?`<i style="width:${barOn}%;background:#10b981"></i>`:""}${barLate?`<i style="width:${barLate}%;background:#f59e0b"></i>`:""}${barAbs?`<i style="width:${barAbs}%;background:#f43f5e"></i>`:""}</div>
-          <div class="pulse-sum-figs">
-            <div class="psf"><span>มาทำงาน</span><b>${fmtInt(tPresent)}</b></div>
-            <div class="psf ok"><span>ตรงเวลา</span><b>${fmtInt(tOn)}</b></div>
-            <div class="psf warn"><span>สาย</span><b>${fmtInt(tLate)}</b></div>
-            <div class="psf bad"><span>ขาด</span><b>${fmtInt(tAbs)}</b></div>
-          </div>
-        </div>
-      </div>
-      <div class="pulse-legend">
-        <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#10b981;vertical-align:-1px"></span> มาตรงเวลา</span>
-        <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#f59e0b;vertical-align:-1px"></span> สาย</span>
-        <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#f43f5e;vertical-align:-1px"></span> ขาด</span>
-      </div>`+stats.map(({e,present,onTime,late,absent})=>{
-      const tot=(onTime+late+absent)||1;
-      const pOn=Math.round(onTime/tot*100), pLate=Math.round(late/tot*100), pAbs=Math.max(0,100-pOn-pLate);
-      const rate=present?Math.round(onTime/present*100):0;
-      return `<button class="pulse-card" data-calendar="${esc(e.id)}" aria-label="เปิดปฏิทิน ${esc(e.name)}">
-        <svg viewBox="0 0 42 42" width="44" height="44" style="flex:none">
-          <circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--line-soft)" stroke-width="5"></circle>
-          <circle cx="21" cy="21" r="15.915" fill="none" stroke="#10b981" stroke-width="5" pathLength="100" stroke-dasharray="${pOn} ${100-pOn}" stroke-dashoffset="25"></circle>
-          <circle cx="21" cy="21" r="15.915" fill="none" stroke="#f59e0b" stroke-width="5" pathLength="100" stroke-dasharray="${pLate} ${100-pLate}" stroke-dashoffset="${25-pOn}"></circle>
-          <circle cx="21" cy="21" r="15.915" fill="none" stroke="#f43f5e" stroke-width="5" pathLength="100" stroke-dasharray="${pAbs} ${100-pAbs}" stroke-dashoffset="${25-pOn-pLate}"></circle>
-          <text x="21" y="24" text-anchor="middle" style="font-size:10px;font-weight:700;fill:var(--ink)">${fmtInt(present)}</text>
-        </svg>
-        <span style="flex:1;min-width:0"><span style="font-size:12px;font-weight:700;display:flex;justify-content:space-between;gap:6px"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.name)}</span><span class="pulse-rate ${rate>=90?"ok":rate>=70?"warn":"bad"}">${rate}%</span></span>
-          <span class="sub" style="font-size:10px;display:block;margin-top:2px"><span style="color:#047857">มา ${fmtInt(onTime)}</span> · <span style="color:#b45309">สาย ${fmtInt(late)}</span> · <span style="color:#be123c">ขาด ${fmtInt(absent)}</span></span></span>
-      </button>`;
-    }).join("");
+    const rank=stats.map(s=>({...s,rate:s.present?Math.round(s.onTime/s.present*100):0})).sort((a,b)=>b.absent-a.absent||b.late-a.late||a.rate-b.rate||String(a.e.name).localeCompare(String(b.e.name)));
+    const actionable=rank.filter(x=>x.absent>0||x.late>0);
+    const shown=rank.slice(0,5);
+    box.className="team-readiness-ranking";
+    box.innerHTML=`<div class="tr-overview"><span>สรุปเดือน ${monthLabel}</span><small>${fmtInt(people.length)} คน · ผ่านวันทำงาน ${fmtInt(expected)} วัน</small></div><div class="tr-list">${shown.map((item,index)=>`<button class="tr-row ${item.absent>0?"risk":item.late>0?"watch":""}" data-calendar="${esc(item.e.id)}" aria-label="เปิดเวลาทำงาน ${esc(item.e.name)}"><span class="tr-rank">${index+1}</span><span class="tr-score ${item.rate>=90?"good":item.rate>=70?"warn":"bad"}">${item.rate}%</span><span class="tr-copy"><b>${esc(item.e.name)}</b><small><i class="on">มา ${fmtInt(item.onTime)}</i> · <i class="late">สาย ${fmtInt(item.late)}</i> · <i class="absent">ขาด ${fmtInt(item.absent)}</i></small></span><span class="tr-go">›</span></button>`).join("")}</div><button class="tr-all" type="button" data-nav="owner">ดู Timesheet ทั้งหมด (${fmtInt(people.length)} คน) <i>›</i></button>`;
+    const readiness=document.getElementById("peopleReadiness");
+    if(readiness){
+      const ready=Math.max(0,people.length-actionable.length), readinessRate=people.length?Math.round(ready/people.length*100):0;
+      const next=actionable[0];
+      readiness.innerHTML=`<div class="pr-top"><div class="pr-gauge" style="--ready:${readinessRate}"><b>${readinessRate}%</b><span>พร้อมจ่าย</span></div><div class="pr-states"><span class="ready"><i></i>พร้อม <b>${fmtInt(ready)}</b> คน</span><span class="review"><i></i>ต้องตรวจ <b>${fmtInt(actionable.length)}</b> คน</span><span class="hold"><i></i>ต้องติดตาม <b>${fmtInt(rank.filter(x=>x.absent>0).length)}</b> คน</span></div></div><div class="pr-next ${next?"":"is-clear"}">${next?`<span class="pr-next-icon">!</span><div><b>ดำเนินการถัดไป</b><small>ตรวจเวลา ${esc(next.e.name)} · สาย ${fmtInt(next.late)} · ขาด ${fmtInt(next.absent)}</small></div><button class="btn sub sm" type="button" data-calendar="${esc(next.e.id)}">ตรวจ</button>`:`<span class="pr-next-icon">✓</span><div><b>ไม่มีรายการต้องติดตาม</b><small>Timesheet ของทีมพร้อมตรวจต่อใน Payroll</small></div>`}</div>`;
+    }
     box.querySelectorAll("[data-calendar]").forEach(b=>b.onclick=()=>openAttendanceCalendar(b.dataset.calendar));
+    readiness?.querySelectorAll("[data-calendar]").forEach(b=>b.onclick=()=>openAttendanceCalendar(b.dataset.calendar));
+    box.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>go(b.dataset.nav));
   }catch(_){ box.innerHTML=`<div class="empty">โหลดภาพรวมรายคนไม่สำเร็จ</div>`; }
 }
 function bar(label,val,total,color){
