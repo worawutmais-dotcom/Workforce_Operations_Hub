@@ -1471,7 +1471,7 @@ async function deleteEmployee(emp){
   confirm.onclick=()=>withBtn(confirm,async()=>{
     const password=pwInput.value;
     if(body.querySelector("#delFinalSlip").checked){
-      try{ const r=await api("admin_issue_payslip",{payrollId:"",startDate:range.start,endDate:range.end,employeeId:emp.id,password});
+      try{ const r=await api("admin_issue_payslip",{payrollId:"",startDate:range.start,endDate:range.end,employeeId:emp.id});
         await printPayslip(r.line,{start:r.startDate,end:r.endDate,lockedAt:r.lockedAt},false,r.issuerSettings||{});
         toast("ออกสลิปสุดท้ายแล้ว","good");
       }catch(slipErr){ toast("ออกสลิปสุดท้ายไม่ได้: "+(slipErr.message||"ไม่มีข้อมูลค่าจ้าง")+" — จะดำเนินการลบต่อ","bad"); }
@@ -1866,7 +1866,7 @@ function readyPayslipReviewDialog(rows, period){
   const body=el(`<div><div class="notice blue"><div><b>รายการที่พร้อมออกสลิป</b><br><span class="sub">แสดงเฉพาะผู้ที่มีเวลาเข้าครบ เรตค่าจ้างครบ และไม่มี OT รออนุมัติในงวดนี้ เลือกพนักงานเพื่อตรวจรายการหักและออกสลิป</span></div></div><div class="panel" style="margin:12px 0 0"><div class="body flush"><table><thead><tr><th>พนักงาน</th><th class="num">รายได้ก่อนหัก</th><th class="num">เงินได้สุทธิ</th><th data-nosort></th></tr></thead><tbody>${rows.map((row,index)=>`<tr><td class="person">${esc(row.emp.name||empName(row.emp.id))}<span class="sub">${esc(row.emp.id)}</span></td><td class="num">${fmtBaht(row.line.grossPay)}</td><td class="num"><b>${fmtBaht(row.line.netPay!=null?row.line.netPay:row.line.grossPay)}</b></td><td class="num"><button class="btn sub sm" data-ready-slip="${index}">ตรวจและออกสลิป</button></td></tr>`).join("")}</tbody></table></div></div></div>`);
   const close=el(`<button class="btn sub">ปิด</button>`); close.onclick=closeModal;
   openModal("ตรวจสลิปที่พร้อมออก",body,[close]);
-  body.querySelectorAll("[data-ready-slip]").forEach(b=>b.onclick=()=>{ const row=rows[+b.dataset.readySlip]; closeModal(); issuePayslipWithAdminPassword({startDate:period.start,endDate:period.end},row.line.employeeId); });
+  body.querySelectorAll("[data-ready-slip]").forEach(b=>b.onclick=()=>{ const row=rows[+b.dataset.readySlip]; closeModal(); issuePayslip({startDate:period.start,endDate:period.end},row.line.employeeId); });
 }
 
 // Payroll review is deliberately a read-only, per-person timesheet.  It makes
@@ -1908,35 +1908,39 @@ async function payrollTimesheetDialog(line, period){
       const worked=d.workedMinutes?(short?`<span style="color:#c9780f;font-weight:700">${fmtHours(d.workedMinutes)}</span> <small style="color:#c9780f">−${fmtHours(STD-d.workedMinutes)}</small>`:fmtHours(d.workedMinutes)):"—";
       return `<tr><td>${fmtDate(d.date)}</td><td class="num">${esc(d.checkIn||"—")}</td><td class="num">${esc(d.checkOut||"—")}</td><td class="num">${worked}</td><td>${special?`${esc(special.label)} <b>${premium}</b>`:"—"}</td><td>${status}</td></tr>`;
     }).join("");
-    const gross=Number(line.grossPay||0), adv=Number(line.advanceDeduction||0), sso=Number(line.sso||0), otherDed=Number(line.otherDeduction||0);
-    const deduction=adv+sso+otherDed;
-    const net=line.netPay!=null?line.netPay:Math.max(0,gross-deduction);
+    const calculatedBase=Number(line.baseGross||0), calculatedOt=Number(line.otGross||0), adv=Number(line.advanceDeduction||0), sso=Number(line.sso||0);
+    const startBase=line.draftBaseGrossOverride!=null?Number(line.draftBaseGrossOverride):calculatedBase;
+    const startOt=line.draftOtGrossOverride!=null?Number(line.draftOtGrossOverride):calculatedOt;
+    const startOther=Number(line.otherDeduction||0), draftNote0=line.draftNote||"";
     body.innerHTML=`
-      <div class="notice blue"><div><b>ขั้นตอน: ตรวจเวลา → ตรวจยอด → ออกสลิป</b><br><span class="sub">×N มาจากปฏิทินตัวคูณหลังบ้าน · OT เฉพาะที่อนุมัติแล้ว · รายการหักเป็นไปตามนโยบายที่ตั้งไว้</span></div></div>
+      <div class="notice blue"><div><b>ขั้นตอน: ตรวจเวลา → ปรับและบันทึกยอด → ออกสลิป</b><br><span class="sub">ปรับได้เฉพาะงวดนี้ก่อนออกสลิป · การแก้เวลาเข้า–ออกต้องทำจากบันทึกเวลา ไม่แก้จากใบสลิป</span></div></div>
       <div class="grid2" style="margin:12px 0">
         <div class="field"><label>พนักงาน</label><b>${esc(empName(line.employeeId))}</b><span class="sub">${esc(line.employeeId)}</span></div>
         <div class="field"><label>งวด</label><b>${fmtDate(period.start)} – ${fmtDate(period.end)}</b><span class="sub">ฐาน ${fmtBaht(line.baseGross)} · OT ${fmtBaht(line.otGross)}</span></div>
       </div>
       <div style="max-height:34vh;overflow:auto;border:1px solid var(--line);border-radius:10px"><table><thead><tr><th>วันที่</th><th class="num">เข้า</th><th class="num">ออก</th><th class="num">เวลาทำงาน</th><th>อัตราพิเศษ</th><th>สถานะ</th></tr></thead><tbody>${rows||`<tr><td colspan="6" class="empty">ยังไม่มีบันทึกเวลาในงวดนี้</td></tr>`}</tbody></table></div>
       ${(line.shortDays||0)>0?`<div class="notice" style="margin-top:12px;border-color:#f0d49a;background:#fff7ea"><div><b>ทำงานไม่ครบกะ ${fmtInt(line.shortDays)} วัน</b> · ขาดรวม ${fmtHours(line.shortfallMinutes||0)}${(line.shortfallDeduction||0)>0?` · ตัดค่าแรง <b>−${fmtBaht(line.shortfallDeduction)}</b>`:""}${(line.otTrimmedMinutes||0)>0?` · หัก OT <b>−${fmtHours(line.otTrimmedMinutes)}</b>`:""}${!(line.shortfallDeduction||0)&&!(line.otTrimmedMinutes||0)?` · <span class="sub">นโยบายปัจจุบัน: ไม่ตัด</span>`:""}<br><span class="sub">ปรับนโยบายได้ที่ ตั้งค่า → ตั้งค่าการจ่ายเงินเดือน → เมื่อทำงานไม่ครบกะ</span></div></div>`:""}
-      <div class="panel" style="margin:12px 0 0"><div class="head"><b>สรุปยอดที่จะออกสลิป</b><span class="sub" style="margin-left:8px">หากยอดไม่ถูกต้อง ให้แก้ Timesheet หรือกติกาค่าจ้างก่อนออกเอกสาร</span></div>
+      <div class="panel" style="margin:12px 0 0"><div class="head"><b>ปรับยอดก่อนออกสลิป</b><span class="sub" style="margin-left:8px">บันทึกร่างก่อน แล้วระบบคำนวณยอดจริงจาก server อีกครั้ง</span></div>
         <div class="body">
-          <div style="display:flex;flex-direction:column;gap:7px;font-size:13px">
-            <div style="display:flex;justify-content:space-between"><span class="sub">รายได้ก่อนหัก</span><b>${fmtBaht(gross)}</b></div>
-            <div style="display:flex;justify-content:space-between"><span class="sub">เบิกล่วงหน้า (ตามจ่ายจริง)</span><b style="color:var(--red)">${adv?'−'+fmtBaht(adv):'—'}</b></div>
-            <div style="display:flex;justify-content:space-between"><span class="sub">ประกันสังคม (ตามนโยบาย)</span><b style="color:var(--red)">${sso?'−'+fmtBaht(sso):'—'}</b></div>
-            ${otherDed?`<div style="display:flex;justify-content:space-between"><span class="sub">รายการหักอื่น</span><b style="color:var(--red)">−${fmtBaht(otherDed)}</b></div>`:""}
-          </div>
-          <div class="notice" style="margin-top:12px;align-items:center"><div><b>เงินได้สุทธิ</b><br><span class="sub">รายได้ − เบิก − ปกส. − หักอื่น</span></div><b id="tsNet" style="font-size:22px;color:var(--blue-ink)">${fmtBaht(net)}</b></div>
+          <div class="grid2"><div class="field"><label>ค่าแรงฐาน (บาท)</label><input id="tsBase" type="number" min="0" step="0.01" value="${startBase}"><span class="hint">คำนวณเดิม ${fmtBaht(calculatedBase)}</span></div><div class="field"><label>ค่า OT (บาท)</label><input id="tsOt" type="number" min="0" step="0.01" value="${startOt}"><span class="hint">คำนวณเดิม ${fmtBaht(calculatedOt)}</span></div><div class="field"><label>หักอื่น (บาท)</label><input id="tsOther" type="number" min="0" step="0.01" value="${startOther}"></div><div class="field"><label>เหตุผลที่ปรับ</label><input id="tsNote" type="text" maxlength="500" placeholder="ต้องระบุเมื่อปรับยอด" value="${esc(draftNote0)}"></div></div>
+          <div class="notice" style="margin-top:12px;align-items:center"><div><b>เงินได้สุทธิประมาณการ</b><br><span class="sub">รายได้ − เบิก − ปกส. − หักอื่น</span></div><b id="tsNet" style="font-size:22px;color:var(--blue-ink)">—</b></div>
         </div>
       </div>`;
+    const baseInput=body.querySelector("#tsBase"), otInput=body.querySelector("#tsOt"), otherInput=body.querySelector("#tsOther"), noteInput=body.querySelector("#tsNote"), netEl=body.querySelector("#tsNet");
+    const values=()=>({base:Math.max(0,Number(baseInput.value)||0),ot:Math.max(0,Number(otInput.value)||0),other:Math.max(0,Number(otherInput.value)||0)});
+    const reNet=()=>{ const v=values(); netEl.textContent=fmtBaht(Math.max(0,v.base+v.ot-adv-sso-v.other)); };
+    [baseInput,otInput,otherInput].forEach(input=>input.oninput=reNet); reNet();
+    const saveDraft=async(btn)=>{ const v=values(), note=(noteInput.value||"").trim(); const adjusted=v.base!==calculatedBase||v.ot!==calculatedOt||v.other>0;
+      if(adjusted&&!note){ toast("กรุณาระบุเหตุผลสำหรับรายการที่ปรับ","bad"); noteInput.focus(); return false; }
+      return await withBtn(btn,async()=>{ try{ await api("admin_save_payroll_draft",{startDate:period.start,endDate:period.end,employeeId:line.employeeId,baseGrossOverride:v.base===calculatedBase?null:v.base,otGrossOverride:v.ot===calculatedOt?null:v.ot,otherDeduction:v.other,note}); Object.assign(line,{baseGross:v.base,otGross:v.ot,grossPay:v.base+v.ot,otherDeduction:v.other,netPay:Math.max(0,v.base+v.ot-adv-sso-v.other),draftBaseGrossOverride:v.base===calculatedBase?null:v.base,draftOtGrossOverride:v.ot===calculatedOt?null:v.ot,draftNote:note}); toast("บันทึกร่างรายการเงินเดือนแล้ว","good"); return true; }catch(err){ toast(err.message||"บันทึกร่างไม่สำเร็จ","bad"); return false; } }); };
     const calendar=el(`<button class="btn sub">ดูบันทึกเวลา</button>`);
     calendar.onclick=()=>openAttendanceCalendar(line.employeeId);
     const printTimesheetBtn=el(`<button class="btn sub">พิมพ์ Timesheet</button>`);
     printTimesheetBtn.onclick=()=>printTimesheet(line,period,attendance.days||[],specialByDate);
-    const issue=el(`<button class="btn">ยืนยันและออกสลิป</button>`);
-    issue.onclick=()=>issuePayslipWithAdminPassword({startDate:period.start,endDate:period.end},line.employeeId);
-    const modalFooter=$("#modal .m-foot"); if(modalFooter){ modalFooter.prepend(calendar,printTimesheetBtn,issue); }
+    const saveBtn=el(`<button class="btn sub">บันทึกร่าง</button>`); saveBtn.onclick=()=>saveDraft(saveBtn);
+    const issue=el(`<button class="btn">บันทึกและออกสลิป</button>`);
+    issue.onclick=async()=>{ if(await saveDraft(issue)) await issuePayslip({startDate:period.start,endDate:period.end},line.employeeId); };
+    const modalFooter=$("#modal .m-foot"); if(modalFooter){ modalFooter.prepend(calendar,printTimesheetBtn,saveBtn,issue); }
   }catch(err){ body.innerHTML=`<div class="empty">${esc(err.message||"โหลด Timesheet ไม่สำเร็จ")}</div>`; }
 }
 
@@ -2045,35 +2049,27 @@ async function viewSnapshot(payrollId){
   try{
     const data=await api("admin_get_payroll",{payrollId});
     const body=el(`<div></div>`);
-    body.append(el(`<div class="notice blue">${esc(data.payrollId)} · ${fmtDate(data.startDate)} – ${fmtDate(data.endDate)} · <b>${fmtBaht(data.totalGross)}</b><br><span class="sub">ล็อกยอดแล้วจาก Timesheet · ออกสลิปได้หลังยืนยันรหัสผ่านผู้ดูแล</span></div>`));
+    body.append(el(`<div class="notice blue">${esc(data.payrollId)} · ${fmtDate(data.startDate)} – ${fmtDate(data.endDate)} · <b>${fmtBaht(data.totalGross)}</b><br><span class="sub">ล็อกยอดแล้วจาก Timesheet · ตรวจรายการแล้วออกสลิปได้ทันที</span></div>`));
     const tbl=el(`<div style="max-height:50vh;overflow:auto;border:1px solid var(--line);border-radius:10px">
       <table><thead><tr><th>พนักงาน</th><th class="num">ปกติ</th><th class="num">OT</th><th class="num">รวม</th><th>เอกสาร</th></tr></thead>
       <tbody>${(data.lines||[]).map(l=>`<tr><td class="person">${esc(empName(l.employeeId))}<span class="sub">${esc(l.employeeId)}</span></td>
         <td class="num">${fmtHours(l.regularMinutes)}</td><td class="num">${fmtHours(l.otMinutes)}</td>
-        <td class="num"><b>${fmtBaht(l.grossPay)}</b></td><td><button class="btn sub sm" data-payslip="${esc(l.employeeId)}">ยืนยันและออกสลิป</button></td></tr>`).join("")}</tbody></table></div>`);
+        <td class="num"><b>${fmtBaht(l.grossPay)}</b></td><td><button class="btn sub sm" data-payslip="${esc(l.employeeId)}">ออกสลิปเงินเดือน</button></td></tr>`).join("")}</tbody></table></div>`);
     body.append(tbl);
     const exp=el(`<button class="btn sub">ส่งออก CSV</button>`); exp.onclick=()=>exportCSV(data,"locked");
     const close=el(`<button class="btn">ปิด</button>`); close.onclick=closeModal;
-    tbl.querySelectorAll("[data-payslip]").forEach(b=>b.onclick=()=>issuePayslipWithAdminPassword(data,b.dataset.payslip));
+    tbl.querySelectorAll("[data-payslip]").forEach(b=>b.onclick=()=>issuePayslip(data,b.dataset.payslip));
     openModal("ตรวจงวดและออกสลิป "+payrollId, body, [exp, close]);
   }catch(err){ toast(err.message,"bad"); }
 }
 
-async function issuePayslipWithAdminPassword(source, employeeId){
+async function issuePayslip(source, employeeId){
   if(!source||!employeeId)return;
-  const body=el(`<div><div class="notice blue"><div><b>ยืนยันตัวตนก่อนออกสลิป</b><br><span class="sub">ใช้รหัสผ่านของผู้ดูแลที่กำลังเข้าสู่ระบบอยู่เท่านั้น เพื่อป้องกันการออกเอกสารโดยไม่ได้รับอนุญาต</span></div></div><div class="field" style="margin-top:14px"><label>รหัสผ่านผู้ดูแล</label><input id="issuePayslipPassword" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่านเพื่อออกสลิป"></div><div class="sub" style="margin-top:8px">พนักงานไม่ต้องทราบและไม่ควรกรอกรหัสผ่านผู้ดูแล</div></div>`);
-  const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
-  const issue=el(`<button class="btn">ยืนยันและออกสลิป</button>`);
-  openModal(`ออกสลิป · ${empName(employeeId)}`,body,[cancel,issue]);
-  issue.onclick=()=>withBtn(issue,async()=>{
-    try{
-      const password=$("#issuePayslipPassword").value;
-      const result=await api("admin_issue_payslip",{payrollId:source.payrollId||"",startDate:source.startDate||"",endDate:source.endDate||"",employeeId,password});
-      closeModal();
-      await printPayslip(result.line,{start:result.startDate,end:result.endDate,lockedAt:result.lockedAt,paidAt:result.paidAt,paymentReference:result.paymentReference},false,result.issuerSettings||{});
-      toast("ยืนยันแล้ว เปิดสลิปเงินเดือนให้แล้ว","good");
-    }catch(err){ toast(err.message||"ออกสลิปไม่สำเร็จ","bad"); }
-  });
+  try{
+    const result=await api("admin_issue_payslip",{payrollId:source.payrollId||"",startDate:source.startDate||"",endDate:source.endDate||"",employeeId});
+    await printPayslip(result.line,{start:result.startDate,end:result.endDate,lockedAt:result.lockedAt,paidAt:result.paidAt,paymentReference:result.paymentReference},false,result.issuerSettings||{});
+    toast("ออกสลิปเงินเดือนแล้ว","good");
+  }catch(err){ toast(err.message||"ออกสลิปไม่สำเร็จ","bad"); }
 }
 
 // Generic CSV download used by every export (payroll, employees, attendance, backup).

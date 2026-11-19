@@ -382,8 +382,11 @@ async function previewPayroll(start: string, end: string) {
     issue: !it.inTs ? "no_checkin" : !it.outTs ? "no_checkout" : "invalid_time",
   }));
   const lines = Object.values(result).map((line: any) => {
-    const gross = round(line.baseGross + line.otGross), rule = ruleBy[line.employeeId] || {};
+    const rule = ruleBy[line.employeeId] || {};
     const draft = draftByEmployee[line.employeeId] || {};
+    const baseGross = draft.base_gross_override != null ? round(num(draft.base_gross_override)) : round(line.baseGross);
+    const otGross = draft.ot_gross_override != null ? round(num(draft.ot_gross_override)) : round(line.otGross);
+    const gross = round(baseGross + otGross);
     const calculatedSso = ssoEnabled ? round(Math.min((gross * ssoRate) / 100, ssoCap)) : 0;
     // This is a company-wide Settings policy, not a per-payslip option.
     const sso = calculatedSso;
@@ -393,7 +396,7 @@ async function previewPayroll(start: string, end: string) {
     // exact oldest-first calculation is also used by the lock operation.
     const adv = calculatedAdv;
     const net = round(Math.max(0, gross - adv - sso - other));
-    return { ...line, baseGross: round(line.baseGross), otGross: round(line.otGross), grossPay: gross, advanceDeduction: adv, sso, otherDeduction: other, netPay: net, draftReview: !!draftByEmployee[line.employeeId], ssoEnabled, draftNote: String(draft.note || ""), shortfallMinutes: Math.round(line.shortfallMinutes || 0), shortDays: line.shortDays || 0, shortfallDeduction: round(line.shortfallDeduction || 0), otTrimmedMinutes: Math.round(line.otTrimmedMinutes || 0), lateDays: line.lateDays || 0, lateAbsenceDays: line.lateAbsenceDays || 0, lateAbsenceDeduction: round(line.lateAbsenceDeduction || 0) };
+    return { ...line, baseGross, otGross, grossPay: gross, advanceDeduction: adv, sso, otherDeduction: other, netPay: net, draftReview: !!draftByEmployee[line.employeeId], draftBaseGrossOverride: draft.base_gross_override != null ? baseGross : null, draftOtGrossOverride: draft.ot_gross_override != null ? otGross : null, ssoEnabled, draftNote: String(draft.note || ""), shortfallMinutes: Math.round(line.shortfallMinutes || 0), shortDays: line.shortDays || 0, shortfallDeduction: round(line.shortfallDeduction || 0), otTrimmedMinutes: Math.round(line.otTrimmedMinutes || 0), lateDays: line.lateDays || 0, lateAbsenceDays: line.lateAbsenceDays || 0, lateAbsenceDeduction: round(line.lateAbsenceDeduction || 0) };
   });
   const sum = (k: string) => round(lines.reduce((s: number, l: any) => s + (l[k] || 0), 0));
   return {
@@ -411,7 +414,7 @@ async function previewPayroll(start: string, end: string) {
 const H: Record<string, (p: any) => Promise<Response>> = {
   async version() {
     const s = await settingsMap();
-    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-19-payslip-admin-reauth", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: false, otCalendar: true, timesheetReview: true, payrollReview: true, payrollPaymentControl: true, employeeDeleteRemovesAttendance: true, factoryResetWhereFix: true, payrollShortfallPolicy: true, payrollLateAbsencePolicy: true, payslipAdminReauth: true, employeeDeletePassword: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
+    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-19-payslip-finance-session", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: false, otCalendar: true, timesheetReview: true, payrollReview: true, payrollPaymentControl: true, employeeDeleteRemovesAttendance: true, factoryResetWhereFix: true, payrollShortfallPolicy: true, payrollLateAbsencePolicy: true, payslipFinanceSession: true, employeeDeletePassword: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
   },
   async public_branding() {
     const s = await settingsMap();
@@ -927,14 +930,17 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     if (!employeeId || !/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || end < start) return reply(false, "ข้อมูลรายการสลิปไม่ครบ");
     const { data: locked } = await db.from("payroll_periods").select("payroll_id").eq("start_date", start).eq("end_date", end).maybeSingle();
     if (locked) return reply(false, "งวดนี้ถูกล็อกแล้ว จึงแก้ไขรายการสลิปไม่ได้");
+    const optionalMoney = (v: unknown) => v === null || v === undefined || String(v).trim() === "" ? null : Math.max(0, round(num(v)));
+    const baseGrossOverride = optionalMoney(p.baseGrossOverride), otGrossOverride = optionalMoney(p.otGrossOverride);
     const otherDeduction = Math.max(0, round(num(p.otherDeduction)));
     const note = String(p.note || "").trim().slice(0, 500);
-    if (otherDeduction > 0 && !note) return reply(false, "กรุณาระบุเหตุผลสำหรับรายการหักอื่น");
+    if ((otherDeduction > 0 || baseGrossOverride !== null || otGrossOverride !== null) && !note) return reply(false, "กรุณาระบุเหตุผลสำหรับรายการที่ปรับ");
     const row = {
       employee_id: employeeId, period_start: start, period_end: end,
       sso_enabled: null, sso_amount: null,
       // Recovery always follows actual paid advances. It is not an editable amount.
       advance_deduction: null, other_deduction: otherDeduction,
+      base_gross_override: baseGrossOverride, ot_gross_override: otGrossOverride,
       note, updated_by: a.display_name, updated_at: nowISO(),
     };
     const { error } = await db.from("payroll_draft_adjustments").upsert(row, { onConflict: "employee_id,period_start,period_end" });
@@ -1002,12 +1008,9 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     const payrollId = String(p.payrollId || "").trim();
     const startDate = String(p.startDate || ""), endDate = String(p.endDate || "");
     const employeeId = String(p.employeeId || "").trim().toUpperCase();
-    const password = String(p.password || "");
-    if ((!payrollId && (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < startDate)) || !employeeId || !password) return reply(false, "ข้อมูลงวดหรือรหัสผ่านผู้ดูแลไม่ครบ");
-    // A finance session alone is not enough to release a payslip. Re-authenticate
-    // the current admin, never an employee, and never expose this secret to APK.
-    const { data: admin } = await db.from("admin_users").select("username,password,active,role").eq("username", a.username).maybeSingle();
-    if (!admin || admin.active === false || !FIN.includes(String(admin.role || "")) || !(await verifyPw(password, String(admin.password || "")))) return reply(false, "รหัสผ่านผู้ดูแลไม่ถูกต้อง");
+    if ((!payrollId && (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < startDate)) || !employeeId) return reply(false, "ข้อมูลงวดไม่ครบ");
+    // The active Finance/Owner session authorizes a payslip. A second password
+    // prompt interrupts payroll work and is reserved for destructive actions.
     if (payrollId) {
       const { data: period } = await db.from("payroll_periods").select("*").eq("payroll_id", payrollId).eq("status", "locked").maybeSingle();
       if (!period) return reply(false, "ไม่พบงวดเงินเดือนที่ล็อกยอดแล้ว");
@@ -1017,14 +1020,14 @@ const H: Record<string, (p: any) => Promise<Response>> = {
       ]);
       if (!row) return reply(false, "ไม่พบรายการพนักงานในงวดนี้");
       const line = { employeeId, name: names[employeeId]?.name || employeeId, role: names[employeeId]?.role || "", regularMinutes: row.regular_minutes, otMinutes: row.ot_minutes, baseGross: num(row.base_gross), otGross: num(row.ot_gross), grossPay: num(row.gross_pay), advanceDeduction: num(row.advance_deduction), sso: num(row.sso), otherDeduction: num(row.other_deduction), netPay: num(row.net_pay) };
-      await audit(a.display_name, "payslip_issued", `${payrollId}:${employeeId}`, "locked snapshot · admin re-authenticated");
+      await audit(a.display_name, "payslip_issued", `${payrollId}:${employeeId}`, "locked snapshot · FIN session");
       return reply(true, "ยืนยันและออกสลิปได้", { payrollId, startDate: period.start_date, endDate: period.end_date, lockedAt: period.locked_at, issuerSettings: period.issuer_snapshot || {}, line });
     }
     const preview = await previewPayroll(startDate, endDate);
     if ((preview.incompleteDays || []).some((d: any) => d.employeeId === employeeId)) return reply(false, "พนักงานมีเวลาเข้า-ออกไม่ครบ กรุณาตรวจ Timesheet ก่อนออกสลิป");
     const line = (preview.lines || []).find((x: any) => x.employeeId === employeeId);
     if (!line) return reply(false, "ไม่พบข้อมูลค่าจ้างที่พร้อมออกสลิปในงวดนี้");
-    await audit(a.display_name, "payslip_issued", `${startDate}:${endDate}:${employeeId}`, "live payroll preview · admin re-authenticated");
+    await audit(a.display_name, "payslip_issued", `${startDate}:${endDate}:${employeeId}`, "live payroll preview · FIN session");
     return reply(true, "ยืนยันและออกสลิปได้", { payrollId: "", startDate, endDate, lockedAt: nowISO(), issuerSettings: await settingsMap(), line });
   },
   async admin_mark_payroll_paid(p) {

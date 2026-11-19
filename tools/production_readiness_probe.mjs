@@ -1,5 +1,5 @@
 const endpoint = process.argv[2] || 'https://vqualksnbctfukcbxqdd.supabase.co/functions/v1/swift-handler';
-const expectedRevision = '2026-11-19-payslip-admin-reauth';
+const expectedRevision = '2026-11-19-payslip-finance-session';
 
 const response = await fetch(endpoint, {
   method: 'POST',
@@ -16,7 +16,7 @@ const checks = [
   ['attendanceCorrectionDisabled', data.capabilities?.attendanceCorrection === false, `${data.capabilities?.attendanceCorrection}`],
   ['payrollReview', data.capabilities?.payrollReview === true, `${data.capabilities?.payrollReview}`],
   ['lateAbsencePolicy', data.capabilities?.payrollLateAbsencePolicy === true, `${data.capabilities?.payrollLateAbsencePolicy}`],
-  ['payslipAdminReauth', data.capabilities?.payslipAdminReauth === true, `${data.capabilities?.payslipAdminReauth}`],
+  ['payslipFinanceSession', data.capabilities?.payslipFinanceSession === true, `${data.capabilities?.payslipFinanceSession}`],
   ['apkVersion', Number(data.appVersionCode) >= 12, `${data.appVersionName || 'missing'}+${data.appVersionCode || 'missing'}`],
   ['apkLink', Boolean(data.appApkUrl), data.appApkUrl ? 'set' : 'missing'],
 ];
