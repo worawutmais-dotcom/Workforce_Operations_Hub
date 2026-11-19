@@ -1721,3 +1721,18 @@
   #page-dashboard .cc-staff-row.done .cc-staff-icon{border-color:rgba(134,177,220,.22)!important;background:rgba(93,142,190,.11)!important;color:#a3c8ea!important}
   #page-dashboard .cc-staff-row.out .cc-staff-icon{border-color:rgba(211,223,235,.16)!important;background:rgba(211,223,235,.065)!important;color:#cbd7e1!important}
   #page-dashboard .cc-staffing-bar{background:rgba(255,255,255,.1)!important}.cc-staffing-bar .is-on{background:#36bc8a!important}.cc-staffing-bar .is-late{background:#dea126!important}.cc-staffing-bar .is-done{background:#7399c5!important}.cc-staffing-bar .is-out{background:#c6d2dc!important}
+
+  /* The check-in policy belongs beside the action queue.  The trend is then
+     able to use the whole row for a scannable team-level comparison. */
+  #page-dashboard .cc-work{align-items:start!important}
+  #page-dashboard .cc-left-stack{display:grid;gap:12px;min-width:0}
+  #page-dashboard .cc-left-stack>.panel{margin:0!important}
+  #page-dashboard .cc-left-stack .dashboard-checkin-sites{border-top:2px solid #27835a!important}
+  #page-dashboard .cc-left-stack .dashboard-checkin-sites .head{background:#f6f9fb!important;border-top-color:#27835a!important}
+  #page-dashboard .cc-lower{display:block!important}
+  #page-dashboard .cc-lower .dashboard-personal-time{width:100%;margin:0!important}
+  #page-dashboard .cc-lower .dashboard-personal-time .body{padding:12px!important}
+  #page-dashboard .cc-lower #peoplePulse.people-pulse-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  @media(max-width:1180px){#page-dashboard .cc-lower #peoplePulse.people-pulse-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+  @media(max-width:760px){#page-dashboard .cc-lower #peoplePulse.people-pulse-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+  @media(max-width:480px){#page-dashboard .cc-lower #peoplePulse.people-pulse-grid{grid-template-columns:1fr!important}}
