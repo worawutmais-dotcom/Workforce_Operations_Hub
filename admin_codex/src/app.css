@@ -1538,3 +1538,50 @@
   #page-dashboard .cc-work .team-row.tc-done{background:#f8fafc!important;border-left-color:#8ea0b2!important}
   @media(max-width:980px){#page-dashboard .cc-summary-tiles{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
   @media(max-width:520px){#page-dashboard .cc-summary-tiles{grid-template-columns:1fr!important}#page-dashboard .cc-summary-tiles .cc-stat{min-height:86px!important}}
+
+  /* The same work-surface grammar continues beyond Dashboard.  Payroll,
+     timesheet, people and approvals are ledgers: clear headers, quiet rows,
+     and only a thin semantic edge where an operator must act. */
+  .bvn-route .directory-page-head{border-bottom-color:var(--bvn-rule)!important}
+  .bvn-route .directory-page-head .route-eyebrow{color:#55728d!important}
+  .bvn-route .directory-page-head h2{color:#172f47!important;font-weight:650!important}
+  .bvn-route .directory-page-head p{color:#697f93!important}
+  .bvn-route .directory-count{border:1px solid var(--bvn-rule)!important;border-radius:8px!important;background:#fff!important;color:#5e7388!important;box-shadow:none!important}
+  .bvn-route .directory-count b{color:#173b62!important;font-weight:650!important}
+  .bvn-route .panel>.head{border-top:2px solid #b5c8d8!important}
+  #page-payroll .panel>.head{border-top-color:var(--bvn-green)!important}
+  #page-owner .time-ledger>.head{border-top-color:var(--bvn-blue)!important}
+  #page-people .people-directory>.head{border-top-color:#607d99!important}
+  #page-approvals .panel>.head{border-top-color:var(--bvn-gold)!important}
+  #page-settings .settings-workspace>.panel{border-left-color:#90a7ba!important}
+  #page-settings .settings-workspace>.panel[style*="fecaca"]{border-left-color:var(--bvn-red)!important}
+  #page-payroll .finance-workbench,#page-payroll .payroll-workbench{background:#fff!important;border:1px solid var(--bvn-rule)!important;border-top:3px solid var(--bvn-green)!important;border-radius:8px!important;box-shadow:none!important}
+  #page-payroll .payroll-kicker{color:#52718a!important}
+  #page-payroll .period-presets{background:#f3f6f8!important;border-color:var(--bvn-rule)!important;border-radius:7px!important}
+  #page-payroll .period-presets button.active{background:#173b62!important;color:#fff!important}
+  #page-payroll .payroll-summary .card,#page-payroll .payroll-state{border-radius:8px!important;box-shadow:none!important}
+  #page-payroll .payroll-state{border-color:var(--bvn-rule)!important;background:#fff!important}
+  #page-payroll .payroll-state.ready:before{background:var(--bvn-green)!important}#page-payroll .payroll-state.ready b{color:var(--bvn-green)!important}
+  #page-payroll .payroll-state.review:before{background:var(--bvn-gold)!important}#page-payroll .payroll-state.review b{color:#a56a06!important}
+  #page-payroll .payroll-state.blocked:before{background:var(--bvn-red)!important}#page-payroll .payroll-state.blocked b{color:var(--bvn-red)!important}
+  #page-payroll .payroll-state.waiting:before{background:var(--bvn-blue)!important}#page-payroll .payroll-state.waiting b{color:var(--bvn-blue)!important}
+  #page-owner .owner-time-workspace{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important}
+  #page-owner .time-ledger{border-color:var(--bvn-rule)!important;border-radius:8px!important;box-shadow:0 1px 2px rgba(20,35,49,.05)!important}
+  #page-owner .time-ledger thead th{background:#eaf0f5!important;color:#405b73!important;border-color:#d5e0e8!important}
+  #page-owner .time-ledger td{border-color:#e0e7ed!important}
+  #page-owner .time-ledger tbody tr:nth-child(even){background:#fafcfd!important}
+  #page-owner .time-ledger tbody tr:hover{background:#f2f7fb!important}
+  #page-owner .time-ledger tbody tr.att-row.open{background:#fffaf0!important}
+  #page-owner .time-ledger tbody tr.att-row.review{background:#fff5f6!important}
+  #page-owner .time-ledger-status{background:#f6f9fb!important;border-bottom-color:var(--bvn-rule)!important;color:#5b7287!important}
+  .people-tools,.approval-queue-note,.payroll-table-tools{border-color:var(--bvn-rule)!important;background:#f6f9fb!important}
+  .employee-table-wrap{border-color:var(--bvn-rule)!important;border-radius:8px!important}
+  .employee-table tbody tr:hover{background:#f3f8fb!important}
+  .people-profile-filter,.payroll-filter-set,.ledger-filter{background:#f5f8fa!important;border-color:var(--bvn-rule)!important;border-radius:7px!important}
+  .people-profile-filter button.active,.payroll-filter-set button.active,.ledger-filter .btn.active{background:#173b62!important;color:#fff!important;box-shadow:none!important}
+  .approval-row{border-bottom-color:var(--bvn-rule)!important;background:#fff!important}
+  .approval-row:hover{background:#f8fbfd!important}.approval-row.pending-ot{background:#fffaf1!important;box-shadow:inset 3px 0 0 var(--bvn-gold)!important}.approval-row.pending-leave{box-shadow:inset 3px 0 0 var(--bvn-blue)!important}
+  .appr-stat{border-radius:8px!important;box-shadow:none!important}.appr-stat.accent{background:#f1faf5!important;border-color:#c6e4d3!important}.appr-stat.warn{background:#fffaf1!important;border-color:#eed9b1!important}
+  .settings-workspace .setting-group-label{color:#52708a!important;letter-spacing:.03em!important;text-transform:none!important}
+  .settings-workspace>.panel{background:#fff!important;box-shadow:none!important}
+  .notice{border-radius:7px!important;box-shadow:none!important}

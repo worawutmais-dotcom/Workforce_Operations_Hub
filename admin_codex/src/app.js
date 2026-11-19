@@ -1699,7 +1699,7 @@ async function renderPayroll(){
   const current=payrollRange("current"), t=current.end, first=current.start;
   node.innerHTML=`
     ${groupTabsHtml("payroll")}
-    <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">ศูนย์เงินเดือน</div><h2>ออกสลิปเงินเดือน</h2><p>เลือกงวด → ตรวจ Timesheet รายคน → ออกสลิป (ยืนยันรหัสผ่านผู้ดูแล)</p></div><div class="directory-count">งวด<br><b>${fmtDate(first)} – ${fmtDate(t)}</b></div></div>
+    <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">ศูนย์เงินเดือน</div><h2>ออกสลิปเงินเดือน</h2><p>เลือกงวด → ตรวจ Timesheet รายคน → ออกสลิป</p></div><div class="directory-count">งวด<br><b>${fmtDate(first)} – ${fmtDate(t)}</b></div></div>
     <section class="payroll-workbench finance-workbench compact" aria-label="กำหนดงวดเงินเดือน">
       <div><div class="payroll-kicker"><i></i>งวดเงินเดือน</div><p style="margin:3px 0 0;font-size:12px;color:var(--muted)">เริ่มวันที่ 1 ถึงวันนี้ · เลือก “เดือนก่อน” ตัดเต็มเดือนให้อัตโนมัติ</p></div>
       <div class="payroll-period"><div class="period-presets" role="group" aria-label="เลือกงวด"><button class="active" data-payroll-period="current">1–วันนี้</button><button data-payroll-period="previous">เดือนก่อนเต็มเดือน</button></div><label>เริ่ม<input type="date" id="pStart" value="${first}"></label><label>สิ้นสุด<input type="date" id="pEnd" value="${t}"></label><button class="btn sm" id="previewBtn">คำนวณงวด</button></div>
