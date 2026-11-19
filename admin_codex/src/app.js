@@ -370,6 +370,14 @@ function applyRoleNavigation(){
     const show = allowed.includes(p) && (!b.hasAttribute("data-grp-child") || !allowed.includes(parent));
     b.style.display = show ? "" : "none";
   });
+  // Hide a sidebar section header when every item under it is hidden for this role.
+  const navKids=[...$("#nav").children];
+  navKids.forEach((el,i)=>{
+    if(!el.classList.contains("nav-section")) return;
+    let anyVisible=false;
+    for(let j=i+1;j<navKids.length;j++){ const c=navKids[j]; if(c.classList.contains("nav-section")) break; if(c.tagName==="BUTTON" && c.style.display!=="none"){ anyVisible=true; break; } }
+    el.style.display=anyVisible?"":"none";
+  });
   if(!allowed.includes(state.page)) state.page="dashboard";
   const foot=$("#footReviewer"); if(foot) foot.textContent=(state.reviewer||"ผู้ดูแลระบบ")+" · "+(ROLE_LABEL[state.role]||ROLE_LABEL.owner);
 }
