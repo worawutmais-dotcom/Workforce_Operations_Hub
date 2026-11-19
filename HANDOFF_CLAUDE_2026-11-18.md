@@ -44,3 +44,6 @@
 1. Redeploy `swift-handler` เพื่อเปิดใช้ `admin_issue_payslip`.
 2. Publish `admin_codex/index.html` + hard-refresh console.
 3. UAT: Payroll run → ตรวจสลิป → ออกสลิป → ใส่รหัสผ่าน (ยังไม่เคยรันจริง เพราะต้องใช้รหัส Owner + เขียน audit จริง); Timesheet สลับเดือน/มุมมอง; ปฏิทินทีมหลายเดือน.
+
+## 2026-11-19 — console split into build sources
+`admin_codex/index.html` is now generated. Edit `admin_codex/src/{app.css,app.js,index.template.html}` then run `node tools/build_admin.mjs`. `tools/admin_build_fresh_test.mjs` guards against drift. Do NOT hand-edit index.html. Hosting is unchanged (still one file).
