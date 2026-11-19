@@ -520,6 +520,7 @@ function dashboardTeamCalendarHtml(month, team, attendanceDays, workdays, leaves
   let grid=DASH_CAL_DOW.map((name,i)=>`<div class="team-cal-dow" style="color:${i===5?"#2b5a86":i===6?"#8f322d":"var(--muted)"}">${name}</div>`).join("");
   const lead=(new Date(y,m,1).getDay()+6)%7;
   for(let i=0;i<lead;i++) grid+=`<div class="team-cal-day blank" aria-hidden="true"></div>`;
+  let mWorkdays=0,mComplete=0,mRunning=0,mReview=0;
   for(let day=1;day<=last;day++){
     const iso=`${y}-${pad(m+1)}-${pad(day)}`, date=new Date(y,m,day), dow=date.getDay(), rows=byDate[iso]||[];
     const complete=rows.filter(r=>r.status==="complete"||!!(r.checkIn&&r.checkOut)).length;
@@ -536,10 +537,11 @@ function dashboardTeamCalendarHtml(month, team, attendanceDays, workdays, leaves
     else if(open>0){ cls="ok run"; bar=`<span class="tcd-bar"><i style="width:${ratio}%"></i></span>`; fig=`<span class="tcd-fig run">ทำงาน ${fmtInt(open)}</span>`; }
     else if(expectedN>0){ cls="ok"; bar=`<span class="tcd-bar"><i style="width:100%"></i></span>`; fig=`<span class="tcd-fig ok">ครบ ${fmtInt(complete)}</span>`; }
     else { cls="off"; fig=leaveCount?`<span class="tcd-fig muted">ลา ${fmtInt(leaveCount)}</span>`:""; }
+    if(scheduled && !future){ mWorkdays++; if(missing>0) mReview++; else if(open>0) mRunning++; else mComplete++; }
     const title=`${fmtDate(iso)}${scheduled&&!future?` · ครบ ${fmtInt(complete)} · กำลังทำงาน ${fmtInt(open)} · ต้องตรวจ ${fmtInt(missing)} · ทีม ${fmtInt(expectedN)}`:""}${leaveCount?` · ลา ${fmtInt(leaveCount)}`:""}`;
     grid+=`<button type="button" class="team-cal-day ${cls}${isToday?" today":""}" data-team-day="${iso}"${future?" disabled":""} title="${esc(title)}" aria-label="เปิดข้อมูลทีมวันที่ ${fmtDate(iso)}"><span class="tcd-date"><span class="tcd-n">${day}</span>${isToday?'<span class="tcd-today">วันนี้</span>':""}</span><span class="tcd-foot">${bar}${fig}</span></button>`;
   }
-  return `<section class="panel dashboard-team-calendar" aria-label="ปฏิทินทีม"><div class="head"><div><b>ปฏิทินทีม</b><span class="sub" style="margin-left:8px">เลือกวันที่เพื่อดูสถานะทีมและจัดการเวลา</span></div><div class="spacer"></div><div class="team-cal-head"><button class="btn sub sm" data-team-cal-nav="prev" aria-label="เดือนก่อน">‹</button><b class="team-cal-label">${CAL_TH_MON[m]} ${y+543}</b><button class="btn sub sm" data-team-cal-nav="next" aria-label="เดือนถัดไป">›</button></div></div><div class="body"><div class="team-cal-legend"><span><i style="background:#1f9d61"></i>ครบ</span><span><i style="background:#2f7fd6"></i>กำลังทำงาน</span><span><i style="background:#d9892a"></i>ต้องตรวจ</span><span><i style="background:#9aa7b6"></i>วันหยุด/ล่วงหน้า</span></div><div class="team-cal-grid">${grid}</div></div></section>`;
+  return `<section class="panel dashboard-team-calendar" aria-label="ปฏิทินทีม"><div class="head"><div><b>ปฏิทินทีม</b><span class="sub" style="margin-left:8px">เลือกวันที่เพื่อดูสถานะทีมและจัดการเวลา</span></div><div class="spacer"></div><div class="team-cal-head"><button class="btn sub sm" data-team-cal-nav="prev" aria-label="เดือนก่อน">‹</button><b class="team-cal-label">${CAL_TH_MON[m]} ${y+543}</b><button class="btn sub sm" data-team-cal-nav="next" aria-label="เดือนถัดไป">›</button></div></div><div class="body"><div class="team-cal-sum"><span>วันทำงานถึงปัจจุบัน <b>${fmtInt(mWorkdays)}</b></span><span class="s-ok">ครบ <b>${fmtInt(mComplete)}</b></span>${mRunning?`<span class="s-run">กำลังทำงาน <b>${fmtInt(mRunning)}</b></span>`:""}<span class="s-warn">ต้องตรวจ <b>${fmtInt(mReview)}</b></span></div><div class="team-cal-legend"><span><i style="background:#1f9d61"></i>ครบ</span><span><i style="background:#2f7fd6"></i>กำลังทำงาน</span><span><i style="background:#d9892a"></i>ต้องตรวจ</span><span><i style="background:#9aa7b6"></i>วันหยุด/ล่วงหน้า</span></div><div class="team-cal-grid">${grid}</div></div></section>`;
 }
 async function renderDashboard(data, preloaded={}){
   const node=$("#page-dashboard");
@@ -2934,10 +2936,10 @@ async function loadSites(){
   const tb=$("#siteRows"); if(!tb) return;
   try{
     const d=await api("admin_list_sites"); const sites=d.sites||[];
-    tb.innerHTML = sites.length? sites.map((st,i)=>`<tr data-si="${i}">
-      <td class="person">${esc(st.name||st.siteId)}<span class="sub">${esc(st.siteId)} · ${st.lat}, ${st.lng}</span></td>
-      <td class="num">${fmtInt(st.radius)} ม.</td>
-      <td>${st.active?'<span class="badge"><span class="dot"></span>ใช้งาน</span>':'<span class="badge grey">ปิด</span>'}</td>
+    tb.innerHTML = sites.length? sites.map((st,i)=>`<tr data-si="${i}" class="${st.active?"":"site-off"}">
+      <td class="person"><div class="site-name-cell"><span class="site-pin" aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span><span class="site-name-txt"><b>${esc(st.name||st.siteId)}</b><span class="sub">${esc(st.siteId)} · ${st.lat}, ${st.lng}</span></span></div></td>
+      <td class="num"><span class="radius-badge">${fmtInt(st.radius)} ม.</span></td>
+      <td>${st.active?'<span class="badge good"><span class="dot"></span>ใช้งาน</span>':'<span class="badge grey">ปิด</span>'}</td>
       <td><div class="row-actions"><button class="btn sub sm" data-sedit="${i}">แก้ไข</button></div></td></tr>`).join("")
       : `<tr><td colspan="4"><div class="empty">ยังไม่มีจุดเช็กอิน — กด “เพิ่มจุด”</div></td></tr>`;
     tb.querySelectorAll("[data-sedit]").forEach(b=>b.onclick=()=>siteDialog(sites[+b.dataset.sedit]));
