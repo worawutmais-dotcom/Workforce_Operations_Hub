@@ -1263,6 +1263,16 @@
   #page-dashboard .team-cal-day .tcd-fig.warn{color:#b45309}
   #page-dashboard .team-cal-day .tcd-fig.run{color:#1f66b0}
   #page-dashboard .team-cal-day .tcd-fig.muted{color:#9aa7b6;font-weight:500}
+  /* Status chip (pill with a dot) for each day */
+  #page-dashboard .team-cal-day .tcd-chip{display:inline-flex;align-items:center;gap:5px;align-self:flex-start;max-width:100%;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #page-dashboard .team-cal-day .tcd-chip i{width:6px;height:6px;border-radius:50%;flex:none}
+  #page-dashboard .team-cal-day .tcd-chip.s-ok{background:#e6f8ef;color:#0f7a4e}.team-cal-day .tcd-chip.s-ok i{background:#10b981}
+  #page-dashboard .team-cal-day .tcd-chip.s-run{background:#e9f2fd;color:#1f66b0}.team-cal-day .tcd-chip.s-run i{background:#2f7fd6}
+  #page-dashboard .team-cal-day .tcd-chip.s-warn{background:#fdf0dd;color:#b45309}.team-cal-day .tcd-chip.s-warn i{background:#d9892a}
+  #page-dashboard .team-cal-day .tcd-chip.s-off{background:#eef1f5;color:#8a98a8}.team-cal-day .tcd-chip.s-off i{background:#9aa7b6}
+  #page-dashboard .team-cal-day .tcd-chip.s-wait{background:#eef1f5;color:#8a98a8}.team-cal-day .tcd-chip.s-wait i{background:#c2cad4}
+  #page-dashboard .team-cal-day{transition:background .14s ease,border-color .14s ease,box-shadow .14s ease,transform .1s ease}
+  #page-dashboard .team-cal-day:not(.future):not(.blank):hover{transform:translateY(-1px);box-shadow:0 8px 18px -12px rgba(16,36,56,.4)}
   #page-dashboard .team-cal-day.ok{background:linear-gradient(180deg,#f3fbf6,#fff);border-color:#cfe9db}
   #page-dashboard .team-cal-day.warn{background:linear-gradient(180deg,#fff8ef,#fff);border-color:#f0d9b4}
   #page-dashboard .team-cal-day.ok.run{background:linear-gradient(180deg,#f0f6fd,#fff);border-color:#cfe0f2}
@@ -1933,12 +1943,12 @@ function dashboardTeamCalendarHtml(month, team, attendanceDays, workdays, leaves
     const expectedN=Math.max(expected,complete+open);
     const ratio=expectedN>0?Math.round((complete/expectedN)*100):0;
     let cls="", fig="", bar="";
-    if(!scheduled){ cls="off weekend"; fig=`<span class="tcd-fig muted">หยุด</span>`; }
-    else if(future){ cls="off future"; }
-    else if(missing>0){ cls="warn"; bar=`<span class="tcd-bar"><i style="width:${ratio}%"></i></span>`; fig=`<span class="tcd-fig warn">ตรวจ ${fmtInt(missing)}</span>`; }
-    else if(open>0){ cls="ok run"; bar=`<span class="tcd-bar"><i style="width:${ratio}%"></i></span>`; fig=`<span class="tcd-fig run">ทำงาน ${fmtInt(open)}</span>`; }
-    else if(expectedN>0){ cls="ok"; bar=`<span class="tcd-bar"><i style="width:100%"></i></span>`; fig=`<span class="tcd-fig ok">ครบ ${fmtInt(complete)}</span>`; }
-    else { cls="off"; fig=leaveCount?`<span class="tcd-fig muted">ลา ${fmtInt(leaveCount)}</span>`:""; }
+    if(!scheduled){ cls="off weekend"; fig=`<span class="tcd-chip s-off"><i></i>หยุด</span>`; }
+    else if(future){ cls="off future"; fig=`<span class="tcd-chip s-wait"><i></i>ล่วงหน้า</span>`; }
+    else if(missing>0){ cls="warn"; bar=`<span class="tcd-bar"><i style="width:${ratio}%"></i></span>`; fig=`<span class="tcd-chip s-warn"><i></i>ต้องตรวจ ${fmtInt(missing)}</span>`; }
+    else if(open>0){ cls="ok run"; bar=`<span class="tcd-bar"><i style="width:${ratio}%"></i></span>`; fig=`<span class="tcd-chip s-run"><i></i>กำลังทำงาน ${fmtInt(open)}</span>`; }
+    else if(expectedN>0){ cls="ok"; bar=`<span class="tcd-bar"><i style="width:100%"></i></span>`; fig=`<span class="tcd-chip s-ok"><i></i>ครบ ${fmtInt(complete)}</span>`; }
+    else { cls="off"; fig=leaveCount?`<span class="tcd-chip s-off"><i></i>ลา ${fmtInt(leaveCount)}</span>`:`<span class="tcd-chip s-off"><i></i>—</span>`; }
     if(scheduled && !future){ mWorkdays++; if(missing>0) mReview++; else if(open>0) mRunning++; else mComplete++; }
     const title=`${fmtDate(iso)}${scheduled&&!future?` · ครบ ${fmtInt(complete)} · กำลังทำงาน ${fmtInt(open)} · ต้องตรวจ ${fmtInt(missing)} · ทีม ${fmtInt(expectedN)}`:""}${leaveCount?` · ลา ${fmtInt(leaveCount)}`:""}`;
     grid+=`<button type="button" class="team-cal-day ${cls}${isToday?" today":""}" data-team-day="${iso}"${future?" disabled":""} title="${esc(title)}" aria-label="เปิดข้อมูลทีมวันที่ ${fmtDate(iso)}"><span class="tcd-date"><span class="tcd-n">${day}</span>${isToday?'<span class="tcd-today">วันนี้</span>':""}</span><span class="tcd-foot">${bar}${fig}</span></button>`;
@@ -2873,7 +2883,7 @@ async function deleteEmployee(emp){
   confirm.onclick=()=>withBtn(confirm,async()=>{
     const password=pwInput.value;
     if(body.querySelector("#delFinalSlip").checked){
-      try{ const r=await api("admin_issue_payslip",{payrollId:"",startDate:range.start,endDate:range.end,employeeId:emp.id});
+      try{ const r=await api("admin_issue_payslip",{payrollId:"",startDate:range.start,endDate:range.end,employeeId:emp.id,password});
         await printPayslip(r.line,{start:r.startDate,end:r.endDate,lockedAt:r.lockedAt},false,r.issuerSettings||{});
         toast("ออกสลิปสุดท้ายแล้ว","good");
       }catch(slipErr){ toast("ออกสลิปสุดท้ายไม่ได้: "+(slipErr.message||"ไม่มีข้อมูลค่าจ้าง")+" — จะดำเนินการลบต่อ","bad"); }
@@ -3310,54 +3320,35 @@ async function payrollTimesheetDialog(line, period){
       const worked=d.workedMinutes?(short?`<span style="color:#c9780f;font-weight:700">${fmtHours(d.workedMinutes)}</span> <small style="color:#c9780f">−${fmtHours(STD-d.workedMinutes)}</small>`:fmtHours(d.workedMinutes)):"—";
       return `<tr><td>${fmtDate(d.date)}</td><td class="num">${esc(d.checkIn||"—")}</td><td class="num">${esc(d.checkOut||"—")}</td><td class="num">${worked}</td><td>${special?`${esc(special.label)} <b>${premium}</b>`:"—"}</td><td>${status}</td></tr>`;
     }).join("");
-    const gross=Number(line.grossPay||0), adv=Number(line.advanceDeduction||0), sso=Number(line.sso||0);
-    let otherDed=Number(line.otherDeduction||0); const draftNote0=line.draftNote||"";
-    const calcNet=(o)=>Math.max(0, gross-adv-sso-(Number(o)||0));
-    const net=line.netPay!=null?line.netPay:calcNet(otherDed);
+    const gross=Number(line.grossPay||0), adv=Number(line.advanceDeduction||0), sso=Number(line.sso||0), otherDed=Number(line.otherDeduction||0);
+    const deduction=adv+sso+otherDed;
+    const net=line.netPay!=null?line.netPay:Math.max(0,gross-deduction);
     body.innerHTML=`
-      <div class="notice blue"><div><b>ขั้นตอน: ตรวจเวลา → วิเคราะห์/ปรับรายการหัก → ออกสลิป</b><br><span class="sub">×N มาจากปฏิทินตัวคูณหลังบ้าน · เบิกล่วงหน้า/ประกันสังคมคิดตามนโยบาย · แก้ได้เฉพาะ “หักอื่น”</span></div></div>
+      <div class="notice blue"><div><b>ขั้นตอน: ตรวจเวลา → ตรวจยอด → ออกสลิป</b><br><span class="sub">×N มาจากปฏิทินตัวคูณหลังบ้าน · OT เฉพาะที่อนุมัติแล้ว · รายการหักเป็นไปตามนโยบายที่ตั้งไว้</span></div></div>
       <div class="grid2" style="margin:12px 0">
         <div class="field"><label>พนักงาน</label><b>${esc(empName(line.employeeId))}</b><span class="sub">${esc(line.employeeId)}</span></div>
         <div class="field"><label>งวด</label><b>${fmtDate(period.start)} – ${fmtDate(period.end)}</b><span class="sub">ฐาน ${fmtBaht(line.baseGross)} · OT ${fmtBaht(line.otGross)}</span></div>
       </div>
       <div style="max-height:34vh;overflow:auto;border:1px solid var(--line);border-radius:10px"><table><thead><tr><th>วันที่</th><th class="num">เข้า</th><th class="num">ออก</th><th class="num">เวลาทำงาน</th><th>อัตราพิเศษ</th><th>สถานะ</th></tr></thead><tbody>${rows||`<tr><td colspan="6" class="empty">ยังไม่มีบันทึกเวลาในงวดนี้</td></tr>`}</tbody></table></div>
       ${(line.shortDays||0)>0?`<div class="notice" style="margin-top:12px;border-color:#f0d49a;background:#fff7ea"><div><b>ทำงานไม่ครบกะ ${fmtInt(line.shortDays)} วัน</b> · ขาดรวม ${fmtHours(line.shortfallMinutes||0)}${(line.shortfallDeduction||0)>0?` · ตัดค่าแรง <b>−${fmtBaht(line.shortfallDeduction)}</b>`:""}${(line.otTrimmedMinutes||0)>0?` · หัก OT <b>−${fmtHours(line.otTrimmedMinutes)}</b>`:""}${!(line.shortfallDeduction||0)&&!(line.otTrimmedMinutes||0)?` · <span class="sub">นโยบายปัจจุบัน: ไม่ตัด</span>`:""}<br><span class="sub">ปรับนโยบายได้ที่ ตั้งค่า → ตั้งค่าการจ่ายเงินเดือน → เมื่อทำงานไม่ครบกะ</span></div></div>`:""}
-      <div class="panel" style="margin:12px 0 0"><div class="head"><b>วิเคราะห์ยอด & รายการหัก</b><span class="sub" style="margin-left:8px">ปรับ “หักอื่น” แล้วบันทึก ก่อนออกสลิป</span></div>
+      <div class="panel" style="margin:12px 0 0"><div class="head"><b>สรุปยอดที่จะออกสลิป</b><span class="sub" style="margin-left:8px">หากยอดไม่ถูกต้อง ให้แก้ Timesheet หรือกติกาค่าจ้างก่อนออกเอกสาร</span></div>
         <div class="body">
           <div style="display:flex;flex-direction:column;gap:7px;font-size:13px">
             <div style="display:flex;justify-content:space-between"><span class="sub">รายได้ก่อนหัก</span><b>${fmtBaht(gross)}</b></div>
             <div style="display:flex;justify-content:space-between"><span class="sub">เบิกล่วงหน้า (ตามจ่ายจริง)</span><b style="color:var(--red)">${adv?'−'+fmtBaht(adv):'—'}</b></div>
             <div style="display:flex;justify-content:space-between"><span class="sub">ประกันสังคม (ตามนโยบาย)</span><b style="color:var(--red)">${sso?'−'+fmtBaht(sso):'—'}</b></div>
-          </div>
-          <div class="grid2" style="margin-top:12px">
-            <div class="field"><label>หักอื่น (บาท)</label><input id="tsOther" type="number" min="0" step="1" value="${otherDed||0}"></div>
-            <div class="field"><label>เหตุผลการหักอื่น</label><input id="tsNote" type="text" maxlength="500" placeholder="ต้องระบุถ้ามีหักอื่น" value="${esc(draftNote0)}"></div>
+            ${otherDed?`<div style="display:flex;justify-content:space-between"><span class="sub">รายการหักอื่น</span><b style="color:var(--red)">−${fmtBaht(otherDed)}</b></div>`:""}
           </div>
           <div class="notice" style="margin-top:12px;align-items:center"><div><b>เงินได้สุทธิ</b><br><span class="sub">รายได้ − เบิก − ปกส. − หักอื่น</span></div><b id="tsNet" style="font-size:22px;color:var(--blue-ink)">${fmtBaht(net)}</b></div>
         </div>
       </div>`;
-    const otherInput=body.querySelector("#tsOther"), noteInput=body.querySelector("#tsNote"), netEl=body.querySelector("#tsNet");
-    const reNet=()=>{ netEl.textContent=fmtBaht(calcNet(otherInput.value)); };
-    otherInput.oninput=reNet;
-    const saveDraft=async(btn)=>{
-      const o=Math.max(0,Number(otherInput.value)||0), note=(noteInput.value||"").trim();
-      if(o>0&&!note){ toast("กรุณาระบุเหตุผลสำหรับรายการหักอื่น","bad"); noteInput.focus(); return false; }
-      return await withBtn(btn, async()=>{
-        try{ await api("admin_save_payroll_draft",{startDate:period.start,endDate:period.end,employeeId:line.employeeId,otherDeduction:o,note});
-          line.otherDeduction=o; line.draftNote=note; line.netPay=calcNet(o); otherDed=o; reNet();
-          invalidateVolatile&&invalidateVolatile(); toast("บันทึกรายการหักแล้ว","good"); return true;
-        }catch(err){ toast(err.message||"บันทึกไม่สำเร็จ","bad"); return false; }
-      });
-    };
     const calendar=el(`<button class="btn sub">ดูบันทึกเวลา</button>`);
     calendar.onclick=()=>openAttendanceCalendar(line.employeeId);
     const printTimesheetBtn=el(`<button class="btn sub">พิมพ์ Timesheet</button>`);
     printTimesheetBtn.onclick=()=>printTimesheet(line,period,attendance.days||[],specialByDate);
-    const saveBtn=el(`<button class="btn sub">บันทึกรายการหัก</button>`);
-    saveBtn.onclick=()=>saveDraft(saveBtn);
-    const issue=el(`<button class="btn">ออกสลิป</button>`);
-    issue.onclick=()=>withBtn(issue, async()=>{ const ok=await saveDraft(issue); if(ok===false) return; await issuePayslip({startDate:period.start,endDate:period.end},line.employeeId); });
-    const modalFooter=$("#modal .m-foot"); if(modalFooter){ modalFooter.prepend(calendar,printTimesheetBtn,saveBtn,issue); }
+    const issue=el(`<button class="btn">ยืนยันและออกสลิป</button>`);
+    issue.onclick=()=>issuePayslipWithAdminPassword({startDate:period.start,endDate:period.end},line.employeeId);
+    const modalFooter=$("#modal .m-foot"); if(modalFooter){ modalFooter.prepend(calendar,printTimesheetBtn,issue); }
   }catch(err){ body.innerHTML=`<div class="empty">${esc(err.message||"โหลด Timesheet ไม่สำเร็จ")}</div>`; }
 }
 
@@ -3480,16 +3471,21 @@ async function viewSnapshot(payrollId){
   }catch(err){ toast(err.message,"bad"); }
 }
 
-// Issuing a payslip no longer asks for a password — the finance session itself
-// authorizes it. The sensitive re-auth now lives on permanent employee delete.
-async function issuePayslipWithAdminPassword(source, employeeId){ return issuePayslip(source, employeeId); }
-async function issuePayslip(source, employeeId){
+async function issuePayslipWithAdminPassword(source, employeeId){
   if(!source||!employeeId)return;
-  try{
-    const result=await api("admin_issue_payslip",{payrollId:source.payrollId||"",startDate:source.startDate||"",endDate:source.endDate||"",employeeId});
-    await printPayslip(result.line,{start:result.startDate,end:result.endDate,lockedAt:result.lockedAt,paidAt:result.paidAt,paymentReference:result.paymentReference},false,result.issuerSettings||{});
-    toast("ออกสลิปเงินเดือนแล้ว","good");
-  }catch(err){ toast(err.message||"ออกสลิปไม่สำเร็จ","bad"); }
+  const body=el(`<div><div class="notice blue"><div><b>ยืนยันตัวตนก่อนออกสลิป</b><br><span class="sub">ใช้รหัสผ่านของผู้ดูแลที่กำลังเข้าสู่ระบบอยู่เท่านั้น เพื่อป้องกันการออกเอกสารโดยไม่ได้รับอนุญาต</span></div></div><div class="field" style="margin-top:14px"><label>รหัสผ่านผู้ดูแล</label><input id="issuePayslipPassword" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่านเพื่อออกสลิป"></div><div class="sub" style="margin-top:8px">พนักงานไม่ต้องทราบและไม่ควรกรอกรหัสผ่านผู้ดูแล</div></div>`);
+  const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
+  const issue=el(`<button class="btn">ยืนยันและออกสลิป</button>`);
+  openModal(`ออกสลิป · ${empName(employeeId)}`,body,[cancel,issue]);
+  issue.onclick=()=>withBtn(issue,async()=>{
+    try{
+      const password=$("#issuePayslipPassword").value;
+      const result=await api("admin_issue_payslip",{payrollId:source.payrollId||"",startDate:source.startDate||"",endDate:source.endDate||"",employeeId,password});
+      closeModal();
+      await printPayslip(result.line,{start:result.startDate,end:result.endDate,lockedAt:result.lockedAt,paidAt:result.paidAt,paymentReference:result.paymentReference},false,result.issuerSettings||{});
+      toast("ยืนยันแล้ว เปิดสลิปเงินเดือนให้แล้ว","good");
+    }catch(err){ toast(err.message||"ออกสลิปไม่สำเร็จ","bad"); }
+  });
 }
 
 // Generic CSV download used by every export (payroll, employees, attendance, backup).
@@ -4143,6 +4139,7 @@ function pmRenderDetail(){
       <div style="flex:1;min-width:140px"><div style="font-size:15px;font-weight:600">${esc(m.e.name||m.e.id)}</div><div class="sub">${esc(m.e.id)}${m.e.role?" · "+esc(m.e.role):""}</div></div>
       <div style="text-align:right"><div class="sub">ประมาณการเงินเดือนงวดนี้</div><div style="font-size:20px;font-weight:600;color:var(--blue-ink)">${fmtBaht(net)}</div></div>
       <button class="btn sub sm" id="pmPrintTs" type="button">พิมพ์ Timesheet</button>
+      <button class="btn sm" id="pmIssueSlip" type="button">ออกสลิปเงินเดือน</button>
     </div>
     <div class="cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
       <div class="card" style="padding:10px 12px"><div class="label">ค่าแรงฐาน</div><div style="font-size:17px;font-weight:600">${fmtBaht(pl.baseGross||0)}</div><div class="sub">${pl.workDays||0} วัน${daily?" × "+fmtBaht(daily):""}</div></div>
@@ -4155,6 +4152,9 @@ function pmRenderDetail(){
   </div></div>`;
   const pb=host.querySelector("#pmPrintTs");
   if(pb) pb.onclick=()=>{ const days=m.cells.map(c=>({date:c.iso,checkIn:c.d?c.d.checkIn:"",checkOut:c.d?c.d.checkOut:"",workedMinutes:c.d?c.d.workedMinutes:0,status:c.d?c.d.status:"",base:c.base,holName:c.holName})); printTimesheet({employeeId:m.e.id,role:m.e.role,regularMinutes:(pl.regularMinutes!=null?pl.regularMinutes:m.workedMin),otMinutes:(pl.otMinutes||0)},{start:r.start,end:r.end},days,{}); };
+  // Issue a payslip for this employee straight from Timesheet (review → adjust → ออกสลิป).
+  const sb=host.querySelector("#pmIssueSlip");
+  if(sb) sb.onclick=()=>payrollTimesheetDialog({employeeId:m.e.id,name:m.e.name,role:m.e.role,...pl},{start:r.start,end:r.end});
 }
 
 /* Dashboard path for exceptional, Admin-recorded attendance. The server remains

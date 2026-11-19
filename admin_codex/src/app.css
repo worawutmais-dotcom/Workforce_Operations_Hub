@@ -1253,6 +1253,16 @@
   #page-dashboard .team-cal-day .tcd-fig.warn{color:#b45309}
   #page-dashboard .team-cal-day .tcd-fig.run{color:#1f66b0}
   #page-dashboard .team-cal-day .tcd-fig.muted{color:#9aa7b6;font-weight:500}
+  /* Status chip (pill with a dot) for each day */
+  #page-dashboard .team-cal-day .tcd-chip{display:inline-flex;align-items:center;gap:5px;align-self:flex-start;max-width:100%;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #page-dashboard .team-cal-day .tcd-chip i{width:6px;height:6px;border-radius:50%;flex:none}
+  #page-dashboard .team-cal-day .tcd-chip.s-ok{background:#e6f8ef;color:#0f7a4e}.team-cal-day .tcd-chip.s-ok i{background:#10b981}
+  #page-dashboard .team-cal-day .tcd-chip.s-run{background:#e9f2fd;color:#1f66b0}.team-cal-day .tcd-chip.s-run i{background:#2f7fd6}
+  #page-dashboard .team-cal-day .tcd-chip.s-warn{background:#fdf0dd;color:#b45309}.team-cal-day .tcd-chip.s-warn i{background:#d9892a}
+  #page-dashboard .team-cal-day .tcd-chip.s-off{background:#eef1f5;color:#8a98a8}.team-cal-day .tcd-chip.s-off i{background:#9aa7b6}
+  #page-dashboard .team-cal-day .tcd-chip.s-wait{background:#eef1f5;color:#8a98a8}.team-cal-day .tcd-chip.s-wait i{background:#c2cad4}
+  #page-dashboard .team-cal-day{transition:background .14s ease,border-color .14s ease,box-shadow .14s ease,transform .1s ease}
+  #page-dashboard .team-cal-day:not(.future):not(.blank):hover{transform:translateY(-1px);box-shadow:0 8px 18px -12px rgba(16,36,56,.4)}
   #page-dashboard .team-cal-day.ok{background:linear-gradient(180deg,#f3fbf6,#fff);border-color:#cfe9db}
   #page-dashboard .team-cal-day.warn{background:linear-gradient(180deg,#fff8ef,#fff);border-color:#f0d9b4}
   #page-dashboard .team-cal-day.ok.run{background:linear-gradient(180deg,#f0f6fd,#fff);border-color:#cfe0f2}

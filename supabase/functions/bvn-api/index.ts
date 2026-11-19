@@ -1002,9 +1002,12 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     const payrollId = String(p.payrollId || "").trim();
     const startDate = String(p.startDate || ""), endDate = String(p.endDate || "");
     const employeeId = String(p.employeeId || "").trim().toUpperCase();
-    if ((!payrollId && (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < startDate)) || !employeeId) return reply(false, "ข้อมูลงวดไม่ครบ");
-    // Issuing a payslip is authorized by the finance session (FIN role) itself —
-    // no extra password step. The sensitive re-auth lives on employee deletion.
+    const password = String(p.password || "");
+    if ((!payrollId && (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < startDate)) || !employeeId || !password) return reply(false, "ข้อมูลงวดหรือรหัสผ่านผู้ดูแลไม่ครบ");
+    // A finance session alone is not enough to release a payslip. Re-authenticate
+    // the current admin, never an employee, and never expose this secret to APK.
+    const { data: admin } = await db.from("admin_users").select("username,password,active,role").eq("username", a.username).maybeSingle();
+    if (!admin || admin.active === false || !FIN.includes(String(admin.role || "")) || !(await verifyPw(password, String(admin.password || "")))) return reply(false, "รหัสผ่านผู้ดูแลไม่ถูกต้อง");
     if (payrollId) {
       const { data: period } = await db.from("payroll_periods").select("*").eq("payroll_id", payrollId).eq("status", "locked").maybeSingle();
       if (!period) return reply(false, "ไม่พบงวดเงินเดือนที่ล็อกยอดแล้ว");
@@ -1014,14 +1017,14 @@ const H: Record<string, (p: any) => Promise<Response>> = {
       ]);
       if (!row) return reply(false, "ไม่พบรายการพนักงานในงวดนี้");
       const line = { employeeId, name: names[employeeId]?.name || employeeId, role: names[employeeId]?.role || "", regularMinutes: row.regular_minutes, otMinutes: row.ot_minutes, baseGross: num(row.base_gross), otGross: num(row.ot_gross), grossPay: num(row.gross_pay), advanceDeduction: num(row.advance_deduction), sso: num(row.sso), otherDeduction: num(row.other_deduction), netPay: num(row.net_pay) };
-      await audit(a.display_name, "payslip_issued", `${payrollId}:${employeeId}`, "locked snapshot · FIN session");
+      await audit(a.display_name, "payslip_issued", `${payrollId}:${employeeId}`, "locked snapshot · admin re-authenticated");
       return reply(true, "ยืนยันและออกสลิปได้", { payrollId, startDate: period.start_date, endDate: period.end_date, lockedAt: period.locked_at, issuerSettings: period.issuer_snapshot || {}, line });
     }
     const preview = await previewPayroll(startDate, endDate);
     if ((preview.incompleteDays || []).some((d: any) => d.employeeId === employeeId)) return reply(false, "พนักงานมีเวลาเข้า-ออกไม่ครบ กรุณาตรวจ Timesheet ก่อนออกสลิป");
     const line = (preview.lines || []).find((x: any) => x.employeeId === employeeId);
     if (!line) return reply(false, "ไม่พบข้อมูลค่าจ้างที่พร้อมออกสลิปในงวดนี้");
-    await audit(a.display_name, "payslip_issued", `${startDate}:${endDate}:${employeeId}`, "live payroll preview · FIN session");
+    await audit(a.display_name, "payslip_issued", `${startDate}:${endDate}:${employeeId}`, "live payroll preview · admin re-authenticated");
     return reply(true, "ยืนยันและออกสลิปได้", { payrollId: "", startDate, endDate, lockedAt: nowISO(), issuerSettings: await settingsMap(), line });
   },
   async admin_mark_payroll_paid(p) {
