@@ -1705,3 +1705,19 @@
   #page-dashboard .cc-ring-panel .cc-shift-stats{margin-top:12px!important;padding-top:10px!important}
   @media(max-width:1040px){#page-dashboard .cc-staffing-core{grid-template-columns:minmax(140px,.7fr) minmax(190px,1.3fr);max-width:520px}}
   @media(max-width:480px){#page-dashboard .cc-staffing-core{grid-template-columns:1fr;gap:10px}.cc-staffing-rows{grid-template-columns:1fr 1fr;column-gap:12px}.cc-staff-row:nth-last-child(2){border-bottom:0}.cc-staffing-figure b{font-size:27px!important}}
+
+  /* Explicit SVG paint rules prevent inherited fills from turning line icons
+     into black blocks.  The component uses one quiet navy base with status
+     colour reserved for the small icon, number and distribution only. */
+  #page-dashboard .cc-ring-panel{background:#12314d!important}
+  #page-dashboard .cc-staffing-icon svg,#page-dashboard .cc-staff-icon svg{display:block;fill:none!important;stroke:currentColor!important;stroke-width:1.85!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+  #page-dashboard .cc-staffing-icon{border-color:rgba(116,215,185,.28)!important;background:rgba(97,202,168,.1)!important;color:#7ce0bf!important}
+  #page-dashboard .cc-staffing-figure>div>span{color:#b7c9db!important}
+  #page-dashboard .cc-staffing-rows{padding-left:2px}
+  #page-dashboard .cc-staff-row{border-bottom-color:rgba(255,255,255,.1)!important;color:#dce7f0!important}
+  #page-dashboard .cc-staff-icon{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.055)!important;color:#b6c7d8!important}
+  #page-dashboard .cc-staff-row.on .cc-staff-icon{border-color:rgba(69,204,155,.25)!important;background:rgba(43,182,128,.1)!important;color:#69d6a7!important}
+  #page-dashboard .cc-staff-row.late .cc-staff-icon{border-color:rgba(240,182,72,.22)!important;background:rgba(224,160,36,.1)!important;color:#f1bc57!important}
+  #page-dashboard .cc-staff-row.done .cc-staff-icon{border-color:rgba(134,177,220,.22)!important;background:rgba(93,142,190,.11)!important;color:#a3c8ea!important}
+  #page-dashboard .cc-staff-row.out .cc-staff-icon{border-color:rgba(211,223,235,.16)!important;background:rgba(211,223,235,.065)!important;color:#cbd7e1!important}
+  #page-dashboard .cc-staffing-bar{background:rgba(255,255,255,.1)!important}.cc-staffing-bar .is-on{background:#36bc8a!important}.cc-staffing-bar .is-late{background:#dea126!important}.cc-staffing-bar .is-done{background:#7399c5!important}.cc-staffing-bar .is-out{background:#c6d2dc!important}

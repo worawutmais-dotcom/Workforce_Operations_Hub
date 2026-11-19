@@ -1715,6 +1715,22 @@
   #page-dashboard .cc-ring-panel .cc-shift-stats{margin-top:12px!important;padding-top:10px!important}
   @media(max-width:1040px){#page-dashboard .cc-staffing-core{grid-template-columns:minmax(140px,.7fr) minmax(190px,1.3fr);max-width:520px}}
   @media(max-width:480px){#page-dashboard .cc-staffing-core{grid-template-columns:1fr;gap:10px}.cc-staffing-rows{grid-template-columns:1fr 1fr;column-gap:12px}.cc-staff-row:nth-last-child(2){border-bottom:0}.cc-staffing-figure b{font-size:27px!important}}
+
+  /* Explicit SVG paint rules prevent inherited fills from turning line icons
+     into black blocks.  The component uses one quiet navy base with status
+     colour reserved for the small icon, number and distribution only. */
+  #page-dashboard .cc-ring-panel{background:#12314d!important}
+  #page-dashboard .cc-staffing-icon svg,#page-dashboard .cc-staff-icon svg{display:block;fill:none!important;stroke:currentColor!important;stroke-width:1.85!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+  #page-dashboard .cc-staffing-icon{border-color:rgba(116,215,185,.28)!important;background:rgba(97,202,168,.1)!important;color:#7ce0bf!important}
+  #page-dashboard .cc-staffing-figure>div>span{color:#b7c9db!important}
+  #page-dashboard .cc-staffing-rows{padding-left:2px}
+  #page-dashboard .cc-staff-row{border-bottom-color:rgba(255,255,255,.1)!important;color:#dce7f0!important}
+  #page-dashboard .cc-staff-icon{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.055)!important;color:#b6c7d8!important}
+  #page-dashboard .cc-staff-row.on .cc-staff-icon{border-color:rgba(69,204,155,.25)!important;background:rgba(43,182,128,.1)!important;color:#69d6a7!important}
+  #page-dashboard .cc-staff-row.late .cc-staff-icon{border-color:rgba(240,182,72,.22)!important;background:rgba(224,160,36,.1)!important;color:#f1bc57!important}
+  #page-dashboard .cc-staff-row.done .cc-staff-icon{border-color:rgba(134,177,220,.22)!important;background:rgba(93,142,190,.11)!important;color:#a3c8ea!important}
+  #page-dashboard .cc-staff-row.out .cc-staff-icon{border-color:rgba(211,223,235,.16)!important;background:rgba(211,223,235,.065)!important;color:#cbd7e1!important}
+  #page-dashboard .cc-staffing-bar{background:rgba(255,255,255,.1)!important}.cc-staffing-bar .is-on{background:#36bc8a!important}.cc-staffing-bar .is-late{background:#dea126!important}.cc-staffing-bar .is-done{background:#7399c5!important}.cc-staffing-bar .is-out{background:#c6d2dc!important}
 </style>
 </head>
 <body>
@@ -2312,6 +2328,8 @@ function lineIcon(kind){
     clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/>',
     approve:'<path d="m4 12 4.2 4.2L20 5"/><path d="M20 12v7H4V5h11"/>',
     alert:'<path d="M12 3 21 20H3L12 3Z"/><path d="M12 9v4"/><path d="M12 16h.01"/>',
+    users:'<circle cx="9" cy="8" r="3"/><path d="M3.5 20c.5-3.4 2.4-5.2 5.5-5.2s5 1.8 5.5 5.2"/><path d="M16 5.5a3 3 0 0 1 0 5"/><path d="M17 14.7c2.2.2 3.4 2 3.8 4.3"/>',
+    exit:'<path d="M10 4H5v16h5"/><path d="M13 8l4 4-4 4"/><path d="M8 12h9"/>',
     bill:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/>'
   };
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[kind]||paths.pulse}</svg>`;
@@ -2512,8 +2530,8 @@ async function renderDashboard(data, preloaded={}){
       const staffingStates=[
         {key:"on",label:"ตรงเวลา",value:cOn,icon:"approve"},
         {key:"late",label:"มาสาย",value:cLate,icon:"alert"},
-        {key:"done",label:"ออกแล้ว",value:cDone,icon:"clock"},
-        {key:"out",label:"ยังไม่เข้า",value:cOut,icon:"pulse"}
+        {key:"done",label:"ออกแล้ว",value:cDone,icon:"exit"},
+        {key:"out",label:"ยังไม่เข้า",value:cOut,icon:"clock"}
       ];
       const staffingBar=staffingStates.map(state=>`<i class="is-${state.key}" style="width:${(state.value/ringTotal*100).toFixed(2)}%"></i>`).join("");
       const staffingRows=staffingStates.map(state=>`<div class="cc-staff-row ${state.key}"><span class="cc-staff-icon">${lineIcon(state.icon)}</span><span>${state.label}</span><b>${fmtInt(state.value)}</b></div>`).join("");
@@ -2533,7 +2551,7 @@ async function renderDashboard(data, preloaded={}){
             <div class="cc-ring-panel">
               <div class="cc-shift-live"><i></i>สถานะกะงานแบบเรียลไทม์</div>
               <div class="cc-staffing-core">
-                <div class="cc-staffing-figure"><span class="cc-staffing-icon">${lineIcon("pulse")}</span><div><span>กำลังทำงาน</span><b>${fmtInt(cOn+cLate)} <small>/ ${fmtInt(team.length)} คน</small></b></div></div>
+                <div class="cc-staffing-figure"><span class="cc-staffing-icon">${lineIcon("users")}</span><div><span>กำลังทำงาน</span><b>${fmtInt(cOn+cLate)} <small>/ ${fmtInt(team.length)} คน</small></b></div></div>
                 <div class="cc-staffing-rows">${staffingRows}</div>
               </div>
               <div class="cc-staffing-bar" aria-label="สัดส่วนสถานะทีม">${staffingBar}</div>

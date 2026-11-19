@@ -504,6 +504,8 @@ function lineIcon(kind){
     clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/>',
     approve:'<path d="m4 12 4.2 4.2L20 5"/><path d="M20 12v7H4V5h11"/>',
     alert:'<path d="M12 3 21 20H3L12 3Z"/><path d="M12 9v4"/><path d="M12 16h.01"/>',
+    users:'<circle cx="9" cy="8" r="3"/><path d="M3.5 20c.5-3.4 2.4-5.2 5.5-5.2s5 1.8 5.5 5.2"/><path d="M16 5.5a3 3 0 0 1 0 5"/><path d="M17 14.7c2.2.2 3.4 2 3.8 4.3"/>',
+    exit:'<path d="M10 4H5v16h5"/><path d="M13 8l4 4-4 4"/><path d="M8 12h9"/>',
     bill:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/>'
   };
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[kind]||paths.pulse}</svg>`;
@@ -704,8 +706,8 @@ async function renderDashboard(data, preloaded={}){
       const staffingStates=[
         {key:"on",label:"ตรงเวลา",value:cOn,icon:"approve"},
         {key:"late",label:"มาสาย",value:cLate,icon:"alert"},
-        {key:"done",label:"ออกแล้ว",value:cDone,icon:"clock"},
-        {key:"out",label:"ยังไม่เข้า",value:cOut,icon:"pulse"}
+        {key:"done",label:"ออกแล้ว",value:cDone,icon:"exit"},
+        {key:"out",label:"ยังไม่เข้า",value:cOut,icon:"clock"}
       ];
       const staffingBar=staffingStates.map(state=>`<i class="is-${state.key}" style="width:${(state.value/ringTotal*100).toFixed(2)}%"></i>`).join("");
       const staffingRows=staffingStates.map(state=>`<div class="cc-staff-row ${state.key}"><span class="cc-staff-icon">${lineIcon(state.icon)}</span><span>${state.label}</span><b>${fmtInt(state.value)}</b></div>`).join("");
@@ -725,7 +727,7 @@ async function renderDashboard(data, preloaded={}){
             <div class="cc-ring-panel">
               <div class="cc-shift-live"><i></i>สถานะกะงานแบบเรียลไทม์</div>
               <div class="cc-staffing-core">
-                <div class="cc-staffing-figure"><span class="cc-staffing-icon">${lineIcon("pulse")}</span><div><span>กำลังทำงาน</span><b>${fmtInt(cOn+cLate)} <small>/ ${fmtInt(team.length)} คน</small></b></div></div>
+                <div class="cc-staffing-figure"><span class="cc-staffing-icon">${lineIcon("users")}</span><div><span>กำลังทำงาน</span><b>${fmtInt(cOn+cLate)} <small>/ ${fmtInt(team.length)} คน</small></b></div></div>
                 <div class="cc-staffing-rows">${staffingRows}</div>
               </div>
               <div class="cc-staffing-bar" aria-label="สัดส่วนสถานะทีม">${staffingBar}</div>
