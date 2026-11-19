@@ -1500,7 +1500,7 @@ const READ_CACHE_TTL = Object.freeze({
   admin_list_leave_requests: 8000,
   admin_list_time_requests: 8000,
   admin_attendance_days: 8000,
-  admin_get_settings: 30000,
+  admin_get_settings: 120000,
   admin_list_sites: 30000,
   admin_list_pay_rules: 15000,
   admin_list_advances: 8000,
@@ -1508,7 +1508,7 @@ const READ_CACHE_TTL = Object.freeze({
   admin_list_payrolls: 10000,
   admin_list_audit_log: 10000,
   admin_get_invoice_settings: 30000,
-  admin_list_holidays: 30000,
+  admin_list_holidays: 120000,
   admin_leave_usage: 10000,
   admin_list_password_requests: 10000,
   // Heavy payroll computations — cache briefly so navigation and the per-tick
@@ -4030,8 +4030,11 @@ function pmRenderMatrix(){
       <td class="pm-tot pm-tot-p">${m.present+m.late}</td><td class="pm-tot pm-tot-l">${m.late}</td><td class="pm-tot pm-tot-a">${m.absent}</td><td class="pm-tot pm-tot-h">${fmtHours(m.workedMin)}</td></tr>`;
   }).join("");
   host.innerHTML=`<div class="pm-matrix-scroll"><table class="pm-matrix"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
-  host.querySelectorAll(".pm-mrow .pm-name").forEach(th=>th.onclick=()=>{ ownerState.pmSel=th.closest(".pm-mrow").dataset.emp; pmRenderMatrix(); pmRenderDetail(); const d=$("#pmDetail"); if(d) d.scrollIntoView({behavior:"smooth",block:"nearest"}); });
-  host.querySelectorAll("td.pm-has").forEach(td=>td.onclick=()=>{ const m=pmModel.find(x=>x.e.id===td.dataset.emp); const c=m&&m.cells.find(x=>x.iso===td.dataset.iso); if(c&&c.d) openAttendanceRecordDialog(c.d, ()=>loadPersonMonth()); else { ownerState.pmSel=td.dataset.emp; pmRenderMatrix(); pmRenderDetail(); } });
+  // Selecting an employee only moves the highlight + re-renders the detail panel.
+  // Toggle the active class in place instead of rebuilding the whole matrix DOM.
+  const setActive=(id)=>{ ownerState.pmSel=id; host.querySelectorAll(".pm-mrow").forEach(r=>r.classList.toggle("active",r.dataset.emp===id)); pmRenderDetail(); };
+  host.querySelectorAll(".pm-mrow .pm-name").forEach(th=>th.onclick=()=>{ setActive(th.closest(".pm-mrow").dataset.emp); const d=$("#pmDetail"); if(d) d.scrollIntoView({behavior:"smooth",block:"nearest"}); });
+  host.querySelectorAll("td.pm-has").forEach(td=>td.onclick=()=>{ const m=pmModel.find(x=>x.e.id===td.dataset.emp); const c=m&&m.cells.find(x=>x.iso===td.dataset.iso); if(c&&c.d) openAttendanceRecordDialog(c.d, ()=>loadPersonMonth()); else setActive(td.dataset.emp); });
 }
 function pmRenderDetail(){
   const host=$("#pmDetail"); if(!host) return;
