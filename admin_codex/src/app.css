@@ -1585,3 +1585,19 @@
   .settings-workspace .setting-group-label{color:#52708a!important;letter-spacing:.03em!important;text-transform:none!important}
   .settings-workspace>.panel{background:#fff!important;box-shadow:none!important}
   .notice{border-radius:7px!important;box-shadow:none!important}
+
+  /* Reading mode: body copy, row names and operating totals are regular text.
+     Reserve a heavier weight for page/panel headings and the final net-pay
+     amount only; coloured attendance chips keep their contrast for scanning. */
+  .page .panel .body b,.page .panel .body strong,.page td b,.page td strong,
+  .page .card b,.page .card strong{font-weight:400!important}
+  .page :is(.value,.f-value,.metric b,.cc-stat b,.cc-hero-metric b,.appr-stat .n){font-weight:500!important}
+  .page :is(.money,.grand,.pay-amount){font-weight:600!important}
+  #page-owner table.pm-matrix .pm-nm,#page-owner table.pm-matrix .pm-nm strong{font-weight:400!important}
+  #page-owner table.pm-matrix td.pm-tot{font-weight:500!important}
+  #page-owner table.pm-matrix td.pm-tot.pm-tot-h{font-weight:500!important}
+  #page-owner .time-ledger .person,#page-owner .time-ledger .person strong{font-weight:400!important}
+  #page-owner .time-ledger tbody tr.att-row.is-today td:first-child{font-weight:500!important}
+  #page-people .employee-name strong,#page-dashboard .team-row .tc-name{font-weight:500!important}
+  #page-dashboard .team-row .tc-pill,#page-dashboard .team-row.tc-out .tc-time{font-weight:500!important}
+  #page-dashboard .cc-summary-tiles .cc-stat b{font-weight:500!important}
