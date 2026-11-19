@@ -1,0 +1,47 @@
+name: CI
+
+# Runs the repository's guard tests on every push and pull request.
+# These are plain Node scripts with no dependencies, so there is no install step.
+# A red check here means one of the invariants below is broken — fix it before merging.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  guard-tests:
+    name: Guard tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # The admin console is built from admin_codex/src/*; index.html must be a fresh build.
+      - name: Admin build is fresh (index.html == build from src/)
+        run: node tools/admin_build_fresh_test.mjs
+
+      # The Edge Function source and its deploy mirror must stay byte-identical.
+      - name: Edge function mirror in sync
+        run: node tools/mirror_sync_test.mjs
+
+      # The console's inline JavaScript must parse.
+      - name: Admin console JS parses
+        run: node -e "const fs=require('fs');new Function(fs.readFileSync('admin_codex/src/app.js','utf8'));console.log('app.js parse OK')"
+
+      - name: Admin redesign contract
+        run: node tools/admin_redesign_contract_test.mjs
+
+      - name: Payroll period policy
+        run: node tools/payroll_period_policy_test.mjs
+
+      - name: Shortfall policy
+        run: node tools/shortfall_policy_test.mjs
+
+      - name: Late-absence policy
+        run: node tools/late_absence_policy_test.mjs
+
+      - name: OT multiplier policy
+        run: node tools/ot_multiplier_test.mjs
