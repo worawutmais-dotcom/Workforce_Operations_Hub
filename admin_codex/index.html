@@ -4541,17 +4541,41 @@ async function adminAttendanceDialog(){
 /* Per-employee quick clock straight from the dashboard attendance table. Same
    immutable admin_manual path as adminAttendanceDialog — server validates the
    Bangkok-date order/duplicates and records the acting Admin in the audit trail. */
+function bangkokClockNow(){
+  return new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Bangkok",hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date());
+}
+function patchDashboardClockRow(employeeId,eventType){
+  const row=[...document.querySelectorAll("#page-dashboard [data-calendar]")].find(x=>x.dataset.calendar===employeeId);
+  if(!row) return;
+  const time=bangkokClockNow();
+  const inTime=row.querySelector(".tc-clock-in b"), outTime=row.querySelector(".tc-clock-out b"), pill=row.querySelector(".tc-pill");
+  const inBtn=row.querySelector("[data-checkin]"), outBtn=row.querySelector("[data-checkout]");
+  row.classList.remove("tc-out","tc-in","tc-late","tc-done","is-offline","is-online","is-late","is-done");
+  if(eventType==="check_in"){
+    row.classList.add("tc-in","is-online");
+    if(inTime) inTime.textContent=time;
+    if(pill) pill.innerHTML="<i></i>กำลังทำงาน";
+    if(inBtn) inBtn.disabled=true;
+    if(outBtn) outBtn.disabled=false;
+  }else{
+    row.classList.add("tc-done","is-done");
+    if(outTime) outTime.textContent=time;
+    if(pill) pill.innerHTML="<i></i>ออกงานแล้ว";
+    if(inBtn) inBtn.disabled=true;
+    if(outBtn) outBtn.disabled=true;
+  }
+}
 async function quickClock(employeeId, eventType, button){
   const emp=state.empById[employeeId]||(state.employees||[]).find(e=>e.id===employeeId);
   const label=eventType==="check_in"?"เช็กอิน":"เช็กเอาต์";
   if(!await confirmDialog(`ยืนยัน${label}`, `${label}ให้ <b>${esc(emp?.name||employeeId)}</b> (${esc(employeeId)}) ณ เวลาปัจจุบัน?<br><span class="sub">บันทึกโดย ${esc(state.reviewer||"Admin")} · แหล่งที่มา admin_manual ตรวจสอบย้อนหลังได้</span>`, {okText:`${label}ให้`})) return;
-  await withBtn(button, async()=>{
-    try{
-      const data=await api("admin_record_attendance",{employeeId,eventType,reviewer:state.reviewer||"Admin"});
-      toast(data.message||"บันทึกเวลาสำเร็จ","good");
-      renderDashboard(); refreshApprovalBadge();
-    }catch(err){ toast(err.message,"bad"); }
-  });
+  try{
+    const data=await withBtn(button,()=>api("admin_record_attendance",{employeeId,eventType,reviewer:state.reviewer||"Admin"}));
+    toast(data.message||"บันทึกเวลาสำเร็จ","good");
+    // Run after withBtn restores its loading state, so the new disabled/enabled
+    // action state is not overwritten by the generic button helper.
+    patchDashboardClockRow(employeeId,eventType);
+  }catch(err){ toast(err.message,"bad"); }
 }
 
 function settingsDialog(s){
