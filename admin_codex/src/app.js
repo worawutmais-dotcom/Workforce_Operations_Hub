@@ -663,15 +663,17 @@ async function renderDashboard(data, preloaded={}){
         else { const w=Math.max(0,nowMin-pmHM(t.checkIn)); meta=`เข้า ${esc(t.checkIn)} · ${w>=30?fmtHours(w):"เพิ่งเข้า"}`; }
         const checkIn=t&&t.checkIn?esc(t.checkIn):"—";
         const checkOut=t&&t.checkOut?esc(t.checkOut):"—";
+        const canCheckIn=s==="out", canCheckOut=s==="in"||s==="late";
         const rowClass=s==="in"?"is-online":s==="late"?"is-late":s==="done"?"is-done":"is-offline";
-        return `<button class="team-row tc-${s} ${rowClass}" data-calendar="${esc(e.id)}" title="ดูปฏิทินของ ${esc(e.name)}">
+        return `<div class="team-row tc-${s} ${rowClass}" data-calendar="${esc(e.id)}" role="button" tabindex="0" title="ดูปฏิทินของ ${esc(e.name)}">
           <span class="pm-av" style="background:${m.soft};color:${m.ink}">${esc((e.name||e.id).trim().slice(0,2))}<i class="presence-dot"></i></span>
           <span><span class="tc-name">${esc(e.name)}</span><span class="tc-role">${esc(e.role||e.id)}</span></span>
           <span class="tc-time-flow" aria-label="เวลาเข้างาน ${checkIn} ออกงาน ${checkOut}">
             <span class="tc-clock-cell tc-clock-in"><i></i><b>${checkIn}</b></span><span class="tc-flow-line"></span><span class="tc-clock-cell tc-clock-out"><i></i><b>${checkOut}</b></span>
           </span>
           <span class="tc-pill"><i></i>${m.label}</span>
-        </button>`;
+          <span class="tc-actions" aria-label="บันทึกเวลาแทน"><button type="button" class="btn ok sm" data-checkin="${esc(e.id)}" ${canCheckIn?"":"disabled"}>Check-In</button><button type="button" class="btn sub sm" data-checkout="${esc(e.id)}" ${canCheckOut?"":"disabled"}>Check-Out</button></span>
+        </div>`;
       }).join(""):`<div class="empty">ยังไม่มีพนักงานที่ใช้งานอยู่</div>`;
       // One queue, ordered by payroll risk.  A generic count made operators
       // hunt for the affected employee before they could act.
@@ -744,7 +746,7 @@ async function renderDashboard(data, preloaded={}){
           </section>
           <section class="cc-work">
             <div class="panel cc-decide"><div class="head"><b>งานที่ต้องจัดการ</b><span class="sub" style="margin-left:8px">เรียงตามผลกระทบต่อเงินเดือน</span><div class="spacer"></div><button class="btn sub sm" data-nav="approvals">เปิดคำขอทั้งหมด</button></div><div class="body flush dash-list">${decideHtml}</div></div>
-            <div class="panel team-register hr-team"><div class="head"><div><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">เลือกชื่อเพื่อดูเวลาเข้า–ออกและประวัติ</span></div><div class="spacer"></div><div class="team-status-summary" aria-label="สรุปสถานะทีม"><span class="not-in">ยังไม่เข้า <b>${fmtInt(cOut)}</b></span><span class="working">ทำงาน <b>${fmtInt(cOn+cLate)}</b></span><span class="finished">ออกแล้ว <b>${fmtInt(cDone)}</b></span></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เข้างาน</span><span>ออกงาน</span><span>สถานะ</span></div><div class="team-grid">${teamHtml}</div></div></div>
+            <div class="panel team-register hr-team"><div class="head"><div><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">เลือกชื่อเพื่อดูเวลาเข้า–ออกและประวัติ</span></div><div class="spacer"></div><div class="team-status-summary" aria-label="สรุปสถานะทีม"><span class="not-in">ยังไม่เข้า <b>${fmtInt(cOut)}</b></span><span class="working">ทำงาน <b>${fmtInt(cOn+cLate)}</b></span><span class="finished">ออกแล้ว <b>${fmtInt(cDone)}</b></span></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เข้างาน</span><span>ออกงาน</span><span>สถานะ</span><span>การทำงาน</span></div><div class="team-grid">${teamHtml}</div></div></div>
           </section>
           <section class="cc-lower"><section class="panel dashboard-personal-time" aria-label="เวลาทำงานรายบุคคล"><div class="head"><div><b>แนวโน้มเวลาทำงานรายบุคคล</b><span class="sub" style="margin-left:8px">สรุปเดือนนี้ · เลือกพนักงานเพื่อดูรายละเอียด</span></div></div><div class="body"><div id="peoplePulse"><div class="empty">กำลังโหลดสรุปรายบุคคล…</div></div></div></section><section class="panel site-policy dashboard-checkin-sites" aria-label="จุดเช็กอินที่อนุญาต"><div class="head"><div><b>จุดเช็กอินที่อนุญาต</b><span class="sub" style="margin-left:8px">นโยบายพื้นที่สำหรับการเช็กอิน</span></div><div class="spacer"></div><button class="btn sm" id="siteAddBtn">เพิ่มจุด</button></div><div class="site-policy-note">พนักงานเช็กอินได้เมื่ออยู่ในรัศมีของจุดที่เปิดใช้งาน · เช็กเอาต์ได้ทุกพื้นที่</div><div class="body flush"><table id="siteTable"><thead><tr><th>พื้นที่</th><th class="num">รัศมี</th><th>สถานะ</th><th data-nosort></th></tr></thead><tbody id="siteRows"><tr><td colspan="4"><div class="empty">กำลังโหลดจุดเช็กอิน…</div></td></tr></tbody></table></div></section></section>
           ${dashboardTeamCalendarHtml(calendarMonth, team, calendarDays, dashSettings.workdays, leaves)}
@@ -781,9 +783,9 @@ async function renderDashboard(data, preloaded={}){
       if(b.dataset.ownerFilter) ownerState.filter=b.dataset.ownerFilter;
       go(b.dataset.actionTarget);
     });
-    node.querySelectorAll("[data-calendar]").forEach(b=>b.onclick=()=>openAttendanceCalendar(b.dataset.calendar, attendanceDays, attendanceD, owner));
-    node.querySelectorAll('[data-checkin]').forEach(b=>b.onclick=()=>quickClock(b.dataset.checkin,"check_in",b));
-    node.querySelectorAll('[data-checkout]').forEach(b=>b.onclick=()=>quickClock(b.dataset.checkout,"check_out",b));
+    node.querySelectorAll("[data-calendar]").forEach(b=>{ b.onclick=()=>openAttendanceCalendar(b.dataset.calendar, attendanceDays, attendanceD, owner); b.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openAttendanceCalendar(b.dataset.calendar, attendanceDays, attendanceD, owner); } }; });
+    node.querySelectorAll('[data-checkin]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); quickClock(b.dataset.checkin,"check_in",b); });
+    node.querySelectorAll('[data-checkout]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); quickClock(b.dataset.checkout,"check_out",b); });
     node.querySelectorAll('[data-act="clock"]').forEach(b=>b.onclick=()=>adminAttendanceDialog());
     node.querySelectorAll('[data-act="emp"]').forEach(b=>b.onclick=()=>employeeDialog(null));
     node.querySelectorAll('[data-act="ot"]').forEach(b=>b.onclick=()=>addOvertimeDialog());
