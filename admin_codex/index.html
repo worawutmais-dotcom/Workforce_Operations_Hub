@@ -1637,6 +1637,35 @@
   #page-dashboard .cc-work .team-row:focus-visible{outline:2px solid var(--bvn-blue);outline-offset:-2px}
   @media(max-width:1040px){#page-dashboard .cc-work .team-register-head{grid-template-columns:30px minmax(140px,1fr) 72px 72px 88px 136px!important}#page-dashboard .cc-work .team-row{grid-template-columns:30px minmax(140px,1fr) 72px 72px 88px 136px!important}.cc-work .tc-time-flow{grid-template-columns:1fr 12px 1fr!important}.cc-work .tc-actions .btn{padding:3px 5px!important}}
   @media(max-width:760px){#page-dashboard .cc-work .team-register-head{display:none}#page-dashboard .cc-work .team-row{grid-template-columns:30px minmax(0,1fr) auto!important}.cc-work .tc-time-flow{display:none!important}.cc-work .tc-pill{width:auto!important;min-height:23px}}
+
+  /* Attendance contrast repair.  A manager should be able to separate time,
+     state and available action without having to decode faint shades of blue. */
+  #page-dashboard .cc-work .team-register-head{background:#edf3f7!important;color:#4e6981!important;border-color:#d7e2eb!important}
+  #page-dashboard .cc-work .team-row{border-bottom-color:#dfe7ee!important;background:#fff!important}
+  #page-dashboard .cc-work .team-row.tc-done{background:#f8fbfd!important;border-left-color:#5d7d9c!important}
+  #page-dashboard .cc-work .team-row.tc-late{background:#fffaf2!important;border-left-color:#cf7908!important}
+  #page-dashboard .cc-work .team-row.tc-out{background:#fff8eb!important;border-left-color:#d78712!important}
+  #page-dashboard .cc-work .team-row.tc-in{background:#f3fbf7!important;border-left-color:#168451!important}
+  #page-dashboard .cc-work .tc-clock-cell{min-height:27px;padding:4px 6px;border-radius:5px;border:1px solid transparent;background:#edf8f2;color:#126b49!important}
+  #page-dashboard .cc-work .tc-clock-in i{background:#168451!important;box-shadow:0 0 0 1px #168451!important}
+  #page-dashboard .cc-work .tc-clock-out{background:#eef4fa;color:#315f8b!important}
+  #page-dashboard .cc-work .tc-clock-out i{background:#467da9!important;box-shadow:0 0 0 1px #467da9!important}
+  #page-dashboard .cc-work .tc-flow-line{background:#94b4ca!important}
+  #page-dashboard .cc-work .tc-late .tc-clock-in,#page-dashboard .cc-work .tc-out .tc-clock-in{background:#fff0d8;color:#9a5900!important}
+  #page-dashboard .cc-work .tc-late .tc-clock-in i,#page-dashboard .cc-work .tc-out .tc-clock-in i{background:#ca7505!important;box-shadow:0 0 0 1px #ca7505!important}
+  #page-dashboard .cc-work .tc-late .tc-clock-out,#page-dashboard .cc-work .tc-out .tc-clock-out{background:#f5f7f9;color:#8292a0!important}
+  #page-dashboard .cc-work .tc-late .tc-clock-out i,#page-dashboard .cc-work .tc-out .tc-clock-out i{background:#a4b1bc!important;box-shadow:0 0 0 1px #a4b1bc!important}
+  #page-dashboard .cc-work .tc-out .tc-flow-line{border-top-color:#d9b06d!important;background:transparent!important}
+  #page-dashboard .cc-work .tc-pill{border:1px solid transparent!important;box-shadow:none!important}
+  #page-dashboard .cc-work .tc-done .tc-pill{background:#486b8d!important;border-color:#486b8d!important}
+  #page-dashboard .cc-work .tc-in .tc-pill{background:#167d50!important;border-color:#167d50!important}
+  #page-dashboard .cc-work .tc-late .tc-pill{background:#b96500!important;border-color:#b96500!important}
+  #page-dashboard .cc-work .tc-out .tc-pill{background:#c47708!important;border-color:#c47708!important}
+  #page-dashboard .cc-work .tc-actions .btn{min-width:66px;border:1px solid transparent!important;box-shadow:none!important}
+  #page-dashboard .cc-work .tc-actions .btn.ok:not(:disabled){background:#168451!important;border-color:#168451!important;color:#fff!important}
+  #page-dashboard .cc-work .tc-actions .btn.sub:not(:disabled){background:#173b62!important;border-color:#173b62!important;color:#fff!important}
+  #page-dashboard .cc-work .tc-actions .btn:disabled{opacity:1!important;background:#edf1f4!important;border-color:#d7e0e8!important;color:#8a9aaa!important}
+  #page-dashboard .cc-work .tc-actions .btn:not(:disabled):hover{filter:brightness(.92)!important}
 </style>
 </head>
 <body>
