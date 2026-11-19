@@ -1462,3 +1462,31 @@
   #page-dashboard .team-cal-day .tcd-foot{gap:2px!important}.team-cal-day .tcd-bar{height:2px!important}.team-cal-day .tcd-fig{font-size:8px!important}
   #page-dashboard .team-cal-day .tcd-chip{font-size:7px!important;padding:0 3px!important}.team-cal-day .tcd-chip i{width:4px!important;height:4px!important}
   @media(max-width:1040px){#page-dashboard .cc-lower{grid-template-columns:1fr}.dashboard-checkin-sites #siteTable th:nth-child(4),.dashboard-checkin-sites #siteTable td:nth-child(4){display:none}}
+
+  /* Data is read more often than it is acted on.  Outside of headings and the
+     few values that decide payroll, use a regular weight so the page has one
+     clear hierarchy instead of every row shouting at the operator. */
+  .page .panel .body b,.page .panel .body strong,.page td b,.page td strong,
+  .page .card b,.page .card strong{font-weight:500}
+  .page :is(.value,.f-value,.money,.grand,.pay-amount,.cc-stat b,.cc-hero-metric b,.metric b,.team-cal-sum b,.tcd-fig,.pm-tot,.appr-stat .n){font-weight:650}
+  .page .panel>.head b,.page h1,.page h2,.page h3{font-weight:650}
+
+  /* Team roster: status is legible before an operator reads a name.  Each
+     state has a quiet row tint and a consistent status word; colours support
+     the text rather than replacing it. */
+  #page-dashboard .team-status-summary{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+  #page-dashboard .team-status-summary span{display:inline-flex;align-items:center;gap:4px;padding:3px 6px;border-radius:999px;font-size:9px;line-height:1.2;white-space:nowrap}
+  #page-dashboard .team-status-summary b{font-weight:650;font-variant-numeric:tabular-nums}
+  #page-dashboard .team-status-summary .not-in{background:#fff2d9;color:#8a5916}
+  #page-dashboard .team-status-summary .working{background:#e8f6ee;color:#176b4b}
+  #page-dashboard .team-status-summary .finished{background:#edf2f7;color:#52677d}
+  #page-dashboard .cc-work .team-row{position:relative;min-height:46px;border-left:3px solid transparent}
+  #page-dashboard .cc-work .team-row.tc-out{background:#fffdf7;border-left-color:#e6a23b}
+  #page-dashboard .cc-work .team-row.tc-in{background:#fbfefc;border-left-color:#24a06b}
+  #page-dashboard .cc-work .team-row.tc-late{background:#fffaf1;border-left-color:#df8a23}
+  #page-dashboard .cc-work .team-row.tc-done{background:#fafbfd;border-left-color:#9aaabc}
+  #page-dashboard .cc-work .team-row .tc-name{font-weight:600}
+  #page-dashboard .cc-work .team-row .tc-pill{min-width:86px;justify-content:center;font-weight:600}
+  #page-dashboard .cc-work .team-row.tc-out .tc-time{color:#9a5d11;font-weight:600}
+  @media(max-width:900px){#page-dashboard .team-status-summary{order:3;width:100%;margin-top:2px}.cc-work .team-register .head{flex-wrap:wrap}}
+  @media(max-width:680px){#page-dashboard .team-status-summary .finished{display:none}.cc-work .team-row .tc-pill{min-width:0}.cc-work .team-row.tc-out .tc-role:after{content:" · ยังไม่เข้างาน";color:#9a5d11}.cc-work .team-row.tc-in .tc-role:after{content:" · กำลังทำงาน";color:#176b4b}.cc-work .team-row.tc-late .tc-role:after{content:" · เข้างานสาย";color:#9a5d11}.cc-work .team-row.tc-done .tc-role:after{content:" · ออกงานแล้ว";color:#52677d}}

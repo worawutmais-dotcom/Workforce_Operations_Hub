@@ -645,10 +645,10 @@ async function renderDashboard(data, preloaded={}){
       }).join("");
       const arrivalLabels=arrivalHours.map(h=>`<span>${String(h).padStart(2,"0")}:00</span>`).join("");
       const SMETA={
-        in:{soft:"#e8f6ee",ink:"#167348",ring:"#22a06b",label:"ออนไลน์"},
-        late:{soft:"#fff1df",ink:"#9a5d11",ring:"#e58b24",label:"ออนไลน์ · สาย"},
-        done:{soft:"#edf2f7",ink:"#52677d",ring:"#7e93a8",label:"ออกแล้ว"},
-        out:{soft:"#f1f4f7",ink:"#6b7480",ring:"#aab5c2",label:"ยังไม่เข้า"}
+        in:{soft:"#e8f6ee",ink:"#167348",ring:"#22a06b",label:"กำลังทำงาน"},
+        late:{soft:"#fff1df",ink:"#9a5d11",ring:"#e58b24",label:"เข้างานสาย"},
+        done:{soft:"#edf2f7",ink:"#52677d",ring:"#7e93a8",label:"ออกงานแล้ว"},
+        out:{soft:"#fff8e8",ink:"#9a5d11",ring:"#e6a23b",label:"ยังไม่เข้างาน"}
       };
       const nowMin=(()=>{ const n=new Date(); return n.getHours()*60+n.getMinutes(); })();
       // Surface who needs attention: late first, then not-in, then on-time; by check-in time.
@@ -741,7 +741,7 @@ async function renderDashboard(data, preloaded={}){
           </section>
           <section class="cc-work">
             <div class="panel cc-decide"><div class="head"><b>งานที่ต้องจัดการ</b><span class="sub" style="margin-left:8px">เรียงตามผลกระทบต่อเงินเดือน</span><div class="spacer"></div><button class="btn sub sm" data-nav="approvals">เปิดคำขอทั้งหมด</button></div><div class="body flush dash-list">${decideHtml}</div></div>
-            <div class="panel team-register hr-team"><div class="head"><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">เลือกชื่อเพื่อดูเวลาเข้า–ออกและประวัติ</span><div class="spacer"></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เวลาเข้า</span><span>สถานะ</span></div><div class="team-grid">${teamHtml}</div></div></div>
+            <div class="panel team-register hr-team"><div class="head"><div><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">เลือกชื่อเพื่อดูเวลาเข้า–ออกและประวัติ</span></div><div class="spacer"></div><div class="team-status-summary" aria-label="สรุปสถานะทีม"><span class="not-in">ยังไม่เข้า <b>${fmtInt(cOut)}</b></span><span class="working">ทำงาน <b>${fmtInt(cOn+cLate)}</b></span><span class="finished">ออกแล้ว <b>${fmtInt(cDone)}</b></span></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เวลาเข้า</span><span>สถานะ</span></div><div class="team-grid">${teamHtml}</div></div></div>
           </section>
           <section class="cc-lower"><section class="panel dashboard-personal-time" aria-label="เวลาทำงานรายบุคคล"><div class="head"><div><b>แนวโน้มเวลาทำงานรายบุคคล</b><span class="sub" style="margin-left:8px">สรุปเดือนนี้ · เลือกพนักงานเพื่อดูรายละเอียด</span></div></div><div class="body"><div id="peoplePulse"><div class="empty">กำลังโหลดสรุปรายบุคคล…</div></div></div></section><section class="panel site-policy dashboard-checkin-sites" aria-label="จุดเช็กอินที่อนุญาต"><div class="head"><div><b>จุดเช็กอินที่อนุญาต</b><span class="sub" style="margin-left:8px">นโยบายพื้นที่สำหรับการเช็กอิน</span></div><div class="spacer"></div><button class="btn sm" id="siteAddBtn">เพิ่มจุด</button></div><div class="site-policy-note">พนักงานเช็กอินได้เมื่ออยู่ในรัศมีของจุดที่เปิดใช้งาน · เช็กเอาต์ได้ทุกพื้นที่</div><div class="body flush"><table id="siteTable"><thead><tr><th>พื้นที่</th><th class="num">รัศมี</th><th>สถานะ</th><th data-nosort></th></tr></thead><tbody id="siteRows"><tr><td colspan="4"><div class="empty">กำลังโหลดจุดเช็กอิน…</div></td></tr></tbody></table></div></section></section>
           ${dashboardTeamCalendarHtml(calendarMonth, team, calendarDays, dashSettings.workdays, leaves)}
