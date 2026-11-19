@@ -1269,6 +1269,8 @@
   #page-payroll .finance-workbench.compact{padding:14px 16px;gap:12px;align-items:center}
   #page-payroll .finance-workbench.compact h2{display:none}
   #page-payroll .payroll-period{gap:8px}
+  /* Payroll preview table: scroll horizontally on narrow screens instead of overflowing the panel */
+  @media(max-width:1180px){#page-payroll #previewResult{overflow-x:auto;-webkit-overflow-scrolling:touch}#page-payroll #previewResult>table{min-width:900px}}
   /* Timesheet — view tabs + full-month matrix */
   #page-owner .time-key .k-ot{background:#2f7fd6}
   .ts-viewtabs{display:inline-flex;gap:4px;background:#eef1f5;border:1px solid var(--line);border-radius:12px;padding:4px;margin:4px 0 16px}
@@ -4809,12 +4811,12 @@ async function renderSettings(){
         <div class="toolbar"><button class="btn" id="backupBtn">ดาวน์โหลดไฟล์สำรอง (JSON)</button></div>
       </div>
     </div>
-    <div class="panel"><div class="head"><h2>เก็บเวลาเช็กอิน/เอาต์ 6 เดือน</h2><span class="sub" style="margin-left:8px">Archive ลงเครื่องก่อนล้างข้อมูลเก่า</span>
+    <div class="setting-group-label">คำสั่งที่ย้อนกลับไม่ได้</div>
+    <div class="panel" style="border-color:#fecaca"><div class="head"><h2>เก็บเวลาเช็กอิน/เอาต์ 6 เดือน</h2><span class="sub" style="margin-left:8px">Archive ลงเครื่องก่อนล้างข้อมูลเก่า (การล้างย้อนกลับไม่ได้)</span>
       <div class="spacer"></div><button class="btn sub sm" id="readAttendanceArchive">อ่านไฟล์ Archive</button><button class="btn sm" id="createAttendanceArchive">สร้าง Archive</button></div>
       <div class="body"><p class="sub" style="margin:0">ฐานข้อมูลเก็บเวลาเข้า–ออกย้อนหลัง 6 เดือนเท่านั้น ข้อมูลที่เก่ากว่านั้นต้องดาวน์โหลดเป็นไฟล์ JSON ลงเครื่องและเลือกไฟล์กลับมาเพื่อตรวจสอบก่อนระบบอนุญาตให้ล้าง</p>
       <input id="verifyAttendanceArchiveFile" type="file" accept="application/json,.json" style="display:none"><div class="notice blue" id="attendanceArchiveStatus" style="margin-top:12px">ยังไม่ได้สร้าง Archive ในรอบนี้</div><div class="toolbar" style="margin-top:12px"><button class="btn danger sm" id="purgeOldAttendance" disabled>ล้างเวลาเกิน 6 เดือน</button></div></div>
     </div>
-    <div class="setting-group-label">คำสั่งที่ย้อนกลับไม่ได้</div>
     <div class="panel" style="border-color:#fecaca"><div class="head"><h2 style="color:#b91c1c">เริ่มเก็บข้อมูลใหม่</h2><span class="sub" style="margin-left:8px">ล้างเฉพาะข้อมูลปฏิบัติการแบบถาวร</span>
       <div class="spacer"></div><button class="btn danger sm" id="factoryResetBtn">ล้างข้อมูล</button></div>
       <div class="body"><p class="sub" style="margin:0">ลบพนักงาน, ไซต์, เวลาเข้าออก, คำขอ, เงินล่วงหน้า, งวดเงินเดือน, ใบแจ้งหนี้, วันหยุด, token พนักงาน และบันทึกการใช้งานทั้งหมด แต่เก็บบัญชี Admin และข้อมูลบริษัท/หัวบิลไว้</p>
