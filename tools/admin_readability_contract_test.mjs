@@ -15,6 +15,10 @@ const required = [
   '#page-owner .pm-person small',
   '#page-people .pc-status-grid small',
   '#page-settings .settings-command-card b{color:#102a43',
+  'Typography option 2 — Operations Modern',
+  '--font-sans:"IBM Plex Sans Thai"',
+  '--font-mono:"IBM Plex Mono"',
+  'font-variant-numeric:tabular-nums slashed-zero',
   '@media(max-width:760px)',
 ];
 

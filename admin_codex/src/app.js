@@ -755,6 +755,10 @@ async function renderDashboard(data, preloaded={}){
       const workdaysCount=String(dashSettings.workdays||"1,2,3,4,5").split(",").filter(x=>x!=="").length;
       const heroHeadline = team.length ? (cOut===0?"ทีมเข้างานครบทุกคนแล้ว":`เข้างานแล้ว ${fmtInt(cOn+cLate+cDone)} จาก ${fmtInt(team.length)} คน`) : "ยังไม่มีพนักงานที่ใช้งาน";
       const heroSub = [cLate?`เข้าสาย ${fmtInt(cLate)} คน`:"", cOut?`ยังไม่เข้า ${fmtInt(cOut)} คน`:"", Number(data.exceptions)?`เวลาต้องตรวจ ${fmtInt(data.exceptions)} รายการ`:""].filter(Boolean).join(" · ")||"สถานะทีมเป็นปกติทุกอย่าง";
+      const commandAlertCount=Number(cOut||0)+Number(cLate||0)+Number(data.exceptions||0);
+      const commandAlert=commandAlertCount
+        ? `<button class="cc-command-alert" type="button" data-nav="owner"><span class="cc-command-alert-icon">!</span><span><b>มี ${fmtInt(commandAlertCount)} จุดที่ต้องติดตามวันนี้</b><small>${heroSub}</small></span><em>เปิด Timesheet ›</em></button>`
+        : `<div class="cc-command-alert calm"><span class="cc-command-alert-icon">✓</span><span><b>สถานะเวลาทำงานปกติ</b><small>ไม่มีเวลาเข้า–ออกหรือสถานะทีมที่ต้องตรวจเพิ่ม</small></span></div>`;
       const SVG={clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',late:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 4.3 2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0Z"/></svg>',inbox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h5l2 3h4l2-3h5"/><path d="M4 7h16v12H4z"/></svg>',search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',wallet:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12"/><circle cx="17" cy="13" r="1.3"/></svg>'};
       node.innerHTML=`
         <div class="cc">
@@ -763,7 +767,7 @@ async function renderDashboard(data, preloaded={}){
             <div class="cc-head-l"><div class="cc-eyebrow"><i></i>ศูนย์ปฏิบัติการกำลังคน · ${fmtDate(todayISO())}</div><h2>ภาพรวมวันนี้</h2></div>
             <div class="cc-head-r"><div class="cc-clock" id="ccClock" aria-label="เวลาปัจจุบัน">--:--</div><button class="btn hr-primary" data-act="clock">${SVG.clock} บันทึกเวลาแทน</button></div>
           </header>
-          <section class="cc-hero" aria-label="สถานะทีมวันนี้">
+          <section class="cc-hero cc-command-bar" aria-label="สถานะทีมวันนี้">
             <div class="cc-ring-panel">
               <div class="cc-shift-live"><i></i>สถานะกะงานแบบเรียลไทม์</div>
               <div class="cc-staffing-core">
@@ -792,6 +796,7 @@ async function renderDashboard(data, preloaded={}){
             <button class="cc-stat s-rose" data-nav="owner"><span class="cc-stat-ic">${SVG.search}</span><span class="cc-stat-l">ต้องตรวจเวลา</span><b>${fmtInt(data.exceptions)}</b><small>${Number(data.exceptions)?"ตรวจให้ครบก่อนปิดรอบ":"ไม่มีรายการค้างตรวจ"}</small></button>
             ${canFinance?`<button class="cc-stat s-green" data-nav="payroll"><span class="cc-stat-ic">${SVG.wallet}</span><span class="cc-stat-l">พร้อมตรวจสลิป</span><b>${fmtInt(payrollEligible)}</b><small>${payrollIncomplete?`ค้างตรวจเวลา ${fmtInt(payrollIncomplete)} รายการ`:"Timesheet พร้อมคำนวณ"}</small></button>`:`<button class="cc-stat s-indigo" data-nav="approvals"><span class="cc-stat-ic">${SVG.inbox}</span><span class="cc-stat-l">รออนุมัติ</span><b>${fmtInt(mPend)}</b><small>ลา ${fmtInt(mLeave)} · OT ${fmtInt(mOt)} · ${_thMon}</small></button>`}
           </section>
+          ${commandAlert}
           <section class="cc-split">
             <div class="panel cc-arrival"><div class="head"><div><b>ช่วงเวลาเข้างานของทีม</b><span class="sub" style="margin-left:8px">วันนี้ · พีคสุด ${fmtInt(arrivalPeak)} คน</span></div></div><div class="body"><div class="cc-arrival-chart"><div class="cc-bars">${arrivalBars}</div><div class="cc-axis">${arrivalLabels}</div></div></div></div>
             ${canFinance?`<div class="panel cc-payroll"><div class="head"><div><b>เงินเดือนงวดปัจจุบัน</b><span class="sub" style="margin-left:8px">${esc(payrollPeriodLabel)}</span></div><div class="spacer"></div><span class="cc-pay-badge ${payrollIncomplete?"wait":"ok"}">${payrollIncomplete?"ต้องตรวจ":"พร้อมออกสลิป"}</span></div><div class="body"><div class="cc-pay-metrics"><div><span>ยอดสุทธิตาม Timesheet</span><b class="money">${fmtBaht(totalNet)}</b><em>ก่อนหัก ${fmtBaht(payrollGross)} · หัก ${fmtBaht(payrollDed)}</em></div><div><span>คำนวณได้</span><b>${fmtInt(payrollEligible)} คน</b><em>มีเวลาและเรตครบ</em></div><div><span>เวลาค้างตรวจ</span><b class="${payrollIncomplete?"warn":""}">${fmtInt(payrollIncomplete)} รายการ</b><em>${payrollIncomplete?"ต้องตรวจให้ครบก่อนออกสลิป":"ไม่มีรายการค้าง"}</em></div></div><div class="cc-pay-actions"><button class="btn sub sm" data-nav="owner">ตรวจเวลาเข้า–ออก</button><button class="btn sm" data-nav="payroll">${payrollActionLabel}</button></div></div></div>`:""}
@@ -1122,8 +1127,11 @@ async function renderPeople(){
   const node=$("#page-people"); skeleton(node);
   setRouteShell(node,"people");
   try{
-    await loadEmployees(true).catch(()=>{});
-    const [leaveD,timeD,advD,usageD]=await Promise.all([
+    // Load the directory and its supporting work queues together.  Previously
+    // the employee call completed first, then four more reads started, making
+    // the directory feel unresponsive even when every endpoint was healthy.
+    const [,leaveD,timeD,advD,usageD]=await Promise.all([
+      loadEmployees().catch(()=>state.employees),
       api("admin_list_leave_requests").catch(()=>({requests:[]})),
       api("admin_list_time_requests").catch(()=>({requests:[]})),
       api("admin_list_advances").catch(()=>({advances:[]})),
@@ -1156,7 +1164,7 @@ async function renderPeople(){
           <div class="head">
             <div class="people-directory-title"><h2>ทะเบียนพนักงาน</h2><span class="sub">จัดการข้อมูลและสิทธิการใช้งาน</span></div>
             <div class="spacer"></div>
-            <button class="btn sub sm" id="pDemo">ดูตัวอย่าง 3 เดือน</button><button class="btn" id="pAdd">เพิ่มพนักงาน</button>
+            <button class="btn sub sm" id="pRefresh" title="อัปเดตข้อมูลทะเบียนพนักงาน">รีเฟรช</button><button class="btn sub sm" id="pDemo">ดูตัวอย่าง 3 เดือน</button><button class="btn" id="pAdd">เพิ่มพนักงาน</button>
           </div>
           <div class="people-tools">
             <input class="people-search" type="search" id="pSearch" placeholder="ค้นหาชื่อ รหัส หรือ ตำแหน่ง">
@@ -1186,6 +1194,16 @@ async function renderPeople(){
       host.querySelectorAll("[data-pc-action]").forEach(b=>b.onclick=()=>employeeDialog(e));
       $("#pDetailMenu").onclick=()=>employeeDialog(e);
     };
+    const selectEmployee=(id)=>{
+      if(!id||_peopleSel===id) return;
+      _peopleSel=id;
+      node.querySelectorAll(".p-emp").forEach(row=>{
+        const selected=row.dataset.emp===id;
+        row.classList.toggle("is-selected",selected);
+        row.setAttribute("aria-selected",String(selected));
+      });
+      drawDetail();
+    };
     const drawList=(q="")=>{
       q=q.trim().toLowerCase();
       const list=emps.filter(e=>{
@@ -1194,10 +1212,11 @@ async function renderPeople(){
         const profileMatched=_peopleProfileFilter==="all"||(_peopleProfileFilter==="ready"&&ready)||(_peopleProfileFilter==="missing"&&!ready);
         return matched&&profileMatched;
       });
+      if(list.length&&!list.some(e=>e.id===_peopleSel)) _peopleSel=list[0].id;
       $("#pList").innerHTML=list.length?`<table class="employee-table"><thead><tr><th>พนักงาน</th><th>ตำแหน่ง</th><th>ติดต่อ / เอกสาร</th><th>นโยบายลงเวลา</th><th class="num">งานค้าง</th><th style="text-align:right">จัดการ</th></tr></thead><tbody>${list.map(e=>{
         const pc=pendBy[e.id]||0, ini=(e.name||e.id).trim().slice(0,2), sel=_peopleSel===e.id;
         const active=String(e.status||"").toLowerCase()==="active";
-        return `<tr class="p-emp ${sel?"is-selected":""}" data-emp="${esc(e.id)}">
+        return `<tr class="p-emp ${sel?"is-selected":""}" data-emp="${esc(e.id)}" role="button" tabindex="0" aria-selected="${sel?"true":"false"}" title="เลือก ${esc(e.name||e.id)} เพื่อดูรายละเอียด">
           <td><button class="p-open employee-name" data-emp="${esc(e.id)}" style="border:0;background:none;cursor:pointer;text-align:left;color:var(--ink);padding:0;width:100%"><span class="employee-avatar">${esc(ini)}</span><span><strong>${esc(e.name||e.id)}</strong><span class="employee-meta">${esc(e.id)} · ${active?"ใช้งาน":"ปิดใช้งาน"}</span></span></button></td>
           <td>${esc(e.role||"—")}<span class="employee-meta">${esc(e.department||"ไม่ระบุแผนก")}</span></td>
           <td>${esc(e.phone||"—")}<span class="employee-meta ${e.nationalId&&e.phone?"is-ready":"is-missing"}">บัตรประชาชน ${e.nationalId?"•••••••••"+esc(String(e.nationalId).slice(-4)):"ยังไม่ระบุ"}</span></td>
@@ -1213,10 +1232,14 @@ async function renderPeople(){
         ...(emp.status==="active"?[{label:"ปิดใช้งาน", danger:true, fn:()=>deactivate(emp)}]:[]),
         ...(state.role==="owner"&&hasBackendCapability("employeeDelete")?[{label:"ลบถาวร…", danger:true, fn:()=>deleteEmployee(emp)}]:[]),
       ]; };
-      $("#pList").querySelectorAll(".p-open").forEach(b=>b.onclick=()=>{ _peopleSel=b.dataset.emp; drawList($("#pSearch").value); drawDetail(); });
+      $("#pList").querySelectorAll(".p-open").forEach(b=>b.onclick=()=>selectEmployee(b.dataset.emp));
       $("#pList").querySelectorAll(".p-cal").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); openAttendanceCalendar(b.dataset.emp); });
       $("#pList").querySelectorAll(".p-menu").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); openRowMenu(e.clientX, e.clientY, menuFor(b.dataset.emp)); });
-      $("#pList").querySelectorAll(".p-emp").forEach(row=>attachRowMenu(row, menuFor(row.dataset.emp)));
+      $("#pList").querySelectorAll(".p-emp").forEach(row=>{
+        row.onclick=(event)=>{ if(!event.target.closest("button,a,input,select,textarea")) selectEmployee(row.dataset.emp); };
+        row.onkeydown=(event)=>{ if(event.key==="Enter"||event.key===" "){ event.preventDefault(); selectEmployee(row.dataset.emp); } };
+        attachRowMenu(row, menuFor(row.dataset.emp));
+      });
     };
     const drawMode=()=>{
       $("#pModes").querySelectorAll("[data-mode]").forEach(b=>b.classList.toggle("active",b.dataset.mode===_peopleMode));
@@ -1247,8 +1270,9 @@ async function renderPeople(){
       if($("#pAddOt")) $("#pAddOt").onclick=()=>addOvertimeDialog();
     };
     drawList(); drawDetail(); loadPwRequests(); loadIdentityRequests();
-    $("#pSearch").oninput=e=>drawList(e.target.value);
-    node.querySelectorAll("[data-profile-filter]").forEach(button=>button.onclick=()=>{ _peopleProfileFilter=button.dataset.profileFilter; node.querySelectorAll("[data-profile-filter]").forEach(x=>x.classList.toggle("active",x===button)); drawList($("#pSearch").value); });
+    $("#pSearch").oninput=e=>{ drawList(e.target.value); drawDetail(); };
+    node.querySelectorAll("[data-profile-filter]").forEach(button=>button.onclick=()=>{ _peopleProfileFilter=button.dataset.profileFilter; node.querySelectorAll("[data-profile-filter]").forEach(x=>x.classList.toggle("active",x===button)); drawList($("#pSearch").value); drawDetail(); });
+    $("#pRefresh").onclick=()=>{ clearApiReadCache(); state.employees=[]; state.empById={}; renderPeople().then(()=>toast("อัปเดตทะเบียนพนักงานแล้ว","good")); };
     $("#pAdd").onclick=()=>employeeDialog(null);
     $("#pDemo").onclick=()=>openThreeMonthPayrollDemo();
     $("#pExport").onclick=()=>exportEmployeesCSV();
@@ -2579,12 +2603,12 @@ async function renderOwner(){
     const wdLabel=(s.workdays||"").split(",").filter(x=>x!=="").map(d=>DOW_SHORT[+d]).join(" ")||"—";
     const paydayText=s.pay_frequency==="semimonthly"?(payDayLabel(s.pay_day_2)+" และ "+payDayLabel(s.pay_day_1)):(s.pay_frequency==="weekly"?"ทุกวันศุกร์":payDayLabel(s.pay_day_1));
     node.innerHTML=`
-      <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">ทะเบียนเวลาทำงาน</div><h2>Timesheet</h2><p>ดูเวลาทั้งเดือนของทุกคนในตารางเดียว · สลับไปหน้ารายวันเพื่อลงเวลาหรือแก้ไข</p></div>
+      <div class="directory-page-head bvn-page-head timesheet-page-head"><div><div class="route-eyebrow">ทะเบียนเวลาทำงาน</div><h2>Timesheet</h2><p>ตรวจทั้งเดือน เลือกพนักงาน และแก้ไขเวลาได้จากหน้าเดียว</p></div>
         <div class="time-month-nav" id="pmNav"><button class="btn sub sm" id="pmPrev" aria-label="เดือนก่อน" title="เดือนก่อน">‹</button><b id="pmLabel" style="min-width:120px;text-align:center">—</b><button class="btn sub sm" id="pmNext" aria-label="เดือนถัดไป" title="เดือนถัดไป">›</button></div>
       </div>
-      <div class="ts-viewtabs" role="group" aria-label="มุมมอง Timesheet"><button class="active" data-tsview="month">ทั้งเดือน (สรุปปิดงวด)</button><button data-tsview="day">รายวัน (ลงเวลา/แก้ไข)</button></div>
+      <section class="ts-unified-intro" aria-label="ขั้นตอนใช้งาน Timesheet"><span><b>1</b>เลือกเดือนและพนักงาน</span><i></i><span><b>2</b>ตรวจเวลาเข้า–ออก</span><i></i><span><b>3</b>แก้ไขเฉพาะรายการที่จำเป็น</span><i></i><span><b>4</b>ส่งต่อ Payroll</span></section>
 
-      <div class="ts-view ts-exception-view" data-tsview="month">
+      <div class="ts-exception-view">
         <div class="ts-exception-note"><div><b>ตรวจข้อยกเว้นก่อนปิดงวด</b><span id="pmShiftNote">กำลังโหลดเกณฑ์เวลา…</span></div><span class="sub">เลือกพนักงานเพื่อดูทุกวันในเดือนที่เลือกและแก้ไขเวลา</span></div>
         <div class="ts-exception-layout">
           <section class="panel ts-exception-main"><div class="head"><div><b>สถานะพนักงาน</b><span class="sub">เรียงคนที่ต้องติดตามก่อน</span></div><span id="pmRosterCount" class="badge">—</span></div><div class="body flush"><div id="pmMatrix" class="pm-exception-host"><div class="empty">กำลังโหลด…</div></div></div><div id="pmDetail" class="pm-detail"></div></section>
@@ -2592,72 +2616,13 @@ async function renderOwner(){
         </div>
       </div>
 
-      <div class="ts-view owner-time-workspace" data-tsview="day" style="display:none">
-        <section class="time-ledger-head"><div><div class="route-eyebrow">Attendance ledger</div><h2>รายการลงเวลารายวัน</h2><p>ตรวจเวลาเข้า–ออกตามช่วงวันที่ แล้วแก้เฉพาะรายการที่จำเป็น</p></div>
-          <div class="time-ledger-actions"><select id="ownEmp" aria-label="กรองพนักงาน"></select><button class="btn ok sm" id="ownIn">ลงเวลาเข้า</button><button class="btn sub sm" id="ownOut">ลงเวลาออก</button></div>
-        </section>
-        ${incompleteWarningHtml(data.incompleteDays)}
-        <section class="panel time-ledger"><div class="head ledger-head-wrap"><div class="ledger-title"><span class="ledger-title-icon" aria-hidden="true">▦</span><div><b>ทะเบียนเวลาเข้า–ออก</b><span class="sub">หนึ่งแถวต่อพนักงานต่อวัน · คลิกแถวเพื่อดูรายละเอียด</span></div></div><div class="spacer"></div><div class="time-range" role="group" aria-label="ช่วงวันที่ Timesheet"><button class="active" data-att-period="current">เดือนนี้</button><button data-att-period="previous">เดือนก่อน</button><label>เริ่ม<input id="attStart" type="date"></label><label>สิ้นสุด<input id="attEnd" type="date"></label></div><div class="ledger-filter" role="group" aria-label="กรองรายการลงเวลา"><button class="btn sub sm" data-att-filter="review">ต้องตรวจ</button><button class="btn sub sm" data-att-filter="today">วันนี้</button><button class="btn sub sm" data-att-filter="complete">ครบแล้ว</button><button class="btn sub sm" data-att-filter="all">ทั้งหมด</button></div><button class="btn sub sm" id="expAttBtn">ส่งออก CSV</button></div>
-          <div class="time-ledger-status" id="attLedgerStatus" aria-live="polite"></div><div class="body flush"><table>
-            <thead><tr><th>วันที่</th><th>พนักงาน</th><th class="num">เวลาเข้า</th><th class="num">เวลาออก</th><th class="num">เวลาทำงาน</th><th>สถานะ</th><th data-nosort>การทำงาน</th></tr></thead>
-            <tbody id="ownAtt"><tr><td colspan="7"><div class="empty">กำลังโหลด…</div></td></tr></tbody>
-          </table></div>
-        </section>
-      </div>`;
-    // Timesheet route: full-month team matrix (default) + a day-level ledger for
-    // manual attendance. Payroll has its own route; this stays focused on time.
+      `;
+    // Timesheet is a single monthly review surface. A selected employee opens
+    // daily details inline, so there is no duplicate attendance ledger below.
     if(!ownerState.pmMonth) ownerState.pmMonth=new Date();
     $("#pmPrev").onclick=()=>shiftPersonMonth(-1);
     $("#pmNext").onclick=()=>shiftPersonMonth(1);
-    const sel=$("#ownEmp");
-    const fillSel=()=>{ sel.innerHTML=`<option value="">ทุกคน</option>`+(state.employees||[]).map(e=>`<option value="${esc(e.id)}"${e.id===ownerState.emp?" selected":""}>${esc(e.name)} (${esc(e.id)})</option>`).join(""); };
-    if(!state.employees||!state.employees.length){ try{ await loadEmployees(true); }catch(_){} }
-    fillSel();
-    const setAttRange=(kind="current")=>{ const range=payrollRange(kind); ownerState.attRange=kind; ownerState.attStart=range.start; ownerState.attEnd=range.end; $("#attStart").value=range.start; $("#attEnd").value=range.end; node.querySelectorAll("[data-att-period]").forEach(b=>b.classList.toggle("active",b.dataset.attPeriod===kind)); };
-    if(!ownerState.attStart||!ownerState.attEnd) setAttRange("current"); else { $("#attStart").value=ownerState.attStart; $("#attEnd").value=ownerState.attEnd; }
-    const loadAtt=async()=>{ const tb=$("#ownAtt");
-      try{ const payload={startDate:ownerState.attStart,endDate:ownerState.attEnd}; if(ownerState.emp)payload.employeeId=ownerState.emp; const a=await api("admin_attendance_days",payload);
-        const days=a.days||[];
-        const today=todayISO();
-        const needsReview=d=>d.status!=="complete";
-        const reviewCount=days.filter(needsReview).length;
-        if(!ownerState.filter) ownerState.filter=reviewCount?"review":"all";
-        const shown=days.filter(d=>ownerState.filter==="review"?needsReview(d):ownerState.filter==="today"?d.date===today:ownerState.filter==="complete"?d.status==="complete":true);
-        node.querySelectorAll("[data-att-filter]").forEach(b=>b.classList.toggle("active",b.dataset.attFilter===ownerState.filter));
-        const todayCount=days.filter(d=>d.date===today).length;
-        const statusHost=$("#attLedgerStatus");
-        if(statusHost) statusHost.innerHTML=`<span><i class="ops-dot ready"></i>ครบแล้ว <b>${fmtInt(days.filter(d=>d.status==="complete").length)}</b></span><span><i class="ops-dot review"></i>ต้องตรวจ <b>${fmtInt(reviewCount)}</b></span><span><i class="ops-dot today"></i>วันนี้ <b>${fmtInt(todayCount)}</b></span><small>กำลังแสดง ${fmtInt(shown.length)} จาก ${fmtInt(days.length)} รายการ</small>`;
-        tb.innerHTML=shown.length? shown.map((d,i)=>{
-          const isToday=d.date===today;
-          let act="";
-          if(isToday && !d.checkIn) act+=`<button class="btn ok sm" data-attin="${i}" style="margin-left:8px">ลงเวลาเข้า</button>`;
-          else if(isToday && !d.checkOut) act+=`<button class="btn danger sm" data-attout="${i}" style="margin-left:8px">ลงเวลาออก</button>`;
-          const person=esc(d.name||empName(d.employeeId)||d.employeeId);
-          const status=d.status==="complete"?'<span class="badge">ครบ</span>':d.checkIn?'<span class="badge amber">รอออก</span>':'<span class="badge red">ไม่ครบ</span>';
-          const rowState=d.status==="complete"?"complete":d.checkIn?"open":"review";
-          return `<tr data-att="${i}" class="att-row ${rowState}${isToday?" is-today":""}">
-          <td>${fmtDate(d.date)}</td><td class="person">${person}<span class="sub">${esc(d.employeeId||"")}</span></td><td class="num"><span class="time-stamp in${d.checkIn?"":" empty"}">${esc(d.checkIn||"—")}</span></td><td class="num"><span class="time-stamp out${d.checkOut?"":" empty"}">${esc(d.checkOut||"—")}</span></td>
-          <td class="num">${d.workedMinutes?fmtHours(d.workedMinutes):"—"}</td><td>${status}</td>
-          <td class="num time-ledger-row-actions">${act}</td></tr>`;}).join("")
-        : `<tr><td colspan="7"><div class="empty">${ownerState.filter==="review"?"ไม่มีรายการที่ต้องตรวจ":ownerState.filter==="today"?"ยังไม่มีบันทึกเวลาวันนี้":"ไม่มีบันทึกเวลา"}</div></td></tr>`;
-        const voidDay=(d,btn)=>voidAttendanceDay(d, loadAtt, btn);
-        tb.querySelectorAll("[data-attin]").forEach(b=>b.onclick=()=>adminClock("check_in", shown[+b.dataset.attin].employeeId, loadAtt, b));
-        tb.querySelectorAll("[data-attout]").forEach(b=>b.onclick=()=>adminClock("check_out", shown[+b.dataset.attout].employeeId, loadAtt, b));
-        tb.querySelectorAll("tr[data-att]").forEach(tr=>{ const d=shown[+tr.dataset.att];
-          tr.title="เปิดรายละเอียด Timesheet";
-          tr.onclick=(event)=>{ if(!event.target.closest("button")) openAttendanceRecordDialog(d,loadAtt); };
-          attachRowMenu(tr, [{label:"ยกเลิกบันทึกวันนี้", danger:true, fn:()=>voidDay(d)}]); });
-      }catch(err){ tb.innerHTML=`<tr><td colspan="7"><div class="empty">${esc(err.message)}</div></td></tr>`; } };
-    sel.onchange=()=>{ ownerState.emp=sel.value; loadAtt(); };
-    node.querySelectorAll("[data-att-period]").forEach(b=>b.onclick=()=>{ setAttRange(b.dataset.attPeriod); loadAtt(); });
-    [$("#attStart"),$("#attEnd")].forEach(input=>input.onchange=()=>{ ownerState.attRange="custom"; ownerState.attStart=$("#attStart").value; ownerState.attEnd=$("#attEnd").value; node.querySelectorAll("[data-att-period]").forEach(b=>b.classList.remove("active")); loadAtt(); });
-    node.querySelectorAll("[data-att-filter]").forEach(b=>b.onclick=()=>{ ownerState.filter=b.dataset.attFilter; loadAtt(); });
-    $("#ownIn").onclick=()=>adminClock("check_in", null, null, $("#ownIn"));
-    $("#ownOut").onclick=()=>adminClock("check_out", null, null, $("#ownOut"));
-    $("#expAttBtn").onclick=()=>attendanceExportDialog(ownerState.attStart,ownerState.attEnd);
-    const showView=(v)=>{ node.querySelectorAll(".ts-view").forEach(x=>x.style.display=x.dataset.tsview===v?"":"none"); node.querySelectorAll("button[data-tsview]").forEach(b=>b.classList.toggle("active",b.dataset.tsview===v)); const nav=$("#pmNav"); if(nav) nav.style.visibility=v==="month"?"visible":"hidden"; ownerState.tsView=v; if(v==="month") loadPersonMonth(); else loadAtt(); };
-    node.querySelectorAll("button[data-tsview]").forEach(b=>b.onclick=()=>showView(b.dataset.tsview));
-    showView(ownerState.tsView||"month");
+    loadPersonMonth();
   }catch(err){ errorBox(node, err, renderOwner); }
 }
 
@@ -3519,53 +3484,49 @@ async function renderSettings(){
   node.innerHTML=`
     ${groupTabsHtml("settings")}
     <div class="settings-workspace">
-    <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">การควบคุมระบบ</div><h2>ตั้งค่าบริษัทและนโยบายการทำงาน</h2><p>เริ่มจากกติกาที่มีผลต่อเวลาและสลิปก่อน ส่วนระบบทั่วไปอยู่ด้านล่าง</p></div><div class="directory-count">สิทธิ์การใช้งาน<br><b>${esc(ROLE_LABEL[state.role]||"ผู้ดูแล")}</b></div></div>
-    <section class="settings-command" aria-label="การตั้งค่าหลัก"><div class="settings-command-head"><div><span class="settings-kicker">เริ่มจากสิ่งสำคัญ</span><h3>นโยบายที่กระทบการจ่ายเงินเดือน</h3><p>แก้ค่าแล้วใช้กับพนักงานตามนโยบายของบริษัทในรอบคำนวณถัดไป</p></div><span class="settings-command-status"><i></i> ตรวจสอบก่อนออกสลิป</span></div><div class="settings-command-grid"><button type="button" class="settings-command-card is-payroll" data-settings-action="social"><span class="settings-command-icon" aria-hidden="true">${lineIcon("bill")}</span><span><b>เงินสมทบประกันสังคม</b><small id="settingsSsoStatus">กำลังโหลดนโยบาย…</small></span><em>ตั้งค่า ›</em></button><button type="button" class="settings-command-card is-time" data-settings-action="work"><span class="settings-command-icon" aria-hidden="true">${lineIcon("clock")}</span><span><b>กะงานและการลงเวลา</b><small id="settingsWorkStatus">กำลังโหลดนโยบาย…</small></span><em>ตั้งค่า ›</em></button><button type="button" class="settings-command-card" data-settings-action="document"><span class="settings-command-icon" aria-hidden="true">${lineIcon("file")}</span><span><b>ข้อมูลบนเอกสาร</b><small>ชื่อบริษัท โลโก้ และผู้ลงนาม</small></span><em>แก้ไข ›</em></button></div></section>
-    <div class="setting-group-label">นโยบายเงินเดือนและเวลาทำงาน</div>
-    <div class="panel"><div class="head"><h2>บริษัทและโลโก้เอกสาร</h2><span class="sub" style="margin-left:8px">ใช้กับ Timesheet และสลิปเงินเดือน</span><div class="spacer"></div><button class="btn" id="editDocumentIdentity">แก้ไขข้อมูลเอกสาร</button></div><div class="body"><p class="sub" style="margin:0">ตั้งชื่อบริษัท ที่อยู่ เลขผู้เสียภาษี ผู้ลงนาม และโลโก้ที่ปรากฏบนเอกสารพนักงาน</p></div></div>
-    <div class="setting-group-label">นโยบายบริษัท</div>
-    <div class="panel"><div class="head"><h2>เงินสมทบกองทุนประกันสังคม</h2><span class="sub" style="margin-left:8px">นโยบายเดียว ใช้กับสลิปของพนักงานทุกคน</span>
-      <div class="spacer"></div><button class="btn" id="editSocialSecurity">ตั้งค่าประกันสังคม</button></div>
+    <div class="directory-page-head bvn-page-head settings-page-head"><div><div class="route-eyebrow">การควบคุมระบบ</div><h2>ตั้งค่าบริษัทและนโยบาย</h2><p>กำหนดเอกสาร กะงาน และสิทธิ์ที่ใช้ทั้งบริษัท</p></div><div class="directory-count">สิทธิ์<br><b>${esc(ROLE_LABEL[state.role]||"ผู้ดูแล")}</b></div></div>
+    <section class="settings-command settings-command-compact" aria-label="การตั้งค่าหลัก"><div class="settings-command-head"><div><span class="settings-kicker">ตั้งค่าหลัก</span><h3>สิ่งที่มีผลต่อเวลาและสลิป</h3></div><span class="settings-command-status"><i></i> ตรวจสอบก่อนออกสลิป</span></div><div class="settings-command-grid"><button type="button" class="settings-command-card" data-settings-action="document"><span class="settings-command-icon" aria-hidden="true">${lineIcon("file")}</span><span><b>ข้อมูลบริษัทและเอกสาร</b><small>ชื่อบริษัท โลโก้ ผู้ลงนาม</small></span><em>แก้ไข ›</em></button><button type="button" class="settings-command-card is-time" data-settings-action="work"><span class="settings-command-icon" aria-hidden="true">${lineIcon("clock")}</span><span><b>กะงานและการลงเวลา</b><small id="settingsWorkStatus">กำลังโหลดนโยบาย…</small></span><em>ตั้งค่า ›</em></button><button type="button" class="settings-command-card is-payroll" data-settings-action="social"><span class="settings-command-icon" aria-hidden="true">${lineIcon("bill")}</span><span><b>ประกันสังคม</b><small id="settingsSsoStatus">กำลังโหลดนโยบาย…</small></span><em>ตั้งค่า ›</em></button></div></section>
+    <div class="setting-group-label">ภาพรวมนโยบายที่ใช้งาน</div>
+    <section class="settings-core-grid" aria-label="ภาพรวมนโยบาย">
+    <div class="panel"><div class="head"><h2>ประกันสังคม</h2><div class="spacer"></div><button class="btn sub sm" id="editSocialSecurity">แก้ไข</button></div>
       <div class="body" id="socialSecuritySummary"><div class="empty">กำลังโหลดนโยบายประกันสังคม…</div></div>
     </div>
-    <div class="panel"><div class="head"><h2>กะงานและกติกาลงเวลา</h2><span class="sub" style="margin-left:8px">เวลาเข้า–ออก · สาย · พัก · OT · วันทำงาน</span>
-      <div class="spacer"></div><button class="btn" id="editWorkRules">แก้ไขเวลาทำงาน</button></div>
+    <div class="panel"><div class="head"><h2>กะงานและเวลา</h2><div class="spacer"></div><button class="btn sub sm" id="editWorkRules">แก้ไข</button></div>
       <div class="body" id="workRulesSummary"><div class="empty">กำลังโหลดการตั้งค่าเวลาทำงาน…</div></div>
-    </div>
-    <div class="setting-group-label">ทีมผู้ดูแลและปฏิทินบริษัท</div>
-    <div class="panel"><div class="head"><h2>บัญชีผู้ดูแลระบบ</h2><span class="sub" style="margin-left:8px">จัดการผู้ที่เข้าถึงหลังบ้านและสิทธิ์การใช้งาน</span>
-      <div class="spacer"></div><button class="btn ok sm" id="addAdmin">เพิ่มบัญชี</button></div>
+    </div></section>
+    <div class="setting-group-label">ทีมผู้ดูแล</div>
+    <details class="panel settings-fold"><summary><span><b>บัญชีผู้ดูแลระบบ</b><small>จัดการผู้เข้าถึงและสิทธิ์การใช้งาน</small></span><span aria-hidden="true">⌄</span></summary><div class="body settings-fold-toolbar"><button class="btn ok sm" id="addAdmin">เพิ่มบัญชี</button></div>
       <div class="body flush"><table>
         <thead><tr><th>ชื่อผู้ใช้</th><th>รหัสผ่าน</th><th>ชื่อแสดง</th><th>สิทธิ์</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
         <tbody id="adminRows"><tr><td colspan="6"><div class="empty">กำลังโหลด…</div></td></tr></tbody>
       </table></div>
-    </div>
-    <div class="panel"><div class="head"><h2>วันหยุดบริษัท</h2><span class="sub" style="margin-left:8px">เติมวันหยุดมาตรฐานอัตโนมัติ · เพิ่มวันพิเศษได้</span>
-      <div class="spacer"></div><button class="btn sub sm" id="importHoliday">เติมปีปัจจุบัน</button><button class="btn ok sm" id="addHoliday">เพิ่มวันพิเศษ</button></div>
-      <div class="body flush"><table id="holTable"><thead><tr><th>วันที่</th><th>ชื่อวันหยุด</th><th data-nosort></th></tr></thead>
+    </details>
+    <div class="setting-group-label">ปฏิทินและแอปพนักงาน</div>
+    <section class="settings-support-grid" aria-label="ปฏิทินและแอปพนักงาน">
+    <div class="panel settings-holiday-panel"><div class="head"><h2>วันหยุดบริษัท</h2><div class="spacer"></div><button class="btn sub sm" id="importHoliday">เติมปีนี้</button><button class="btn ok sm" id="addHoliday">เพิ่ม</button></div>
+      <div class="body flush"><table id="holTable"><thead><tr><th>วันที่</th><th>ชื่อวันหยุด</th><th class="holiday-action-head" data-nosort>ลบ</th></tr></thead>
       <tbody id="holRows"><tr><td colspan="3"><div class="empty">กำลังโหลด…</div></td></tr></tbody></table></div>
     </div>
-    <div class="setting-group-label">แอปพนักงานและข้อมูลสำรอง</div>
-    <div class="panel"><div class="head"><h2>เวอร์ชันแอปพนักงาน</h2><span class="sub" style="margin-left:8px">ปล่อยอัปเดต APK ให้พนักงาน (ไฟล์อยู่บน Google Drive)</span></div>
+    <div class="panel settings-app-panel"><div class="head"><h2>เวอร์ชัน APK</h2><span class="badge blue">แอปพนักงาน</span></div>
       <div class="body">
         <div class="grid2">
-          <div class="field"><label>เลขเวอร์ชัน (version code)</label><input id="appVC" type="number" min="0" step="1"></div>
-          <div class="field"><label>ชื่อเวอร์ชัน</label><input id="appVN" type="text" placeholder="1.0.1"></div>
+          <div class="field"><label>Version code</label><input id="appVC" type="number" min="0" step="1"></div>
+          <div class="field"><label>Version name</label><input id="appVN" type="text" placeholder="1.0.1"></div>
         </div>
-        <div class="field"><label>ลิงก์ดาวน์โหลด APK (Drive)</label><input id="appUrl" type="url" placeholder="https://drive.google.com/uc?export=download&confirm=t&id=..."></div>
+        <div class="field"><label>ลิงก์ดาวน์โหลด APK</label><input id="appUrl" type="url" placeholder="https://drive.google.com/..."></div>
         <div class="field"><label>หมายเหตุอัปเดต</label><input id="appNotes" type="text" placeholder="เช่น ยืนยันข้อมูลพนักงาน ตรวจ Timesheet และออกสลิป"></div>
-        <label class="check" style="margin-top:10px"><input type="checkbox" id="appMand"> บังคับอัปเดตก่อนใช้งาน</label>
-        <div class="notice blue" id="beVer" style="margin-top:12px">กำลังตรวจเวอร์ชันหลังบ้าน…</div>
-        <div class="notice" id="appPolicyHint" style="margin-top:8px">ตรวจนโยบายเวอร์ชันแอป…</div>
-        <div class="toolbar"><button class="btn sub sm" id="useAppNotesTemplate">ใช้ข้อความแนะนำ</button><button class="btn" id="saveAppVer">บันทึกเวอร์ชันแอป</button></div>
+        <div class="settings-app-actions"><label class="check"><input type="checkbox" id="appMand"> บังคับอัปเดตก่อนใช้งาน</label><div class="spacer"></div><button class="btn sub sm" id="useAppNotesTemplate">ใช้ข้อความแนะนำ</button><button class="btn sm" id="saveAppVer">บันทึก</button></div>
+        <div class="notice blue" id="beVer">กำลังตรวจเวอร์ชันหลังบ้าน…</div>
+        <div class="notice" id="appPolicyHint">ตรวจนโยบายเวอร์ชันแอป…</div>
       </div>
-    </div>
-    <div class="panel"><div class="head"><h2>สำรองข้อมูล</h2><span class="sub" style="margin-left:8px">ดึงข้อมูลออกเก็บเอง — ข้อมูลเป็นของคุณ ไม่ถูกจับเป็นตัวประกัน</span></div>
+    </div></section>
+    <div class="setting-group-label">ข้อมูลสำรอง</div>
+    <details class="panel settings-fold"><summary><span><b>สำรองข้อมูล</b><small>ดาวน์โหลดข้อมูลตั้งค่าและพนักงานเป็น JSON</small></span><span aria-hidden="true">⌄</span></summary>
       <div class="body">
         <p class="sub" style="margin:0 0 12px">ดาวน์โหลดข้อมูลตั้งค่า + รายชื่อพนักงาน + ค่าจ้าง + จุดเช็กอิน + วันหยุด + รายการงวดเงินเดือน เป็นไฟล์ JSON เดียว (เก็บไว้สำรอง หรือย้ายระบบในอนาคต) สำหรับเวลาเข้า-ออกให้ใช้ปุ่มส่งออก CSV ในหน้าเวลาทำงาน</p>
         <div class="toolbar"><button class="btn" id="backupBtn">ดาวน์โหลดไฟล์สำรอง (JSON)</button></div>
       </div>
-    </div>
+    </details>
     <div class="setting-group-label">คำสั่งที่ย้อนกลับไม่ได้</div>
     <div class="panel" style="border-color:#fecaca"><div class="head"><h2>เก็บเวลาเช็กอิน/เอาต์ 6 เดือน</h2><span class="sub" style="margin-left:8px">Archive ลงเครื่องก่อนล้างข้อมูลเก่า (การล้างย้อนกลับไม่ได้)</span>
       <div class="spacer"></div><button class="btn sub sm" id="readAttendanceArchive">อ่านไฟล์ Archive</button><button class="btn sm" id="createAttendanceArchive">สร้าง Archive</button></div>
@@ -3599,7 +3560,10 @@ async function renderSettings(){
     try{ const d=await api("admin_get_settings"); socialSecurityDialog(d.settings||{}); }
     catch(err){ toast(err.message,"bad"); }
   };
-  $("#editDocumentIdentity").onclick=openDocumentIdentity;
+  // The compact settings layout opens document identity from the primary
+  // command card, so the old standalone button may not be rendered.
+  const documentIdentityButton=$("#editDocumentIdentity");
+  if(documentIdentityButton) documentIdentityButton.onclick=openDocumentIdentity;
   $("#editWorkRules").onclick=openWorkRules;
   $("#editSocialSecurity").onclick=openSocialSecurity;
   node.querySelectorAll("[data-settings-action]").forEach(button=>button.onclick=()=>{
@@ -3655,7 +3619,7 @@ function socialSecurityDialog(s){
 async function loadSocialSecuritySummary(){
   const box=$("#socialSecuritySummary"); if(!box) return;
   try{const s=(await api("admin_get_settings")).settings||{}, enabled=String(s.sso_enabled).toLowerCase()==="true";
-    box.innerHTML=`<div class="grid3"><div class="metric"><span>สถานะ</span><b>${enabled?"หักอัตโนมัติ":"ไม่หัก"}</b><small>ใช้กับสลิปทุกคน</small></div><div class="metric"><span>อัตราเงินสมทบ</span><b>${esc(s.sso_rate||"5")}%</b><small>คิดจากรายได้ก่อนหัก</small></div><div class="metric"><span>เพดานต่อเดือน</span><b>${fmtBaht(Number(s.sso_cap||750))}</b><small>สูงสุดต่อพนักงาน</small></div></div>`;
+    box.innerHTML=`<div class="policy-brief"><div class="policy-brief-main"><span class="badge ${enabled?"good":"grey"}">${enabled?"เปิดใช้งาน":"ไม่หัก"}</span><b>${enabled?`${esc(s.sso_rate||"5")}%`:"—"}</b><small>อัตราเงินสมทบ</small></div><div class="policy-brief-list"><span>เพดานต่อคน <b>${fmtBaht(Number(s.sso_cap||750))}</b></span><span>ขอบเขต <b>สลิปทุกคน</b></span></div></div>`;
   }catch(err){box.innerHTML=`<div class="empty">${esc(err.message)}</div>`;}
 }
 
@@ -3682,12 +3646,7 @@ async function loadWorkRulesSummary(){
     const labels=[["1","จ."],["2","อ."],["3","พ."],["4","พฤ."],["5","ศ."],["6","ส."],["0","อา."]];
     const active=new Set(String(s.workdays||"1,2,3,4,5").split(","));
     const days=labels.filter(([id])=>active.has(id)).map(([,label])=>label).join(" ")||"ยังไม่ได้เลือก";
-    box.innerHTML=`<div class="grid4">
-      <div class="metric"><span>เวลาเข้างาน</span><b>${esc(normaliseTime(s.shift_start,"09:00"))}</b><small>ผ่อนผัน ${esc(s.shift_grace_min||"5")} นาที</small></div>
-      <div class="metric"><span>เวลาเลิกงาน</span><b>${esc(normaliseTime(s.shift_end,"18:00"))}</b><small>พัก ${esc(s.lunch_break_min||"60")} นาที</small></div>
-      <div class="metric"><span>เริ่ม OT</span><b>เกิน ${esc(s.ot_threshold_hours||"8")} ชม.</b><small>${String(s.holiday_ot_enabled).toLowerCase()==="true"?"วันหยุดคิดเป็น OT":"วันหยุดไม่คิด OT อัตโนมัติ"}</small></div>
-      <div class="metric"><span>วันทำงาน</span><b>${days}</b><small>ใช้กับปฏิทินและเงินเดือน</small></div>
-    </div>`;
+    box.innerHTML=`<div class="policy-brief policy-brief-work"><div class="policy-brief-main"><span class="policy-time">${esc(normaliseTime(s.shift_start,"09:00"))}–${esc(normaliseTime(s.shift_end,"18:00"))}</span><small>เวลาทำงานมาตรฐาน</small></div><div class="policy-brief-list"><span>ผ่อนผัน <b>${esc(s.shift_grace_min||"5")} นาที</b></span><span>พัก <b>${esc(s.lunch_break_min||"60")} นาที</b></span><span>OT <b>เกิน ${esc(s.ot_threshold_hours||"8")} ชม.</b></span><span>วันทำงาน <b>${days}</b></span></div></div>`;
   }catch(err){ box.innerHTML=`<div class="empty">${esc(err.message)}</div>`; }
 }
 async function importHolidays(btn){
@@ -3704,7 +3663,7 @@ async function loadHolidays(){
   const tb=$("#holRows"); if(!tb) return;
   try{ const d=await api("admin_list_holidays"); const hs=d.holidays||[];
     tb.innerHTML=hs.length? hs.map(h=>`<tr><td style="white-space:nowrap">${fmtDate(h.date)}</td><td>${esc(h.name)}</td>
-      <td><div class="row-actions"><button class="btn danger sm" data-holdel="${esc(h.date)}">ลบ</button></div></td></tr>`).join("")
+      <td class="holiday-action"><button type="button" class="holiday-delete" data-holdel="${esc(h.date)}" aria-label="ลบวันหยุด ${esc(h.name)}">ลบ</button></td></tr>`).join("")
       : `<tr><td colspan="3"><div class="empty">ยังไม่มีวันหยุด</div></td></tr>`;
     tb.querySelectorAll("[data-holdel]").forEach(b=>b.onclick=()=>deleteHoliday(b.dataset.holdel));
   }catch(err){ tb.innerHTML=`<tr><td colspan="3"><div class="empty">${esc(err.message)}</div></td></tr>`; }
