@@ -1821,3 +1821,10 @@
   .btn.sub{background:#edf4fa!important;color:#244865!important;border:1px solid #d5e2ee!important}.btn.ghost{background:#e8f2ff!important;color:#115ba9!important}.btn.ok{background:#e2f8ef!important;color:#08704e!important}.btn.danger{background:#fff0f2!important;color:#b7354c!important}
   .side .brand::before{background:#1677e8!important;box-shadow:none!important}.side .foot a{color:#7fc0ff!important}.nav button.active svg,.nav button.active i{color:#1677e8!important}
   #page-dashboard .cc-hero{background:#123c68!important;border-color:#123c68!important}#page-dashboard .cc-ring-panel{background:#0f3458!important}#page-dashboard .cc-summary-tiles .s-blue{background:#1677e8!important}#page-dashboard .cc-summary-tiles .s-amber{background:#e98709!important}#page-dashboard .cc-summary-tiles .s-rose{background:#dc4358!important}#page-dashboard .cc-summary-tiles .s-green{background:#079669!important}
+
+  /* Compact dashboard lower row: content determines height.  Explicit state
+     labels avoid anonymous grid text nodes, which broke Thai words vertically. */
+  #page-dashboard .cc-lower{grid-template-columns:minmax(0,1.25fr) minmax(340px,.75fr)!important;align-items:start!important;margin:0!important}
+  #page-dashboard .cc-lower>.panel{align-self:start;min-height:0!important}.dashboard-personal-time .body,.dashboard-payroll-readiness .body{min-height:0!important}
+  #page-dashboard .pr-top{grid-template-columns:84px minmax(0,1fr);gap:10px}.pr-gauge{width:78px;height:78px}.pr-gauge b{font-size:18px!important}.pr-gauge:after{inset:6px}.pr-states{gap:4px}.pr-states span{grid-template-columns:8px minmax(0,1fr) 26px;min-height:20px;gap:6px}.pr-states em{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:normal;color:#45627c;font-size:10px}.pr-states b{justify-self:end}.pr-next{margin-top:10px;padding:8px}.pr-next small{white-space:normal!important;line-height:1.35}.dashboard-payroll-readiness .body{padding:10px 12px!important}
+  @media(max-width:980px){#page-dashboard .cc-lower{grid-template-columns:1fr!important}}
