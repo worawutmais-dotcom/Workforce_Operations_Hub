@@ -2035,6 +2035,44 @@
   #page-owner .pm-day small{font-size:10px!important}
   #page-owner .pm-day em{font-size:9px!important}
   @media(max-width:700px){#page-owner .pm-recent-days{grid-template-columns:repeat(4,minmax(0,1fr))}#page-owner .pm-day{min-height:50px}}
+
+  /* Daily Timesheet is an operational ledger: dark readable ink, a quiet
+     canvas, and colour only where it communicates an attendance exception. */
+  #page-owner .time-ledger-head .route-eyebrow{color:#155d9d!important;font-weight:600!important}
+  #page-owner .time-ledger-head h2{color:#102a43!important;font-weight:600!important}
+  #page-owner .time-ledger-head p{color:#39566e!important;font-size:11px!important}
+  #page-owner .time-ledger .ledger-head-wrap{align-items:center!important;gap:8px 10px!important;background:#f8fbfd!important}
+  #page-owner .ledger-title{display:flex;align-items:center;gap:8px;min-width:220px}
+  #page-owner .ledger-title-icon{display:grid;place-items:center;width:26px;height:26px;border-radius:6px;background:#e6f0f8;color:#155d9d;font-size:15px;line-height:1}
+  #page-owner .ledger-title b{display:block;color:#102a43!important;font-size:12px!important;font-weight:600!important;line-height:1.2}
+  #page-owner .ledger-title .sub{display:block;margin-top:2px!important;color:#4b6479!important;font-size:10px!important;line-height:1.3}
+  #page-owner .time-range{display:flex;align-items:center;gap:4px;padding:3px;border:1px solid #cbd9e4;border-radius:7px;background:#fff}
+  #page-owner .time-range button{min-height:26px;padding:3px 8px;border:0;border-radius:5px;background:transparent;color:#294861;font:500 10px inherit}
+  #page-owner .time-range button.active{background:#173b62;color:#fff}
+  #page-owner .time-range label{display:flex;align-items:center;gap:4px;padding:0 3px;color:#38546b;font-size:10px;font-weight:500;white-space:nowrap}
+  #page-owner .time-range input{height:25px;max-width:120px;padding:2px 5px;border:1px solid #cbd9e4;border-radius:4px;background:#fff;color:#102a43;font:500 10px inherit}
+  #page-owner .ledger-filter{background:#fff!important;border-color:#cbd9e4!important}
+  #page-owner .ledger-filter .btn{color:#314e66!important;font-weight:500!important}
+  #page-owner .ledger-filter .btn.active{background:#173b62!important;color:#fff!important}
+  #page-owner .time-ledger-status{min-height:38px;background:#f1f6fa!important;color:#294861!important;font-size:11px!important}
+  #page-owner .time-ledger-status b{color:#102a43!important;font-size:13px!important;font-weight:600!important}
+  #page-owner .time-ledger-status small{color:#456177!important;font-size:10px!important}
+  #page-owner .time-ledger thead th{height:34px!important;background:#dfeaf2!important;color:#243f56!important;font-size:10px!important;font-weight:600!important}
+  #page-owner .time-ledger td{height:46px!important;color:#172f45!important;font-size:12px!important}
+  #page-owner .time-ledger .person{color:#102a43!important;font-size:12px!important;font-weight:500!important}
+  #page-owner .time-ledger .person .sub{color:#46647c!important;font-size:10px!important}
+  #page-owner .time-ledger tbody tr:nth-child(even){background:#fbfdff!important}
+  #page-owner .time-ledger tbody tr.att-row.open{background:#fffaf2!important}
+  #page-owner .time-ledger tbody tr.att-row.review{background:#fff7f8!important}
+  #page-owner .time-ledger tbody tr.att-row.is-today{background:#f1f8f6!important}
+  #page-owner .time-stamp{display:inline-flex!important;align-items:center;justify-content:center;min-width:58px;min-height:27px;padding:3px 7px;border:1px solid transparent;border-radius:5px;font-size:11px!important;font-weight:600!important;font-variant-numeric:tabular-nums}
+  #page-owner .time-stamp.in{background:#e8f7f0!important;border-color:#bde7d4!important;color:#087454!important}
+  #page-owner .time-stamp.out{background:#eaf2fb!important;border-color:#c9dced!important;color:#195f9f!important}
+  #page-owner .time-stamp.empty{background:#f3f6f8!important;border-color:#dce5ec!important;color:#667b8e!important;font-weight:500!important}
+  #page-owner .time-ledger td:nth-child(5){color:#102a43!important;font-weight:500!important;font-variant-numeric:tabular-nums}
+  #page-owner .time-ledger .badge{font-size:10px!important;font-weight:600!important}
+  #page-owner .time-ledger-row-actions .btn{font-size:10px!important;font-weight:600!important}
+  @media(max-width:860px){#page-owner .ledger-title{min-width:0}.time-range{order:4;width:100%;overflow:auto}.time-range>*{flex:none}}
 </style>
 </head>
 <body>
@@ -4721,13 +4759,13 @@ async function renderOwner(){
       </div>
 
       <div class="ts-view owner-time-workspace" data-tsview="day" style="display:none">
-        <section class="time-ledger-head"><div><div class="route-eyebrow">ทะเบียนเวลาเข้า–ออก</div><h2>ลงเวลา / แก้ไขรายวัน</h2><p>เลือกช่วงวันที่ · ลงเวลาเข้า–ออกแทน หรือยกเลิกรายการที่ผิด</p></div>
+        <section class="time-ledger-head"><div><div class="route-eyebrow">Attendance ledger</div><h2>รายการลงเวลารายวัน</h2><p>ตรวจเวลาเข้า–ออกตามช่วงวันที่ แล้วแก้เฉพาะรายการที่จำเป็น</p></div>
           <div class="time-ledger-actions"><select id="ownEmp" aria-label="กรองพนักงาน"></select><button class="btn ok sm" id="ownIn">ลงเวลาเข้า</button><button class="btn sub sm" id="ownOut">ลงเวลาออก</button></div>
         </section>
         ${incompleteWarningHtml(data.incompleteDays)}
-        <section class="panel time-ledger"><div class="head ledger-head-wrap"><div><b>รายการลงเวลา</b><span class="sub" style="margin-left:7px">ตารางข้อมูลรายวัน · เลือกพนักงานด้านบนเพื่อกรอง</span></div><div class="spacer"></div><div class="time-range" role="group" aria-label="ช่วงวันที่ Timesheet"><button class="active" data-att-period="current">1–วันนี้</button><button data-att-period="previous">เดือนก่อนเต็มเดือน</button><label>เริ่ม<input id="attStart" type="date"></label><label>สิ้นสุด<input id="attEnd" type="date"></label></div><div class="ledger-filter" role="group" aria-label="กรองรายการลงเวลา"><button class="btn sub sm" data-att-filter="review">ต้องตรวจ</button><button class="btn sub sm" data-att-filter="today">วันนี้</button><button class="btn sub sm" data-att-filter="complete">ครบแล้ว</button><button class="btn sub sm" data-att-filter="all">ทั้งหมด</button></div><button class="btn sub sm" id="expAttBtn">ส่งออก CSV</button></div>
+        <section class="panel time-ledger"><div class="head ledger-head-wrap"><div class="ledger-title"><span class="ledger-title-icon" aria-hidden="true">▦</span><div><b>ทะเบียนเวลาเข้า–ออก</b><span class="sub">หนึ่งแถวต่อพนักงานต่อวัน · คลิกแถวเพื่อดูรายละเอียด</span></div></div><div class="spacer"></div><div class="time-range" role="group" aria-label="ช่วงวันที่ Timesheet"><button class="active" data-att-period="current">เดือนนี้</button><button data-att-period="previous">เดือนก่อน</button><label>เริ่ม<input id="attStart" type="date"></label><label>สิ้นสุด<input id="attEnd" type="date"></label></div><div class="ledger-filter" role="group" aria-label="กรองรายการลงเวลา"><button class="btn sub sm" data-att-filter="review">ต้องตรวจ</button><button class="btn sub sm" data-att-filter="today">วันนี้</button><button class="btn sub sm" data-att-filter="complete">ครบแล้ว</button><button class="btn sub sm" data-att-filter="all">ทั้งหมด</button></div><button class="btn sub sm" id="expAttBtn">ส่งออก CSV</button></div>
           <div class="time-ledger-status" id="attLedgerStatus" aria-live="polite"></div><div class="body flush"><table>
-            <thead><tr><th>วันที่</th><th>พนักงาน</th><th class="num">เข้า</th><th class="num">ออก</th><th class="num">ชั่วโมงทำงาน</th><th>สถานะ</th><th data-nosort></th></tr></thead>
+            <thead><tr><th>วันที่</th><th>พนักงาน</th><th class="num">เวลาเข้า</th><th class="num">เวลาออก</th><th class="num">เวลาทำงาน</th><th>สถานะ</th><th data-nosort>การทำงาน</th></tr></thead>
             <tbody id="ownAtt"><tr><td colspan="7"><div class="empty">กำลังโหลด…</div></td></tr></tbody>
           </table></div>
         </section>
