@@ -2539,13 +2539,14 @@ async function renderOwner(){
       <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">ทะเบียนเวลาทำงาน</div><h2>Timesheet</h2><p>ดูเวลาทั้งเดือนของทุกคนในตารางเดียว · สลับไปหน้ารายวันเพื่อลงเวลาหรือแก้ไข</p></div>
         <div class="time-month-nav" id="pmNav"><button class="btn sub sm" id="pmPrev" aria-label="เดือนก่อน">‹</button><b id="pmLabel" style="min-width:120px;text-align:center">—</b><button class="btn sub sm" id="pmNext" aria-label="เดือนถัดไป">›</button></div>
       </div>
-      <div class="ts-viewtabs" role="group" aria-label="มุมมอง Timesheet"><button class="active" data-tsview="month">ทั้งเดือน (ตาราง)</button><button data-tsview="day">รายวัน (ลงเวลา/แก้ไข)</button></div>
+      <div class="ts-viewtabs" role="group" aria-label="มุมมอง Timesheet"><button class="active" data-tsview="month">สรุปเพื่อปิดงวด</button><button data-tsview="day">รายวัน (ลงเวลา/แก้ไข)</button></div>
 
-      <div class="ts-view" data-tsview="month">
-        <div class="time-key"><span><i class="k-present"></i>มาทำงาน</span><span><i class="k-late"></i>สายหรือเวลาไม่ครบ</span><span><i class="k-absent"></i>ขาดงาน</span><span><i class="k-off"></i>วันหยุด/ยังไม่ถึงวันทำงาน</span><span><i class="k-ot"></i>ทำเกินเวลา</span></div>
-        <div id="pmShiftNote" class="sub" style="margin:0 2px 8px"></div>
-        <div class="panel pm-matrix-panel" style="margin:0"><div class="body flush"><div id="pmMatrix" class="pm-matrix-host"><div class="empty">กำลังโหลด…</div></div></div></div>
-        <div id="pmDetail"></div>
+      <div class="ts-view ts-exception-view" data-tsview="month">
+        <div class="ts-exception-note"><div><b>ตรวจข้อยกเว้นก่อนปิดงวด</b><span id="pmShiftNote">กำลังโหลดเกณฑ์เวลา…</span></div><span class="sub">เลือกพนักงานเพื่อดู 14 วันล่าสุดและแก้ไขเวลา</span></div>
+        <div class="ts-exception-layout">
+          <section class="panel ts-exception-main"><div class="head"><div><b>สถานะพนักงาน</b><span class="sub">เรียงคนที่ต้องติดตามก่อน</span></div><span id="pmRosterCount" class="badge">—</span></div><div class="body flush"><div id="pmMatrix" class="pm-exception-host"><div class="empty">กำลังโหลด…</div></div></div><div id="pmDetail" class="pm-detail"></div></section>
+          <aside class="panel ts-review-rail"><div class="head"><div><b>รายการต้องตรวจ</b><span class="sub">แก้ไขให้ครบก่อนนำไปคำนวณเงินเดือน</span></div><span id="tsReviewCount" class="badge amber">—</span></div><div id="tsReviewQueue" class="body ts-review-list"><div class="empty">กำลังโหลด…</div></div></aside>
+        </div>
       </div>
 
       <div class="ts-view owner-time-workspace" data-tsview="day" style="display:none">
@@ -2702,83 +2703,59 @@ async function loadPersonMonth(){
       return {e,present,late,absent,incomplete,workedMin,full8,cells,pl:payBy[e.id]||{}};
     });
     { const sn=$("#pmShiftNote"); if(sn) sn.textContent=`เกณฑ์สาย: เข้าหลัง ${ownerState.pmShift}`; }
-    pmRenderMatrix();
     if(!ownerState.pmSel){ const best=pmModel.slice().sort((a,b)=>b.workedMin-a.workedMin)[0]; ownerState.pmSel=best?best.e.id:null; }
+    pmRenderMatrix();
     pmRenderDetail();
   }catch(err){ const mx=$("#pmMatrix"); if(mx) mx.innerHTML=`<div class="empty">${esc(err.message)}</div>`; }
 }
 function pmRenderMatrix(){
   const host=$("#pmMatrix"); if(!host) return;
   if(!pmModel.length){ host.innerHTML=`<div class="empty">ไม่มีพนักงานที่ใช้งานอยู่</div>`; return; }
-  const r=pmRange();
-  const dcol={present:"#10b981",late:"#f59e0b",absent:"#ef4444"};
-  let head=`<th class="pm-name pm-corner">พนักงาน</th>`;
-  for(let dn=1;dn<=r.lastD;dn++){ const dow=new Date(r.y,r.m,dn).getDay(); const wk=dow===0||dow===6; head+=`<th class="pm-d${wk?" wk":""}">${dn}</th>`; }
-  head+=`<th class="pm-tot">มา</th><th class="pm-tot">สาย</th><th class="pm-tot">ขาด</th><th class="pm-tot">ชม.</th>`;
-  const rows=pmModel.map(m=>{
-    const cells=m.cells.map(c=>{
-      if(c.base==="future") return `<td class="pm-x pm-future"${c.isToday?' data-today':''}></td>`;
-      if(c.base==="off") return `<td class="pm-x pm-off"${c.isToday?' data-today':''} title="${c.iso}${c.holName?' · '+esc(c.holName):''}">·</td>`;
-      const col=dcol[c.base]||"#cbd5e1";
-      const io=c.d?`${esc(c.d.checkIn||'—')}–${esc(c.d.checkOut||'—')}${c.d.workedMinutes?' · '+fmtHours(c.d.workedMinutes):''}`:c.iso;
-      return `<td class="pm-x pm-has${c.isToday?' is-today':''}" data-emp="${esc(m.e.id)}" data-iso="${c.iso}" style="--pc:${col}" title="${c.iso} · ${io}">${c.ot?'<i class="pm-ot"></i>':''}<span>${c.dn}</span></td>`;
-    }).join("");
-    const init=(m.e.name||m.e.id).trim().slice(0,2);
-    return `<tr class="pm-mrow${ownerState.pmSel===m.e.id?' active':''}" data-emp="${esc(m.e.id)}">
-      <th class="pm-name"><div class="pm-av">${esc(init)}</div><div class="pm-nm">${esc(m.e.name||m.e.id)}<span class="sub">${esc(m.e.id)}${m.e.role?' · '+esc(m.e.role):''}</span></div></th>
-      ${cells}
-      <td class="pm-tot pm-tot-p">${m.present+m.late}</td><td class="pm-tot pm-tot-l">${m.late}</td><td class="pm-tot pm-tot-a">${m.absent}</td><td class="pm-tot pm-tot-h">${fmtHours(m.workedMin)}</td></tr>`;
+  const ordered=pmModel.slice().sort((a,b)=>(b.incomplete-a.incomplete)||(b.absent-a.absent)||(b.late-a.late)||(a.workedMin-b.workedMin));
+  const score=m=>{ const expected=Math.max(1,m.present+m.late+m.absent); return Math.max(0,Math.round(((m.present+Math.max(0,m.late-m.incomplete)*.6)/expected)*100)); };
+  const summary=m=>`${m.incomplete?`รอออก ${m.incomplete} · `:""}มา ${m.present+m.late} · สาย ${m.late} · ขาด ${m.absent}`;
+  const rows=ordered.map((m,i)=>{ const active=ownerState.pmSel===m.e.id, pct=score(m), needs=m.incomplete+m.absent+m.late;
+    return `<button class="pm-exception-row${active?" active":""}" data-pm-emp="${esc(m.e.id)}" type="button">
+      <span class="pm-rank">${i+1}</span><span class="pm-av">${esc((m.e.name||m.e.id).trim().slice(0,2))}</span>
+      <span class="pm-person"><b>${esc(m.e.name||m.e.id)}</b><small>${esc(m.e.id)}${m.e.role?` · ${esc(m.e.role)}`:""}</small><em>${summary(m)}</em></span>
+      <span class="pm-readiness ${needs?"watch":"good"}"><b>${pct}%</b><small>${needs?"ต้องติดตาม":"พร้อม"}</small></span>
+    </button>`;
   }).join("");
-  host.innerHTML=`<div class="pm-matrix-scroll"><table class="pm-matrix"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
-  // Selecting an employee only moves the highlight + re-renders the detail panel.
-  // Toggle the active class in place instead of rebuilding the whole matrix DOM.
-  const setActive=(id)=>{ ownerState.pmSel=id; host.querySelectorAll(".pm-mrow").forEach(r=>r.classList.toggle("active",r.dataset.emp===id)); pmRenderDetail(); };
-  host.querySelectorAll(".pm-mrow .pm-name").forEach(th=>th.onclick=()=>{ setActive(th.closest(".pm-mrow").dataset.emp); const d=$("#pmDetail"); if(d) d.scrollIntoView({behavior:"smooth",block:"nearest"}); });
-  host.querySelectorAll("td.pm-has").forEach(td=>td.onclick=()=>{ const m=pmModel.find(x=>x.e.id===td.dataset.emp); const c=m&&m.cells.find(x=>x.iso===td.dataset.iso); if(c&&c.d) openAttendanceRecordDialog(c.d, ()=>loadPersonMonth()); else setActive(td.dataset.emp); });
+  host.innerHTML=rows;
+  const count=$("#pmRosterCount"); if(count) count.textContent=`${pmModel.length} คน`;
+  host.querySelectorAll("[data-pm-emp]").forEach(row=>row.onclick=()=>pmSelectEmployee(row.dataset.pmEmp));
+  pmRenderReviewQueue();
+}
+function pmSelectEmployee(id){ ownerState.pmSel=id; pmRenderMatrix(); pmRenderDetail(); }
+function pmRenderReviewQueue(){
+  const host=$("#tsReviewQueue"); if(!host) return;
+  const items=[];
+  pmModel.forEach(m=>m.cells.forEach(c=>{
+    if(c.base==="future"||c.base==="off") return;
+    const incomplete=!!(c.d&&c.d.status!=="complete");
+    const kind=incomplete?"เวลาไม่ครบ":c.base==="absent"?"ไม่มีบันทึกเวลา":c.base==="late"?"เข้างานสาย":"";
+    if(kind) items.push({m,c,kind,priority:incomplete?0:c.base==="absent"?1:2});
+  }));
+  items.sort((a,b)=>a.priority-b.priority||b.c.iso.localeCompare(a.c.iso));
+  const badge=$("#tsReviewCount"); if(badge) badge.textContent=`${items.length} รายการ`;
+  if(!items.length){ host.innerHTML=`<div class="ts-review-empty"><span>✓</span><b>ไม่มีรายการค้างตรวจ</b><small>ข้อมูลเวลาพร้อมสำหรับการคำนวณงวดนี้</small></div>`; return; }
+  host.innerHTML=items.slice(0,8).map(x=>`<button class="ts-review-row" data-review-emp="${esc(x.m.e.id)}" data-review-iso="${x.c.iso}" type="button"><span class="ts-review-dot p${x.priority}"></span><span><b>${esc(x.m.e.name||x.m.e.id)}</b><small>${fmtDate(x.c.iso)} · ${x.kind}</small></span><i>ตรวจ</i></button>`).join("")+(items.length>8?`<div class="ts-more">และอีก ${items.length-8} รายการ</div>`:"");
+  host.querySelectorAll("[data-review-emp]").forEach(row=>row.onclick=()=>{ const m=pmModel.find(x=>x.e.id===row.dataset.reviewEmp), c=m&&m.cells.find(x=>x.iso===row.dataset.reviewIso); pmSelectEmployee(row.dataset.reviewEmp); if(c&&c.d) openAttendanceRecordDialog(c.d,()=>loadPersonMonth()); });
 }
 function pmRenderDetail(){
   const host=$("#pmDetail"); if(!host) return;
   const m=pmModel.find(x=>x.e.id===ownerState.pmSel); if(!m){ host.innerHTML=""; return; }
-  const r=pmRange(), pl=m.pl;
-  const daily=(pl.workDays&&pl.baseGross)?Math.round(pl.baseGross/pl.workDays):0;
-  const net=pl.netPay!=null?pl.netPay:(pl.grossPay||0);
-  const dc={present:["#d1fae5","#047857"],late:["#fdecd8","#b45309"],absent:["#f7e3e1","#8f322d"]};
-  const head=["จ","อ","พ","พฤ","ศ","ส","อา"];
-  let cal=`<div class="calm">`+head.map((d,i)=>`<div class="dh" style="color:${i===5?"#185fa5":i===6?"#a32d2d":"var(--muted)"}">${d}</div>`).join("");
-  const lead=(r.first.getDay()+6)%7; for(let b=0;b<lead;b++) cal+=`<div></div>`;
-  m.cells.forEach(c=>{
-    if(c.isToday && c.d && c.d.checkIn && !c.d.checkOut){
-      cal+=`<div class="cd" style="background:var(--blue-ink);color:#fff;border-color:var(--blue-ink)"><div style="display:flex;justify-content:space-between;align-items:center"><span class="d">${c.dn}</span><span style="font-size:9px;background:rgba(255,255,255,.25);padding:1px 5px;border-radius:10px">วันนี้</span></div><div class="io" style="color:#eaf3de">${esc(c.d.checkIn)}–•••</div><div style="font-size:10px;margin-top:auto">กำลังทำงาน</div></div>`; return;
-    }
-    if(c.d && (c.base==="present"||c.base==="late")){
-      const col=dc[c.base]||dc.present, pay=c.d.status==="complete"?daily:0;
-      const tag=c.ot?'<span style="font-size:8px;color:#1f66b0;background:#e4eff9;padding:1px 4px;border-radius:8px"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:#2f7fd6;vertical-align:1px;margin-right:2px"></span>เกินเวลา</span>'
-        :c.base==="late"?'<span style="font-size:8px;color:#b45309;background:#fdecd8;padding:1px 4px;border-radius:8px">สาย</span>'
-        :'<span style="font-size:9px;color:#047857">✓</span>';
-      cal+=`<div class="cd" style="border-left:3px solid ${c.ot?"#2f7fd6":col[1]}"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="d">${c.dn}</span>${tag}</div><div class="io">${esc(c.d.checkIn||"—")}–${esc(c.d.checkOut||"—")}</div><div class="hp"><span class="sub">${c.d.workedMinutes?fmtHours(c.d.workedMinutes):"—"}</span>${pay?`<span style="font-size:11px;font-weight:600;color:var(--blue-ink)">${fmtBaht(pay)}</span>`:""}</div></div>`; return;
-    }
-    if(c.base==="absent"){ cal+=`<div class="cd off"><span class="d" style="color:#8f322d">${c.dn}</span><span class="sub" style="margin-top:auto">ขาด</span></div>`; return; }
-    const lbl=c.holName?esc(c.holName):(c.base==="off"?"หยุด":"—"); const dcol=c.holName?"#6d4ea8":c.dow===0?"#8f322d":c.dow===6?"#2b5a86":"var(--muted)";
-    cal+=`<div class="cd off"${c.holName?' style="background:#f1ecfa;border-style:solid;border-color:#ddd0f2"':""}><span class="d" style="color:${dcol};font-weight:400">${c.dn}</span><span class="sub" style="margin-top:auto;font-size:9px;line-height:1.1;overflow:hidden;text-overflow:ellipsis">${lbl}</span></div>`;
-  });
-  cal+=`</div>`;
-  host.innerHTML=`<div class="panel" style="margin-top:18px"><div class="body">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-      <div class="pm-av" style="width:40px;height:40px;font-size:14px">${esc((m.e.name||m.e.id).slice(0,2))}</div>
-      <div style="flex:1;min-width:140px"><div style="font-size:15px;font-weight:600">${esc(m.e.name||m.e.id)}</div><div class="sub">${esc(m.e.id)}${m.e.role?" · "+esc(m.e.role):""}</div></div>
-      <div style="text-align:right"><div class="sub">ประมาณการเงินเดือนงวดนี้</div><div style="font-size:20px;font-weight:600;color:var(--blue-ink)">${fmtBaht(net)}</div></div>
-      <button class="btn sub sm" id="pmPrintTs" type="button">พิมพ์ Timesheet</button>
-      <button class="btn sm" id="pmIssueSlip" type="button">ออกสลิปเงินเดือน</button>
-    </div>
-    <div class="cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-      <div class="card" style="padding:10px 12px"><div class="label">ค่าแรงฐาน</div><div style="font-size:17px;font-weight:600">${fmtBaht(pl.baseGross||0)}</div><div class="sub">${pl.workDays||0} วัน${daily?" × "+fmtBaht(daily):""}</div></div>
-      <div class="card" style="padding:10px 12px"><div class="label">OT</div><div style="font-size:17px;font-weight:600;color:#185fa5">${fmtBaht(pl.otGross||0)}</div><div class="sub">${pl.otMinutes?fmtHours(pl.otMinutes):"ไม่มี"}</div></div>
-      <div class="card" style="padding:10px 12px"><div class="label">ชั่วโมงรวม</div><div style="font-size:17px;font-weight:600">${fmtHours(m.workedMin)}</div><div class="sub">สาย ${m.late} · ขาด ${m.absent}</div></div>
-      <div class="card" style="padding:10px 12px"><div class="label">วันครบ 8 ชม.</div><div style="font-size:17px;font-weight:600;color:#3b6d11">${m.full8}<span class="sub">/${pl.workDays||m.present+m.late}</span></div><div class="sub">ได้ค่าแรงเต็ม</div></div>
-    </div>
-    ${cal}
-    <div class="notice blue" style="margin-top:12px">ตัวเลขเงินเป็น<b>ประมาณการ</b> คิดจากวันที่เช็กเอาต์ครบ ยอดจริงล็อกตอนปิดงวดที่หน้า “จ่ายเงินเดือน”</div>
-  </div></div>`;
+  const r=pmRange(), pl=m.pl, net=pl.netPay!=null?pl.netPay:(pl.grossPay||0);
+  const current=m.cells.filter(c=>c.iso<=todayISO()).slice(-14);
+  const days=current.map(c=>{ const type=c.d&&c.d.status!=="complete"?"review":c.base;
+    const text=type==="present"?"ครบ":type==="late"?"สาย":type==="absent"?"ขาด":type==="off"?"หยุด":"รอ";
+    const times=c.d?`${esc(c.d.checkIn||"—")} – ${esc(c.d.checkOut||"—")}`:"—";
+    return `<button class="pm-day ${type}${c.isToday?" today":""}" data-detail-iso="${c.iso}" type="button"><b>${c.dn}</b><small>${text}</small><em>${times}</em></button>`;
+  }).join("");
+  host.innerHTML=`<div class="pm-detail-head"><div class="pm-av">${esc((m.e.name||m.e.id).slice(0,2))}</div><div><b>${esc(m.e.name||m.e.id)}</b><span>${esc(m.e.id)}${m.e.role?` · ${esc(m.e.role)}`:""}</span></div><div class="pm-detail-total"><small>ประมาณการงวดนี้</small><b>${fmtBaht(net)}</b></div><button class="btn sub sm" id="pmPrintTs" type="button">พิมพ์</button><button class="btn sm" id="pmIssueSlip" type="button">ออกสลิป</button></div>
+    <div class="pm-detail-stats"><span><b>${m.present+m.late}</b> มาทำงาน</span><span class="late"><b>${m.late}</b> สาย</span><span class="absent"><b>${m.absent}</b> ขาด</span><span><b>${fmtHours(m.workedMin)}</b> ชั่วโมง</span></div>
+    <div class="pm-recent-label">14 วันล่าสุด <span>คลิกวันที่มีรายการเพื่อดูและแก้ไขเวลา</span></div><div class="pm-recent-days">${days}</div>`;
+  host.querySelectorAll("[data-detail-iso]").forEach(btn=>btn.onclick=()=>{ const c=m.cells.find(x=>x.iso===btn.dataset.detailIso); if(c&&c.d) openAttendanceRecordDialog(c.d,()=>loadPersonMonth()); });
   const pb=host.querySelector("#pmPrintTs");
   if(pb) pb.onclick=()=>{ const days=m.cells.map(c=>({date:c.iso,checkIn:c.d?c.d.checkIn:"",checkOut:c.d?c.d.checkOut:"",workedMinutes:c.d?c.d.workedMinutes:0,status:c.d?c.d.status:"",base:c.base,holName:c.holName})); printTimesheet({employeeId:m.e.id,role:m.e.role,regularMinutes:(pl.regularMinutes!=null?pl.regularMinutes:m.workedMin),otMinutes:(pl.otMinutes||0)},{start:r.start,end:r.end},days,{}); };
   // Issue a payslip for this employee straight from Timesheet (review → adjust → ออกสลิป).
