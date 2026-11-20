@@ -3504,8 +3504,8 @@ async function renderSettings(){
     <div class="setting-group-label">ปฏิทินและแอปพนักงาน</div>
     <section class="settings-support-grid" aria-label="ปฏิทินและแอปพนักงาน">
     <div class="panel settings-holiday-panel"><div class="head"><h2>วันหยุดบริษัท</h2><div class="spacer"></div><button class="btn sub sm" id="importHoliday">เติมปีนี้</button><button class="btn ok sm" id="addHoliday">เพิ่ม</button></div>
-      <div class="body flush"><table id="holTable"><thead><tr><th>วันที่</th><th>ชื่อวันหยุด</th><th class="holiday-action-head" data-nosort>ลบ</th></tr></thead>
-      <tbody id="holRows"><tr><td colspan="3"><div class="empty">กำลังโหลด…</div></td></tr></tbody></table></div>
+      <div class="body flush"><table id="holTable"><thead><tr><th>วันที่</th><th>ชื่อวันหยุด</th></tr></thead>
+      <tbody id="holRows"><tr><td colspan="2"><div class="empty">กำลังโหลด…</div></td></tr></tbody></table></div>
     </div>
     <div class="panel settings-app-panel"><div class="head"><h2>เวอร์ชัน APK</h2><span class="badge blue">แอปพนักงาน</span></div>
       <div class="body">
@@ -3662,9 +3662,8 @@ async function importHolidays(btn){
 async function loadHolidays(){
   const tb=$("#holRows"); if(!tb) return;
   try{ const d=await api("admin_list_holidays"); const hs=d.holidays||[];
-    tb.innerHTML=hs.length? hs.map(h=>`<tr><td style="white-space:nowrap">${fmtDate(h.date)}</td><td>${esc(h.name)}</td>
-      <td class="holiday-action"><button type="button" class="holiday-delete" data-holdel="${esc(h.date)}" aria-label="ลบวันหยุด ${esc(h.name)}">ลบ</button></td></tr>`).join("")
-      : `<tr><td colspan="3"><div class="empty">ยังไม่มีวันหยุด</div></td></tr>`;
+    tb.innerHTML=hs.length? hs.map(h=>`<tr><td style="white-space:nowrap">${fmtDate(h.date)}</td><td class="holiday-name"><span class="holiday-name-text">${esc(h.name)}</span><button type="button" class="holiday-delete" data-holdel="${esc(h.date)}" aria-label="ลบวันหยุด ${esc(h.name)}">ลบ</button></td></tr>`).join("")
+      : `<tr><td colspan="2"><div class="empty">ยังไม่มีวันหยุด</div></td></tr>`;
     tb.querySelectorAll("[data-holdel]").forEach(b=>b.onclick=()=>deleteHoliday(b.dataset.holdel));
   }catch(err){ tb.innerHTML=`<tr><td colspan="3"><div class="empty">${esc(err.message)}</div></td></tr>`; }
 }

@@ -2441,13 +2441,12 @@ button,.btn{box-shadow:none!important;font-weight:500!important}
   #page-settings .settings-holiday-panel{min-width:0!important}
   #page-settings .settings-holiday-panel .body.flush{max-height:205px!important;overflow-y:auto!important;overflow-x:hidden!important}
   #page-settings .settings-holiday-panel table{width:100%!important;max-width:100%!important;table-layout:fixed!important;border-collapse:collapse!important}
-  #page-settings .settings-holiday-panel th:nth-child(1),#page-settings .settings-holiday-panel td:nth-child(1){width:88px!important;white-space:nowrap}
-  #page-settings .settings-holiday-panel th:nth-child(3),#page-settings .settings-holiday-panel td:nth-child(3){width:62px!important;text-align:right!important}
-  #page-settings .settings-holiday-panel th:nth-child(2),#page-settings .settings-holiday-panel td:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #page-settings .settings-holiday-panel th:nth-child(1),#page-settings .settings-holiday-panel td:nth-child(1){width:98px!important;white-space:nowrap}
+  #page-settings .settings-holiday-panel th:nth-child(2),#page-settings .settings-holiday-panel td:nth-child(2){min-width:0!important}
   #page-settings .settings-holiday-panel thead th{padding:6px 7px!important}
   #page-settings .settings-holiday-panel td{padding:6px 7px!important}
-  #page-settings .settings-holiday-panel .holiday-action-head{color:#8b1e26!important;text-align:right!important}
-  #page-settings .settings-holiday-panel .holiday-action{display:table-cell!important;overflow:visible!important;vertical-align:middle!important;text-align:right!important}
+  #page-settings .settings-holiday-panel .holiday-name{display:flex!important;align-items:center!important;gap:7px!important;min-width:0!important;overflow:visible!important}
+  #page-settings .settings-holiday-panel .holiday-name-text{min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;color:#182b3c!important}
   #page-settings .settings-holiday-panel .holiday-delete{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:42px!important;min-height:24px!important;padding:4px 7px!important;border:1px solid #d92d35!important;border-radius:5px!important;background:#e5484d!important;color:#fff!important;font:inherit!important;font-size:10px!important;font-weight:700!important;line-height:1!important;letter-spacing:0!important;opacity:1!important;visibility:visible!important;cursor:pointer!important;white-space:nowrap!important}
   #page-settings .settings-holiday-panel .holiday-delete:hover{background:#c8242c!important;border-color:#c8242c!important}
   #page-settings .settings-app-panel .body{padding:8px 10px!important}

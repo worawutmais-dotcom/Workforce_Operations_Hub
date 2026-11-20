@@ -99,7 +99,7 @@ const required = [
   'id="flowIssue"',
   'id="settingsSsoStatus"',
   'id="settingsWorkStatus"',
-  'holiday-action-head',
+  'holiday-name-text',
   'holiday-delete',
   'aria-label="ลบวันหยุด ${esc(h.name)}"',
   'cc-policy-row',
