@@ -3665,7 +3665,7 @@ async function loadHolidays(){
     tb.innerHTML=hs.length? hs.map(h=>`<tr><td style="white-space:nowrap">${fmtDate(h.date)}</td><td class="holiday-name"><span class="holiday-name-text">${esc(h.name)}</span><button type="button" class="holiday-delete" data-holdel="${esc(h.date)}" aria-label="ลบวันหยุด ${esc(h.name)}">ลบ</button></td></tr>`).join("")
       : `<tr><td colspan="2"><div class="empty">ยังไม่มีวันหยุด</div></td></tr>`;
     tb.querySelectorAll("[data-holdel]").forEach(b=>b.onclick=()=>deleteHoliday(b.dataset.holdel));
-  }catch(err){ tb.innerHTML=`<tr><td colspan="3"><div class="empty">${esc(err.message)}</div></td></tr>`; }
+  }catch(err){ tb.innerHTML=`<tr><td colspan="2"><div class="empty">${esc(err.message)}</div></td></tr>`; }
 }
 function holidayDialog(){
   const body=el(`<div></div>`);
