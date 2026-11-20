@@ -89,6 +89,21 @@ const required = [
   'ออกสลิปสุดท้ายให้ก่อนลบ',
   'deleteAdminPw',
   'admin_issue_payslip',
+  'settings-command',
+  'นโยบายที่กระทบการจ่ายเงินเดือน',
+  'data-settings-action="social"',
+  'data-settings-action="work"',
+  'id="payrollFlow"',
+  'เลือกงวด</b><small>กำหนดวันเริ่มและสิ้นสุด',
+  'id="flowIssue"',
+  'id="settingsSsoStatus"',
+  'id="settingsWorkStatus"',
+  'cc-policy-row',
+  'id="peopleReadiness"',
+  'id="advToPayroll"',
+  'ตรวจยอดหักใน Payroll',
+  'ทั้งเดือน (สรุปปิดงวด)',
+  'ดูทุกวันในเดือนที่เลือก',
 ];
 
 const missing = required.filter((token) => !html.includes(token));

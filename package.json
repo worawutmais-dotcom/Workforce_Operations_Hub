@@ -5,6 +5,6 @@
   "description": "BVN Package workforce operations hub — admin console build + guard tests.",
   "scripts": {
     "build": "node tools/build_admin.mjs",
-    "test": "node tools/admin_build_fresh_test.mjs && node tools/mirror_sync_test.mjs && node -e \"const fs=require('fs');new Function(fs.readFileSync('admin_codex/src/app.js','utf8'));console.log('app.js parse OK')\" && node tools/admin_redesign_contract_test.mjs && node tools/payroll_period_policy_test.mjs && node tools/payroll_draft_review_test.mjs && node tools/client_preview_seed_test.mjs && node tools/shortfall_policy_test.mjs && node tools/late_absence_policy_test.mjs && node tools/ot_multiplier_test.mjs"
+    "test": "node tools/admin_build_fresh_test.mjs && node tools/mirror_sync_test.mjs && node -e \"const fs=require('fs');new Function(fs.readFileSync('admin_codex/src/app.js','utf8'));console.log('app.js parse OK')\" && node tools/admin_redesign_contract_test.mjs && node tools/admin_readability_contract_test.mjs && node tools/payroll_period_policy_test.mjs && node tools/payroll_draft_review_test.mjs && node tools/client_preview_seed_test.mjs && node tools/shortfall_policy_test.mjs && node tools/late_absence_policy_test.mjs && node tools/ot_multiplier_test.mjs"
   }
 }

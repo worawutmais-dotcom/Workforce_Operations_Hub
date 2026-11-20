@@ -1819,6 +1819,181 @@
   #page-dashboard .team-readiness-ranking{display:block}.tr-overview{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px}.tr-overview span{color:#28465e;font-size:11px;font-weight:500}.tr-overview small{color:#768b9e;font-size:9px}
   #page-dashboard .tr-list{overflow:hidden;border:1px solid #e1e9ef;border-radius:7px}.tr-row{display:grid;grid-template-columns:19px 34px minmax(0,1fr) 14px;gap:7px;align-items:center;width:100%;min-height:42px;padding:5px 7px;border:0;border-bottom:1px solid #e7edf2;background:#fff;color:#29445d;text-align:left;font:inherit;cursor:pointer}.tr-row:last-child{border-bottom:0}.tr-row:hover{background:#f7fafc}.tr-row.risk{background:#fffafa}.tr-row.watch{background:#fffdf8}.tr-row:focus-visible{outline:2px solid #2670c9;outline-offset:-2px}.tr-rank{display:grid;place-items:center;width:19px;height:19px;border-radius:50%;background:#edf3f7;color:#647b90;font-size:9px;font-weight:500}.tr-score{display:grid;place-items:center;height:23px;border-radius:5px;background:#edf3f7;color:#54718b;font-size:9px;font-weight:500}.tr-score.good{background:#eaf8f0;color:#167a50}.tr-score.warn{background:#fff4e1;color:#aa6700}.tr-score.bad{background:#fff0f2;color:#bf4051}.tr-copy{min-width:0}.tr-copy b,.tr-copy small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tr-copy b{font-size:10px;font-weight:500!important}.tr-copy small{margin-top:2px;font-size:8.5px}.tr-copy i{font-style:normal}.tr-copy .on{color:#178151}.tr-copy .late{color:#ae6800}.tr-copy .absent{color:#c43c4d}.tr-go{color:#7890a4;font-size:16px}.tr-all{display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:8px;padding:0;border:0;background:transparent;color:#1769c2;font:inherit;font-size:10px;cursor:pointer}.tr-all i{font-size:16px;font-style:normal}
   #page-dashboard .pr-top{display:grid;grid-template-columns:94px minmax(0,1fr);gap:13px;align-items:center}.pr-gauge{display:grid;place-content:center;width:88px;height:88px;border-radius:50%;background:conic-gradient(#1bb078 calc(var(--ready)*1%),#e7eef1 0);position:relative;text-align:center}.pr-gauge:after{content:"";position:absolute;inset:7px;border-radius:50%;background:#fff}.pr-gauge b,.pr-gauge span{position:relative;z-index:1}.pr-gauge b{font-size:20px;font-weight:600!important;line-height:1;color:#1b7250}.pr-gauge span{margin-top:3px;color:#6c8294;font-size:8.5px}.pr-states{display:grid;gap:6px}.pr-states span{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:center;gap:6px;color:#62798d;font-size:10px}.pr-states i{width:7px;height:7px;border-radius:50%;background:#cbd6df}.pr-states .ready i{background:#1cad77}.pr-states .review i{background:#d8901b}.pr-states .hold i{background:#cf4c5d}.pr-states b{color:#29465f;font-size:12px;font-weight:500!important}.pr-next{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:8px;align-items:center;margin-top:13px;padding:9px;border:1px solid #f0d9aa;border-radius:7px;background:#fff9ed}.pr-next.is-clear{grid-template-columns:24px minmax(0,1fr);border-color:#ccebdc;background:#f3fbf7}.pr-next-icon{display:grid;place-items:center;width:24px;height:24px;border-radius:6px;background:#fff0d4;color:#a96500;font-size:14px;font-weight:600}.pr-next.is-clear .pr-next-icon{background:#ddf5e8;color:#168451}.pr-next b,.pr-next small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pr-next b{font-size:10px;font-weight:500!important;color:#29465f}.pr-next small{margin-top:2px;color:#778b9e;font-size:8.5px}.pr-next .btn{min-height:25px!important;padding:3px 7px!important;font-size:9px!important}
+
+  /* Cross-console readability contract.  Compact is useful for operations;
+     microscopic operational data is not.  These final rules make every page
+     use the same readable hierarchy without changing the information density. */
+  :root{
+    --ui-text:#152f49;
+    --ui-secondary:#48647e;
+    --ui-muted:#6a8298;
+    --ui-header:#2c4b68;
+    --ui-info:#0e62c7;
+    --ui-info-soft:#e8f2ff;
+    --ui-success:#08704e;
+    --ui-success-soft:#e2f8ef;
+    --ui-warning:#a95e00;
+    --ui-warning-soft:#fff3df;
+    --ui-danger:#b7354c;
+    --ui-danger-soft:#fff0f2;
+  }
+  .page{color:var(--ui-text);font-size:13px}
+  .page .sub,.page .hint,.page .label,.page .note,.page .employee-meta{color:var(--ui-secondary)!important}
+  .page .sub,.page .hint,.page .label,.page .note{font-size:max(10px,var(--text-xs));line-height:1.45}
+  .page table{font-size:12px}
+  .page table thead th{background:#f5f9fd!important;color:var(--ui-header)!important;font-size:10.5px;line-height:1.35}
+  .page table tbody td{color:var(--ui-text);font-size:12px;line-height:1.4}
+  .page .badge,.page .pill,.page .pilln{font-size:10px;line-height:1.35;font-weight:500}
+  .page .btn{min-height:32px;font-size:12px;line-height:1.25}
+  .page .btn.sm{min-height:28px;font-size:11px}
+  .page input,.page select,.page textarea{font-size:12px;line-height:1.35}
+  .page .panel>.head{min-height:44px;padding:10px 14px;background:#f9fbfd!important}
+  .page .panel>.head :is(h2,b){font-size:14px;line-height:1.3;font-weight:600}
+  .page .panel>.body{padding:12px 14px}
+  .page .notice{font-size:12px;line-height:1.5}
+
+  /* Dashboard: small supporting copy stays readable while the shift register
+     keeps its dense, scan-first layout. */
+  #page-dashboard .cc-summary-label small,
+  #page-dashboard .cc-summary-tiles .cc-stat small,
+  #page-dashboard .wq-title>span,
+  #page-dashboard .wq-group-head em,
+  #page-dashboard .wq-copy span,
+  #page-dashboard .wq-urgent,
+  #page-dashboard .wq-row .aq-action,
+  #page-dashboard .tcw-title small,
+  #page-dashboard .tcw-day>span,
+  #page-dashboard .tcw-day small,
+  #page-dashboard .tcw-summary span,
+  #page-dashboard .tr-overview small,
+  #page-dashboard .tr-copy small,
+  #page-dashboard .pr-gauge span,
+  #page-dashboard .pr-next small,
+  #page-dashboard .pr-next .btn{font-size:10px!important;line-height:1.35!important}
+  #page-dashboard .cc-work .tc-pill{font-size:10px!important}
+  #page-dashboard .cc-work .tc-actions .btn{min-height:27px!important;font-size:10px!important}
+  #page-dashboard .tcw-summary span{color:var(--ui-secondary)!important}
+  #page-dashboard .wq-copy span,#page-dashboard .tr-copy small,#page-dashboard .pr-next small{color:var(--ui-muted)!important}
+
+  /* Timesheet and Employee command centre: restore legibility for Thai
+     labels without making the working tables taller. */
+  #page-owner .pm-person small,
+  #page-owner .pm-person em,
+  #page-owner .pm-readiness small,
+  #page-owner .pm-detail-total small,
+  #page-owner .pm-detail-stats span,
+  #page-owner .pm-day small,
+  #page-owner .pm-day em{font-size:10px!important;line-height:1.35!important}
+  #page-owner .time-ledger .person .sub,
+  #page-owner .time-ledger .badge,
+  #page-owner .time-ledger-row-actions .btn{font-size:10px!important}
+  #page-owner .time-ledger-row-actions .btn{min-height:26px!important;padding:3px 7px!important}
+  #page-people .pc-status-grid small,
+  #page-people .pc-status-grid b,
+  #page-people .pc-section-head span,
+  #page-people .pc-leave small,
+  #page-people .pc-todos small{font-size:10px!important;line-height:1.35!important}
+  #page-people .pc-todos .btn,#page-people .pc-actions .btn{font-size:11px!important}
+  #page-people .pc-status-grid>span{min-height:67px}
+
+  @media(max-width:760px){
+    .page .panel>.head{padding:9px 11px}
+    .page .panel>.body{padding:10px 11px}
+    .page table{font-size:11px}
+    .page .btn{min-height:30px;font-size:11px}
+  }
+
+  /* Operational text must never inherit a washed-out grey.  The coloured
+     daily strip uses dark ink too, so labels remain readable on every state. */
+  #page-dashboard .cc-summary-tiles .cc-stat,
+  #page-dashboard .cc-summary-tiles .cc-stat-l,
+  #page-dashboard .cc-summary-tiles .cc-stat b,
+  #page-dashboard .cc-summary-tiles .cc-stat small{color:#071824!important}
+  #page-dashboard .cc-summary-tiles .cc-stat-ic{color:#071824!important;background:rgba(255,255,255,.38)!important}
+  #page-dashboard .cc-summary-label{color:#102a43!important}
+  #page-dashboard .cc-summary-label small{color:#294862!important}
+
+  #page-dashboard .cc-decide .head,
+  #page-dashboard .cc-decide .head .wq-title b,
+  #page-dashboard .wq-group-head,
+  #page-dashboard .wq-group-head b,
+  #page-dashboard .wq-copy b{color:#102a43!important}
+  #page-dashboard .wq-copy span{color:#314a61!important}
+  #page-dashboard .wq-kind{color:#173f61!important}
+  #page-dashboard .wq-group-head em{color:#294862!important;background:#e7eff6!important}
+  #page-dashboard .wq-row .aq-action{color:#102a43!important;background:#e5eef6!important;border-color:#bfd1e1!important}
+  #page-dashboard .wq-row.is-priority .aq-action{color:#fff!important;background:#123b62!important;border-color:#123b62!important}
+
+  /* Settings is a policy control centre.  The three decisions that affect
+     payroll are visible before maintenance work, and destructive controls
+     remain visually isolated at the bottom. */
+  #page-settings .settings-workspace{max-width:1320px;margin:0 auto;gap:16px}
+  #page-settings .bvn-page-head{margin-bottom:0}
+  #page-settings .settings-command{overflow:hidden;border:1px solid #cad9e6;border-radius:12px;background:#fff;box-shadow:0 1px 2px rgba(16,42,67,.05)}
+  #page-settings .settings-command-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px 18px 14px;border-bottom:1px solid #dbe6ef;background:#f7fafc}
+  #page-settings .settings-kicker{display:block;margin-bottom:4px;color:#0e62c7;font-size:10px;font-weight:600;letter-spacing:.04em}
+  #page-settings .settings-command h3{margin:0;color:#102a43;font-size:17px;line-height:1.25;font-weight:600}
+  #page-settings .settings-command p{max-width:680px;margin:5px 0 0;color:#48647e;font-size:12px;line-height:1.45}
+  #page-settings .settings-command-status{display:inline-flex;align-items:center;gap:6px;flex:none;min-height:28px;padding:4px 9px;border:1px solid #c7e7d7;border-radius:7px;background:#edf9f3;color:#08704e;font-size:10px;font-weight:500;white-space:nowrap}
+  #page-settings .settings-command-status i{width:7px;height:7px;border-radius:50%;background:#14a56d}
+  #page-settings .settings-command-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:#fff}
+  #page-settings .settings-command-card{display:grid;grid-template-columns:32px minmax(0,1fr) auto;align-items:center;gap:10px;min-height:82px;padding:14px 16px;border:0;border-right:1px solid #dbe6ef;background:#fff;color:#102a43;font:inherit;text-align:left;cursor:pointer;transition:background .14s ease,box-shadow .14s ease}
+  #page-settings .settings-command-card:last-child{border-right:0}
+  #page-settings .settings-command-card:hover{background:#f5f9fd;box-shadow:inset 0 -2px 0 #1677e8}
+  #page-settings .settings-command-card:focus-visible{outline:2px solid #1677e8;outline-offset:-2px}
+  #page-settings .settings-command-icon{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;background:#e8f2ff;color:#0e62c7}
+  #page-settings .settings-command-icon svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  #page-settings .settings-command-card.is-payroll .settings-command-icon{background:#e2f8ef;color:#08704e}
+  #page-settings .settings-command-card.is-time .settings-command-icon{background:#fff3df;color:#a95e00}
+  #page-settings .settings-command-card>span:nth-child(2){min-width:0}
+  #page-settings .settings-command-card b,#page-settings .settings-command-card small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #page-settings .settings-command-card b{color:#102a43;font-size:12px;font-weight:600}
+  #page-settings .settings-command-card small{margin-top:3px;color:#48647e;font-size:10px;line-height:1.35}
+  #page-settings .settings-command-card em{color:#0e62c7;font-size:10px;font-style:normal;font-weight:500;white-space:nowrap}
+  #page-settings .setting-group-label{display:flex;align-items:center;gap:9px;margin:6px 0 -6px!important;color:#294862!important;font-size:11px!important;font-weight:600;letter-spacing:0!important;text-transform:none!important}
+  #page-settings .setting-group-label::before{content:"";width:4px;height:16px;border-radius:3px;background:#1677e8}
+  #page-settings .setting-group-label::after{background:#dbe6ef}
+  #page-settings .settings-workspace>.panel{border-left:0!important;border-top:2px solid #96aec3!important;border-radius:10px!important;box-shadow:0 1px 2px rgba(16,42,67,.045)!important}
+  #page-settings .settings-workspace>.panel .head{min-height:48px!important;padding:10px 14px!important;background:#fbfdff!important}
+  #page-settings .settings-workspace>.panel .head h2{color:#102a43!important;font-size:14px!important;font-weight:600}
+  #page-settings .settings-workspace>.panel .head .sub{color:#48647e!important;font-size:11px!important}
+  #page-settings .settings-workspace>.panel .body{padding:12px 14px!important}
+  #page-settings .settings-workspace>.panel .body.flush{padding:0!important}
+  #page-settings .settings-workspace>.panel:has(#socialSecuritySummary),
+  #page-settings .settings-workspace>.panel:has(#workRulesSummary){border-top-color:#168451!important}
+  #page-settings .settings-workspace>.panel:has(#appVC){border-top-color:#1677e8!important}
+  #page-settings .settings-workspace>.panel[style*="fecaca"]{border-top-color:#c54a5f!important;border-left:0!important;background:#fffafb!important}
+  #page-settings .settings-workspace>.panel[style*="fecaca"] .head{background:#fff7f8!important}
+  #page-settings .settings-workspace>.panel[style*="fecaca"] .head h2{color:#9c2940!important}
+  #page-settings .advanced-settings{border-top-color:#71879b!important}
+  #page-settings .advanced-settings summary{padding:13px 14px;color:#102a43}
+  #page-settings .advanced-settings summary small{color:#48647e!important}
+  @media(max-width:880px){#page-settings .settings-command-grid{grid-template-columns:1fr}#page-settings .settings-command-card{border-right:0;border-bottom:1px solid #dbe6ef}#page-settings .settings-command-card:last-child{border-bottom:0}}
+  @media(max-width:600px){#page-settings .settings-command-head{display:block;padding:14px}.settings-command-status{margin-top:10px}#page-settings .settings-command-card{min-height:70px;padding:12px 14px}}
+
+  /* Payroll flow: four explicit decisions, with the next valid action always
+     visible.  A blocked step is a link to resolve it, not a dead-end label. */
+  #page-payroll .payroll-flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:0 0 12px;overflow:hidden;border:1px solid #d5e2ec;border-radius:10px;background:#fff}
+  #page-payroll .payroll-flow-step{display:grid;grid-template-columns:28px minmax(0,1fr);align-items:center;gap:9px;min-height:64px;padding:10px 13px;border:0;border-right:1px solid #dbe6ef;background:#fff;color:#294862;font:inherit;text-align:left;cursor:pointer}
+  #page-payroll .payroll-flow-step:last-child{border-right:0}
+  #page-payroll .payroll-flow-step:hover:not(:disabled){background:#f5f9fd}
+  #page-payroll .payroll-flow-step:focus-visible{outline:2px solid #1677e8;outline-offset:-2px}
+  #page-payroll .payroll-flow-step>span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#e6eef5;color:#365a78;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums}
+  #page-payroll .payroll-flow-step b,#page-payroll .payroll-flow-step small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #page-payroll .payroll-flow-step b{color:#102a43;font-size:12px;font-weight:600}
+  #page-payroll .payroll-flow-step small{margin-top:3px;color:#48647e;font-size:10px;line-height:1.3}
+  #page-payroll .payroll-flow-step.active{background:#f4f8fc;box-shadow:inset 0 2px 0 #1677e8}
+  #page-payroll .payroll-flow-step.active>span{background:#1677e8;color:#fff}
+  #page-payroll .payroll-flow-step.complete>span{background:#e2f8ef;color:#08704e}
+  #page-payroll .payroll-flow-step.needs-action{background:#fffaf1}
+  #page-payroll .payroll-flow-step.needs-action>span{background:#fff0d6;color:#a95e00}
+  #page-payroll .payroll-flow-step.ready{background:#edf9f3;box-shadow:inset 0 2px 0 #079669}
+  #page-payroll .payroll-flow-step.ready>span{background:#079669;color:#fff}
+  #page-payroll .payroll-flow-step:disabled{cursor:not-allowed;background:#fafcfd;opacity:1}
+  #page-payroll .payroll-flow-step:disabled b{color:#6a8298}
+  #page-payroll .payroll-flow-step:disabled small{color:#8a9cad}
+  @media(max-width:840px){#page-payroll .payroll-flow{grid-template-columns:1fr 1fr}#page-payroll .payroll-flow-step:nth-child(2){border-right:0}#page-payroll .payroll-flow-step:nth-child(-n+2){border-bottom:1px solid #dbe6ef}}
+  @media(max-width:500px){#page-payroll .payroll-flow{grid-template-columns:1fr}#page-payroll .payroll-flow-step{border-right:0;border-bottom:1px solid #dbe6ef}#page-payroll .payroll-flow-step:last-child{border-bottom:0}}
   @media(max-width:980px){#page-dashboard .cc-lower{grid-template-columns:1fr!important}.pr-top{max-width:430px}}
 
   /* Console colour pass: an ink-blue neutral ramp gives Thai copy a clearer
@@ -1838,6 +2013,28 @@
   #page-dashboard .cc-lower>.panel{align-self:start;min-height:0!important}.dashboard-personal-time .body,.dashboard-payroll-readiness .body{min-height:0!important}
   #page-dashboard .pr-top{grid-template-columns:84px minmax(0,1fr);gap:10px}.pr-gauge{width:78px;height:78px}.pr-gauge b{font-size:18px!important}.pr-gauge:after{inset:6px}.pr-states{gap:4px}.pr-states span{grid-template-columns:8px minmax(0,1fr) 26px;min-height:20px;gap:6px}.pr-states em{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:normal;color:#45627c;font-size:10px}.pr-states b{justify-self:end}.pr-next{margin-top:10px;padding:8px}.pr-next small{white-space:normal!important;line-height:1.35}.dashboard-payroll-readiness .body{padding:10px 12px!important}
   @media(max-width:980px){#page-dashboard .cc-lower{grid-template-columns:1fr!important}}
+
+  /* Dashboard policy row: location rules and payroll readiness belong in the
+     same operational context.  The monthly per-person trend moved out to
+     Timesheet, where its detail can be acted on. */
+  #page-dashboard .cc-policy-row{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(310px,.82fr);gap:12px;align-items:start}
+  #page-dashboard .cc-policy-row>.panel{margin:0!important;min-height:0!important}
+  #page-dashboard .cc-policy-row .dashboard-checkin-sites{border-top:2px solid #27835a!important}
+  #page-dashboard .cc-policy-row .dashboard-checkin-sites .head{background:#f5faf7!important;border-top:0!important}
+  #page-dashboard .cc-policy-row .dashboard-payroll-readiness{border-top:2px solid #168451!important}
+  #page-dashboard .cc-policy-row .dashboard-payroll-readiness .head{background:#f5faf7!important;border-top:0!important}
+  #page-dashboard .cc-policy-row .dashboard-payroll-readiness .body{padding:10px 12px!important}
+  @media(max-width:980px){#page-dashboard .cc-policy-row{grid-template-columns:1fr}}
+
+  /* Timesheet month detail deliberately renders every calendar day.  The
+     selected employee stays in context while the month navigator changes the
+     source period; no hidden 14-day truncation remains. */
+  #page-owner .pm-recent-days{grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+  #page-owner .pm-day{min-height:54px;padding:6px}
+  #page-owner .pm-day b{font-size:11px}
+  #page-owner .pm-day small{font-size:10px!important}
+  #page-owner .pm-day em{font-size:9px!important}
+  @media(max-width:700px){#page-owner .pm-recent-days{grid-template-columns:repeat(4,minmax(0,1fr))}#page-owner .pm-day{min-height:50px}}
 </style>
 </head>
 <body>
@@ -2439,7 +2636,8 @@ function lineIcon(kind){
     alert:'<path d="M12 3 21 20H3L12 3Z"/><path d="M12 9v4"/><path d="M12 16h.01"/>',
     users:'<circle cx="9" cy="8" r="3"/><path d="M3.5 20c.5-3.4 2.4-5.2 5.5-5.2s5 1.8 5.5 5.2"/><path d="M16 5.5a3 3 0 0 1 0 5"/><path d="M17 14.7c2.2.2 3.4 2 3.8 4.3"/>',
     exit:'<path d="M10 4H5v16h5"/><path d="M13 8l4 4-4 4"/><path d="M8 12h9"/>',
-    bill:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/>'
+    bill:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/>',
+    file:'<path d="M6 3h8l4 4v14H6V3Z"/><path d="M14 3v5h5M9 12h6M9 16h6"/>'
   };
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[kind]||paths.pulse}</svg>`;
 }
@@ -2730,11 +2928,10 @@ async function renderDashboard(data, preloaded={}){
             <div class="cc-left-stack">
               <div class="panel cc-decide"><div class="head"><div class="wq-title"><b>งานที่ต้องจัดการ</b><span>${fmtInt(actionQueue.length)} รายการ</span></div><div class="spacer"></div><button class="btn sub sm" data-daq-focus>เปิดคิวอนุมัติ <i>⌄</i></button></div><div class="body flush work-queue">${workQueueHtml}</div></div>
               ${dashboardApprovalHtml}
-              <section class="panel site-policy dashboard-checkin-sites" aria-label="จุดเช็กอินที่อนุญาต"><div class="head"><div><b>จุดเช็กอินที่อนุญาต</b><span class="sub" style="margin-left:8px">นโยบายพื้นที่สำหรับการเช็กอิน</span></div><div class="spacer"></div><button class="btn sm" id="siteAddBtn">เพิ่มจุด</button></div><div class="site-policy-note">พนักงานเช็กอินได้เมื่ออยู่ในรัศมีของจุดที่เปิดใช้งาน · เช็กเอาต์ได้ทุกพื้นที่</div><div class="body flush"><table id="siteTable"><thead><tr><th>พื้นที่</th><th class="num">รัศมี</th><th>สถานะ</th><th data-nosort></th></tr></thead><tbody id="siteRows"><tr><td colspan="4"><div class="empty">กำลังโหลดจุดเช็กอิน…</div></td></tr></tbody></table></div></section>
             </div>
             <div class="panel team-register hr-team"><div class="head"><div><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">เลือกชื่อเพื่อดูเวลาเข้า–ออกและประวัติ</span></div><div class="spacer"></div><div class="team-status-summary" aria-label="สรุปสถานะทีม"><span class="not-in">ยังไม่เข้า <b>${fmtInt(cOut)}</b></span><span class="working">ทำงาน <b>${fmtInt(cOn+cLate)}</b></span><span class="finished">ออกแล้ว <b>${fmtInt(cDone)}</b></span></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เข้างาน</span><span>ออกงาน</span><span>สถานะ</span><span>การทำงาน</span></div><div class="team-grid">${teamHtml}</div></div></div>
           </section>
-          <section class="cc-lower"><section class="panel dashboard-personal-time" aria-label="แนวโน้มเวลาทำงานรายบุคคล"><div class="head"><div><b>แนวโน้มเวลาทำงานรายบุคคล</b><span class="sub" style="margin-left:8px">จัดลำดับความเสี่ยงของทีมในเดือนนี้</span></div></div><div class="body"><div id="peoplePulse"><div class="empty">กำลังโหลดสรุปรายบุคคล…</div></div></div></section><section class="panel dashboard-payroll-readiness" aria-label="ความพร้อมสำหรับจ่ายเงินเดือน"><div class="head"><div><b>ความพร้อมสำหรับจ่ายเงินเดือน</b><span class="sub" style="margin-left:8px">ตรวจความครบถ้วนก่อนออกสลิป</span></div></div><div class="body"><div id="peopleReadiness"><div class="empty">กำลังประเมินความพร้อม…</div></div></div></section></section>
+          <section class="cc-policy-row"><section class="panel site-policy dashboard-checkin-sites" aria-label="จุดเช็กอินที่อนุญาต"><div class="head"><div><b>จุดเช็กอินที่อนุญาต</b><span class="sub" style="margin-left:8px">นโยบายพื้นที่สำหรับการเช็กอิน</span></div><div class="spacer"></div><button class="btn sm" id="siteAddBtn">เพิ่มจุด</button></div><div class="site-policy-note">พนักงานเช็กอินได้เมื่ออยู่ในรัศมีของจุดที่เปิดใช้งาน · เช็กเอาต์ได้ทุกพื้นที่</div><div class="body flush"><table id="siteTable"><thead><tr><th>พื้นที่</th><th class="num">รัศมี</th><th>สถานะ</th><th data-nosort></th></tr></thead><tbody id="siteRows"><tr><td colspan="4"><div class="empty">กำลังโหลดจุดเช็กอิน…</div></td></tr></tbody></table></div></section><section class="panel dashboard-payroll-readiness" aria-label="ความพร้อมสำหรับจ่ายเงินเดือน"><div class="head"><div><b>ความพร้อมสำหรับจ่ายเงินเดือน</b><span class="sub" style="margin-left:8px">ตรวจความครบถ้วนก่อนออกสลิป</span></div></div><div class="body"><div id="peopleReadiness"><div class="empty">กำลังประเมินความพร้อม…</div></div></div></section></section>
           <div class="toolbar dash-short"><button class="btn ghost" data-act="emp">เพิ่มพนักงาน</button><button class="btn ghost" data-act="ot">บันทึก OT</button>${canFinance?`<button class="btn ghost" data-nav="payroll">ตรวจเงินเดือน</button>`:""}</div>
         </div>`;
     } else {
@@ -2812,7 +3009,7 @@ async function renderDashboard(data, preloaded={}){
       renderDashboard();
     });
     node.querySelectorAll("[data-team-day]").forEach(b=>b.onclick=()=>openTeamDayDialog(b.dataset.teamDay));
-    if(canOperations && node.querySelector("#peoplePulse")) renderPeoplePulse(dashboardTeam, dashShiftMin, dashSettings.workdays);
+    if(canOperations && node.querySelector("#peopleReadiness")) renderPeoplePulse(dashboardTeam, dashShiftMin, dashSettings.workdays);
     // Live wall clock in the command-center header (premium touch; cheap).
     const _ccTick=()=>{ const c=document.querySelector("#ccClock"); if(!c) return; const n=new Date(); c.textContent=String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0"); };
     if(window._ccClockTimer) clearInterval(window._ccClockTimer);
@@ -2858,7 +3055,8 @@ async function openTeamDayDialog(date){
 // Per-person attendance pulse for the dashboard: a mini donut (on-time vs late)
 // + counts for the current month. Clicking opens that person's calendar.
 async function renderPeoplePulse(team, shiftMin, workdays){
-  const box=document.getElementById("peoplePulse"); if(!box) return;
+  const box=document.getElementById("peoplePulse"), readiness=document.getElementById("peopleReadiness");
+  if(!box&&!readiness) return;
   try{
     const now=new Date(), start=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-01`, end=todayISO();
     const [attD, holD]=await Promise.all([
@@ -2886,18 +3084,19 @@ async function renderPeoplePulse(team, shiftMin, workdays){
     const rank=stats.map(s=>({...s,rate:s.present?Math.round(s.onTime/s.present*100):0})).sort((a,b)=>b.absent-a.absent||b.late-a.late||a.rate-b.rate||String(a.e.name).localeCompare(String(b.e.name)));
     const actionable=rank.filter(x=>x.absent>0||x.late>0);
     const shown=rank.slice(0,5);
-    box.className="team-readiness-ranking";
-    box.innerHTML=`<div class="tr-overview"><span>สรุปเดือน ${monthLabel}</span><small>${fmtInt(people.length)} คน · ผ่านวันทำงาน ${fmtInt(expected)} วัน</small></div><div class="tr-list">${shown.map((item,index)=>`<button class="tr-row ${item.absent>0?"risk":item.late>0?"watch":""}" data-calendar="${esc(item.e.id)}" aria-label="เปิดเวลาทำงาน ${esc(item.e.name)}"><span class="tr-rank">${index+1}</span><span class="tr-score ${item.rate>=90?"good":item.rate>=70?"warn":"bad"}">${item.rate}%</span><span class="tr-copy"><b>${esc(item.e.name)}</b><small><i class="on">มา ${fmtInt(item.onTime)}</i> · <i class="late">สาย ${fmtInt(item.late)}</i> · <i class="absent">ขาด ${fmtInt(item.absent)}</i></small></span><span class="tr-go">›</span></button>`).join("")}</div><button class="tr-all" type="button" data-nav="owner">ดู Timesheet ทั้งหมด (${fmtInt(people.length)} คน) <i>›</i></button>`;
-    const readiness=document.getElementById("peopleReadiness");
+    if(box){
+      box.className="team-readiness-ranking";
+      box.innerHTML=`<div class="tr-overview"><span>สรุปเดือน ${monthLabel}</span><small>${fmtInt(people.length)} คน · ผ่านวันทำงาน ${fmtInt(expected)} วัน</small></div><div class="tr-list">${shown.map((item,index)=>`<button class="tr-row ${item.absent>0?"risk":item.late>0?"watch":""}" data-calendar="${esc(item.e.id)}" aria-label="เปิดเวลาทำงาน ${esc(item.e.name)}"><span class="tr-rank">${index+1}</span><span class="tr-score ${item.rate>=90?"good":item.rate>=70?"warn":"bad"}">${item.rate}%</span><span class="tr-copy"><b>${esc(item.e.name)}</b><small><i class="on">มา ${fmtInt(item.onTime)}</i> · <i class="late">สาย ${fmtInt(item.late)}</i> · <i class="absent">ขาด ${fmtInt(item.absent)}</i></small></span><span class="tr-go">›</span></button>`).join("")}</div><button class="tr-all" type="button" data-nav="owner">ดู Timesheet ทั้งหมด (${fmtInt(people.length)} คน) <i>›</i></button>`;
+    }
     if(readiness){
       const ready=Math.max(0,people.length-actionable.length), readinessRate=people.length?Math.round(ready/people.length*100):0;
       const next=actionable[0];
       readiness.innerHTML=`<div class="pr-top"><div class="pr-gauge" style="--ready:${readinessRate}"><b>${readinessRate}%</b><span>พร้อมจ่าย</span></div><div class="pr-states"><span class="ready"><i></i><em>พร้อม</em><b>${fmtInt(ready)}</b></span><span class="review"><i></i><em>ต้องตรวจ</em><b>${fmtInt(actionable.length)}</b></span><span class="hold"><i></i><em>ต้องติดตาม</em><b>${fmtInt(rank.filter(x=>x.absent>0).length)}</b></span></div></div><div class="pr-next ${next?"":"is-clear"}">${next?`<span class="pr-next-icon">!</span><div><b>ดำเนินการถัดไป</b><small>ตรวจเวลา ${esc(next.e.name)} · สาย ${fmtInt(next.late)} · ขาด ${fmtInt(next.absent)}</small></div><button class="btn sub sm" type="button" data-calendar="${esc(next.e.id)}">ตรวจ</button>`:`<span class="pr-next-icon">✓</span><div><b>ไม่มีรายการต้องติดตาม</b><small>Timesheet ของทีมพร้อมตรวจต่อใน Payroll</small></div>`}</div>`;
     }
-    box.querySelectorAll("[data-calendar]").forEach(b=>b.onclick=()=>openAttendanceCalendar(b.dataset.calendar));
+    box?.querySelectorAll("[data-calendar]").forEach(b=>b.onclick=()=>openAttendanceCalendar(b.dataset.calendar));
     readiness?.querySelectorAll("[data-calendar]").forEach(b=>b.onclick=()=>openAttendanceCalendar(b.dataset.calendar));
-    box.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>go(b.dataset.nav));
-  }catch(_){ box.innerHTML=`<div class="empty">โหลดภาพรวมรายคนไม่สำเร็จ</div>`; }
+    box?.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>go(b.dataset.nav));
+  }catch(_){ if(box) box.innerHTML=`<div class="empty">โหลดภาพรวมรายคนไม่สำเร็จ</div>`; if(readiness) readiness.innerHTML=`<div class="empty">ประเมินความพร้อมเงินเดือนไม่สำเร็จ</div>`; }
 }
 function bar(label,val,total,color){
   const pct=total?Math.round(val/total*100):0;
@@ -3702,6 +3901,7 @@ async function renderPayroll(){
       <div><div class="payroll-kicker"><i></i>งวดเงินเดือน</div><p style="margin:3px 0 0;font-size:12px;color:var(--muted)">เริ่มวันที่ 1 ถึงวันนี้ · เลือก “เดือนก่อน” ตัดเต็มเดือนให้อัตโนมัติ</p></div>
       <div class="payroll-period"><div class="period-presets" role="group" aria-label="เลือกงวด"><button class="active" data-payroll-period="current">1–วันนี้</button><button data-payroll-period="previous">เดือนก่อนเต็มเดือน</button></div><label>เริ่ม<input type="date" id="pStart" value="${first}"></label><label>สิ้นสุด<input type="date" id="pEnd" value="${t}"></label><button class="btn sm" id="previewBtn">คำนวณงวด</button></div>
     </section>
+    <section class="payroll-flow" id="payrollFlow" aria-label="ขั้นตอนการออกสลิป"><button type="button" class="payroll-flow-step active" data-flow-focus="period"><span>1</span><div><b>เลือกงวด</b><small>กำหนดวันเริ่มและสิ้นสุด</small></div></button><button type="button" class="payroll-flow-step" data-flow-nav="owner"><span>2</span><div><b>ตรวจเวลา</b><small>แก้รายการที่เวลาไม่ครบ</small></div></button><button type="button" class="payroll-flow-step" data-flow-focus="result"><span>3</span><div><b>ตรวจและปรับยอด</b><small>ตรวจ Timesheet รายคน</small></div></button><button type="button" class="payroll-flow-step" id="flowIssue" disabled><span>4</span><div><b>ออกสลิป</b><small>พร้อมเมื่อไม่มีรายการค้าง</small></div></button></section>
     <section class="payroll-summary" id="payrollSummary"><div class="payroll-loading">กำลังคำนวณงวดปัจจุบัน…</div></section>
     <div class="notice">ขั้นตอนที่ 3 เป็น <b>ประมาณการ</b> — สุทธิ = gross − เบิกล่วงหน้า − ประกันสังคม − หักอื่นๆ ยังไม่รวมภาษี ณ ที่จ่ายแบบขั้นบันได</div>
     <div class="panel"><div class="head"><h2>รายละเอียดงวดและสลิป</h2><span class="sub" style="margin-left:8px">ตรวจความครบถ้วนก่อนออกสลิป</span></div>
@@ -3709,6 +3909,12 @@ async function renderPayroll(){
     </div>`;
   $("#previewBtn").onclick=e=>doPreview(e.target);
   node.querySelectorAll("[data-payroll-period]").forEach(b=>b.onclick=()=>applyPayrollPeriod(b.dataset.payrollPeriod));
+  node.querySelectorAll("[data-flow-focus]").forEach(button=>button.onclick=()=>{
+    const target=button.dataset.flowFocus==="period"?$("#pStart"):$("#previewResult");
+    target?.scrollIntoView({behavior:"smooth",block:"center"});
+    if(button.dataset.flowFocus==="period") $("#pStart")?.focus();
+  });
+  node.querySelectorAll("[data-flow-nav]").forEach(button=>button.onclick=()=>{ ownerState.filter="review"; go(button.dataset.flowNav); });
   [$("#pStart"),$("#pEnd")].forEach(input=>input.onchange=()=>node.querySelectorAll("[data-payroll-period]").forEach(b=>b.classList.remove("active")));
   void doPreview($("#previewBtn"));
 }
@@ -3807,6 +4013,20 @@ async function doPreview(btn){
       const readyPayrollRows=payrollRows.filter(r=>r.target==="slip"&&r.line);
       const readyCount=payrollRows.filter(r=>r.state==="ready").length;
       const missingRateCount=payrollRows.filter(r=>r.target==="payrules").length;
+      const flow=$("#payrollFlow"), flowSteps=flow?.querySelectorAll(".payroll-flow-step");
+      if(flowSteps){
+        flowSteps[0]?.classList.add("complete");
+        flowSteps[1]?.classList.toggle("needs-action",incompleteCount>0||pendingOtCount>0);
+        flowSteps[1]?.classList.toggle("complete",incompleteCount===0&&pendingOtCount===0);
+        flowSteps[2]?.classList.toggle("needs-action",missingRateCount>0);
+        flowSteps[2]?.classList.toggle("complete",missingRateCount===0);
+      }
+      const flowIssue=$("#flowIssue");
+      if(flowIssue){
+        flowIssue.disabled=!payrollReady||!readyPayrollRows.length;
+        flowIssue.classList.toggle("ready",!flowIssue.disabled);
+        flowIssue.onclick=flowIssue.disabled?null:()=>readyPayslipReviewDialog(readyPayrollRows,lastPreview.period);
+      }
       const lateAbsenceNotice=Number(data.lateAbsenceDays||0)>0?`<div class="notice" style="margin:0 0 12px;border-color:#f0d49a;background:#fff7ea"><div><b>นโยบายมาสายสะสม:</b> สาย ${fmtInt(data.lateDaysCount||0)} วัน · ทุก ${fmtInt(data.lateAbsenceThreshold||4)} วันเท่ากับขาด 1 วัน · คิดขาดงานเทียบเท่า ${fmtInt(data.lateAbsenceDays)} วัน${Number(data.totalLateAbsenceDeduction||0)>0?` · หักค่าแรงรวม −${fmtBaht(data.totalLateAbsenceDeduction)}`:""}</div></div>`:"";
       if(summary) summary.innerHTML=`
         <div class="payroll-metric"><span>พนักงานที่คำนวณได้</span><b>${fmtInt((data.lines||[]).length)} คน</b><em>มีเรตค่าจ้างและเวลาเข้าครบ</em></div>
@@ -4488,12 +4708,12 @@ async function renderOwner(){
     const paydayText=s.pay_frequency==="semimonthly"?(payDayLabel(s.pay_day_2)+" และ "+payDayLabel(s.pay_day_1)):(s.pay_frequency==="weekly"?"ทุกวันศุกร์":payDayLabel(s.pay_day_1));
     node.innerHTML=`
       <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">ทะเบียนเวลาทำงาน</div><h2>Timesheet</h2><p>ดูเวลาทั้งเดือนของทุกคนในตารางเดียว · สลับไปหน้ารายวันเพื่อลงเวลาหรือแก้ไข</p></div>
-        <div class="time-month-nav" id="pmNav"><button class="btn sub sm" id="pmPrev" aria-label="เดือนก่อน">‹</button><b id="pmLabel" style="min-width:120px;text-align:center">—</b><button class="btn sub sm" id="pmNext" aria-label="เดือนถัดไป">›</button></div>
+        <div class="time-month-nav" id="pmNav"><button class="btn sub sm" id="pmPrev" aria-label="เดือนก่อน" title="เดือนก่อน">‹</button><b id="pmLabel" style="min-width:120px;text-align:center">—</b><button class="btn sub sm" id="pmNext" aria-label="เดือนถัดไป" title="เดือนถัดไป">›</button></div>
       </div>
-      <div class="ts-viewtabs" role="group" aria-label="มุมมอง Timesheet"><button class="active" data-tsview="month">สรุปเพื่อปิดงวด</button><button data-tsview="day">รายวัน (ลงเวลา/แก้ไข)</button></div>
+      <div class="ts-viewtabs" role="group" aria-label="มุมมอง Timesheet"><button class="active" data-tsview="month">ทั้งเดือน (สรุปปิดงวด)</button><button data-tsview="day">รายวัน (ลงเวลา/แก้ไข)</button></div>
 
       <div class="ts-view ts-exception-view" data-tsview="month">
-        <div class="ts-exception-note"><div><b>ตรวจข้อยกเว้นก่อนปิดงวด</b><span id="pmShiftNote">กำลังโหลดเกณฑ์เวลา…</span></div><span class="sub">เลือกพนักงานเพื่อดู 14 วันล่าสุดและแก้ไขเวลา</span></div>
+        <div class="ts-exception-note"><div><b>ตรวจข้อยกเว้นก่อนปิดงวด</b><span id="pmShiftNote">กำลังโหลดเกณฑ์เวลา…</span></div><span class="sub">เลือกพนักงานเพื่อดูทุกวันในเดือนที่เลือกและแก้ไขเวลา</span></div>
         <div class="ts-exception-layout">
           <section class="panel ts-exception-main"><div class="head"><div><b>สถานะพนักงาน</b><span class="sub">เรียงคนที่ต้องติดตามก่อน</span></div><span id="pmRosterCount" class="badge">—</span></div><div class="body flush"><div id="pmMatrix" class="pm-exception-host"><div class="empty">กำลังโหลด…</div></div></div><div id="pmDetail" class="pm-detail"></div></section>
           <aside class="panel ts-review-rail"><div class="head"><div><b>รายการต้องตรวจ</b><span class="sub">แก้ไขให้ครบก่อนนำไปคำนวณเงินเดือน</span></div><span id="tsReviewCount" class="badge amber">—</span></div><div id="tsReviewQueue" class="body ts-review-list"><div class="empty">กำลังโหลด…</div></div></aside>
@@ -4697,15 +4917,14 @@ function pmRenderDetail(){
   const host=$("#pmDetail"); if(!host) return;
   const m=pmModel.find(x=>x.e.id===ownerState.pmSel); if(!m){ host.innerHTML=""; return; }
   const r=pmRange(), pl=m.pl, net=pl.netPay!=null?pl.netPay:(pl.grossPay||0);
-  const current=m.cells.filter(c=>c.iso<=todayISO()).slice(-14);
-  const days=current.map(c=>{ const type=c.d&&c.d.status!=="complete"?"review":c.base;
+  const days=m.cells.map(c=>{ const type=c.d&&c.d.status!=="complete"?"review":c.base;
     const text=type==="present"?"ครบ":type==="late"?"สาย":type==="absent"?"ขาด":type==="off"?"หยุด":"รอ";
     const times=c.d?`${esc(c.d.checkIn||"—")} – ${esc(c.d.checkOut||"—")}`:"—";
     return `<button class="pm-day ${type}${c.isToday?" today":""}" data-detail-iso="${c.iso}" type="button"><b>${c.dn}</b><small>${text}</small><em>${times}</em></button>`;
   }).join("");
   host.innerHTML=`<div class="pm-detail-head"><div class="pm-av">${esc((m.e.name||m.e.id).slice(0,2))}</div><div><b>${esc(m.e.name||m.e.id)}</b><span>${esc(m.e.id)}${m.e.role?` · ${esc(m.e.role)}`:""}</span></div><div class="pm-detail-total"><small>ประมาณการงวดนี้</small><b>${fmtBaht(net)}</b></div><button class="btn sub sm" id="pmPrintTs" type="button">พิมพ์</button><button class="btn sm" id="pmIssueSlip" type="button">ออกสลิป</button></div>
     <div class="pm-detail-stats"><span><b>${m.present+m.late}</b> มาทำงาน</span><span class="late"><b>${m.late}</b> สาย</span><span class="absent"><b>${m.absent}</b> ขาด</span><span><b>${fmtHours(m.workedMin)}</b> ชั่วโมง</span></div>
-    <div class="pm-recent-label">14 วันล่าสุด <span>คลิกวันที่มีรายการเพื่อดูและแก้ไขเวลา</span></div><div class="pm-recent-days">${days}</div>`;
+    <div class="pm-recent-label">ทั้งเดือน ${PM_TH_MON[r.m]} ${r.y+543} <span>คลิกวันที่มีรายการเพื่อดูและแก้ไขเวลา</span></div><div class="pm-recent-days">${days}</div>`;
   host.querySelectorAll("[data-detail-iso]").forEach(btn=>btn.onclick=()=>{ const c=m.cells.find(x=>x.iso===btn.dataset.detailIso); if(c&&c.d) openAttendanceRecordDialog(c.d,()=>loadPersonMonth()); });
   const pb=host.querySelector("#pmPrintTs");
   if(pb) pb.onclick=()=>{ const days=m.cells.map(c=>({date:c.iso,checkIn:c.d?c.d.checkIn:"",checkOut:c.d?c.d.checkOut:"",workedMinutes:c.d?c.d.workedMinutes:0,status:c.d?c.d.status:"",base:c.base,holName:c.holName})); printTimesheet({employeeId:m.e.id,role:m.e.role,regularMinutes:(pl.regularMinutes!=null?pl.regularMinutes:m.workedMin),otMinutes:(pl.otMinutes||0)},{start:r.start,end:r.end},days,{}); };
@@ -4902,7 +5121,7 @@ function workScheduleDialog(s){
     if(!workdays){ toast("เลือกวันทำงานอย่างน้อย 1 วัน","bad"); return; }
     try{
       await api("admin_save_settings",{settings:{workdays,shift_start:$("#wsStart",body).value,shift_end:$("#wsEnd",body).value,shift_grace_min:$("#wsGrace",body).value,lunch_break_min:$("#wsLunch",body).value,ot_threshold_hours:$("#wsOt",body).value,holiday_ot_enabled:$("#wsHolidayOt",body).checked,remind_before_min:$("#wsBefore",body).value,remind_checkout_after_min:$("#wsAfter",body).value}});
-      closeModal(); toast("บันทึกกะงานแล้ว","good"); loadWorkRulesSummary();
+      closeModal(); toast("บันทึกกะงานแล้ว","good"); loadSettingsCommandSummary(); loadWorkRulesSummary();
     }catch(err){ toast(err.message,"bad"); }
   });
   openModal("แก้ไขเวลาทำงาน",body,[cancel,save]);
@@ -4962,7 +5181,7 @@ function siteDialog(site){
 }
 
 const ADV_BADGE={pending:"blue",approved:"",paid:"amber",settled:"grey",rejected:"red"};
-const ADV_LABEL={pending:"รออนุมัติ",approved:"อนุมัติแล้ว · รอจ่ายเงิน",paid:"จ่ายแล้ว · รอหักเงินเดือน",settled:"หักจากเงินเดือนแล้ว",rejected:"ปฏิเสธ"};
+const ADV_LABEL={pending:"รออนุมัติ",approved:"อนุมัติแล้ว · รอจ่ายเงิน",paid:"จ่ายแล้ว · รอตรวจใน Payroll",settled:"หักจากเงินเดือนแล้ว",rejected:"ปฏิเสธ"};
 async function renderAdvances(){
   const node=$("#page-advances"); skeleton(node);
   setRouteShell(node,"advances");
@@ -4973,15 +5192,15 @@ async function renderAdvances(){
     const sum=(arr)=>arr.reduce((s,a)=>s+Number(a.amount||0),0);
     node.innerHTML=`
       ${groupTabsHtml("advances")}
-      <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">ทะเบียนรายการเงิน</div><h2>เงินล่วงหน้าพนักงาน</h2><p>อนุมัติ จ่าย และติดตามยอดหักคืนจากตารางเดียว</p></div><div class="directory-count"><b>${fmtInt(pending.length+approved.length)}</b> รายการต้องดำเนินการ</div></div>
-      <div class="notice blue">ขั้นตอน: <b>อนุมัติ</b> → <b>บันทึกจ่ายแล้ว</b> (ยื่นเงินให้ลูกน้อง) → ระบบจะ<b>หักจากเงินเดือน</b>อัตโนมัติเมื่อล็อกงวด แล้วเปลี่ยนเป็น “หักแล้ว” (หักครั้งเดียว ไม่ซ้ำ)</div>
+      <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">รายการหักเงินเดือน</div><h2>เงินล่วงหน้าพนักงาน</h2><p>อนุมัติ จ่าย และตรวจผลกระทบก่อนออกสลิปจากตารางเดียว</p></div><div class="directory-count"><b>${fmtInt(pending.length+approved.length)}</b> รายการต้องดำเนินการ</div></div>
+      <div class="notice blue">ขั้นตอน: <b>อนุมัติ</b> → <b>บันทึกจ่ายแล้ว</b> → <b>ตรวจยอดหักใน Payroll</b> → ออกสลิป ระบบหักเพียงครั้งเดียวและเปลี่ยนสถานะเป็น “หักแล้ว”</div>
       <div class="cards">
         <div class="card"><div class="label">รออนุมัติ</div><div class="value">${fmtInt(pending.length)}</div><div class="note ${pending.length?"bad":""}">${fmtBaht(sum(pending))}</div></div>
         <div class="card"><div class="label">อนุมัติแล้ว รอจ่ายเงิน</div><div class="value">${fmtBaht(sum(approved))}</div><div class="note">${fmtInt(approved.length)} รายการ</div></div>
-        <div class="card"><div class="label">จ่ายแล้ว รอหักเงินเดือน</div><div class="value">${fmtBaht(sum(paid))}</div><div class="note">${fmtInt(paid.length)} รายการ · จะถูกหักเมื่อล็อกงวด</div></div>
+        <div class="card"><div class="label">จ่ายแล้ว รอตรวจใน Payroll</div><div class="value">${fmtBaht(sum(paid))}</div><div class="note">${fmtInt(paid.length)} รายการ · แสดงเป็นยอดหักก่อนออกสลิป</div></div>
         <div class="card"><div class="label">คำขอทั้งหมด</div><div class="value">${fmtInt(adv.length)}</div><div class="note">ทุกสถานะ</div></div>
       </div>
-      <div class="panel"><div class="head"><div><h2>ทะเบียนเงินล่วงหน้า</h2><span class="sub">เรียงรายการที่ต้องดำเนินการก่อน</span></div><div class="spacer"></div><div class="toolbar" id="advFilters" style="gap:4px"><button class="btn sm active" data-adv-filter="action">ต้องดำเนินการ ${fmtInt(pending.length+approved.length)}</button><button class="btn sub sm" data-adv-filter="paid">รอหัก ${fmtInt(paid.length)}</button><button class="btn sub sm" data-adv-filter="all">ทั้งหมด ${fmtInt(adv.length)}</button></div></div>
+      <div class="panel"><div class="head"><div><h2>ทะเบียนเงินล่วงหน้า</h2><span class="sub">เรียงรายการที่ต้องดำเนินการก่อน</span></div><div class="spacer"></div><button class="btn sub sm" id="advToPayroll">เปิด Payroll</button><div class="toolbar" id="advFilters" style="gap:4px"><button class="btn sm active" data-adv-filter="action">ต้องดำเนินการ ${fmtInt(pending.length+approved.length)}</button><button class="btn sub sm" data-adv-filter="paid">รอตรวจ ${fmtInt(paid.length)}</button><button class="btn sub sm" data-adv-filter="all">ทั้งหมด ${fmtInt(adv.length)}</button></div></div>
         <div class="body flush"><table>
           <thead><tr><th>พนักงาน</th><th class="num">จำนวน</th><th>เหตุผล</th><th>วันที่ขอ</th><th>ผลกระทบเงินเดือน</th><th>สถานะ</th><th></th></tr></thead>
           <tbody id="advRows"></tbody></table></div>
@@ -4994,7 +5213,7 @@ async function renderAdvances(){
       const acts=[];
       if(a.status==="pending"){ acts.push(`<button class="btn ok sm" data-ap="${esc(a.advanceId)}">อนุมัติ</button>`); acts.push(`<button class="btn danger sm" data-rj="${esc(a.advanceId)}">ปฏิเสธ</button>`); }
       if(a.status==="approved"){ acts.push(`<button class="btn sm" data-paid="${esc(a.advanceId)}">บันทึกจ่ายแล้ว</button>`); }
-      const payrollImpact=a.status==="paid"?"รอหักในงวดเงินเดือนถัดไปที่ล็อก":a.status==="settled"?"หักจากเงินเดือนแล้ว":a.status==="approved"?"ยังไม่กระทบจนกว่าจะบันทึกจ่าย":"ยังไม่กระทบเงินเดือน";
+      const payrollImpact=a.status==="paid"?"แสดงเป็นยอดหักเมื่อคำนวณ Payroll ก่อนออกสลิป":a.status==="settled"?"หักจากเงินเดือนแล้ว":a.status==="approved"?"ยังไม่กระทบจนกว่าจะบันทึกจ่าย":"ยังไม่กระทบเงินเดือน";
       return `<tr><td class="person">${esc(a.name)}<span class="sub">${esc(a.employeeId)}</span></td>
         <td class="num"><b>${fmtBaht(a.amount)}</b></td><td>${esc(a.reason||"—")}</td><td>${fmtDate(a.requestDate)}</td>
         <td><span class="sub">${payrollImpact}</span></td>
@@ -5006,6 +5225,7 @@ async function renderAdvances(){
       tb.querySelectorAll("[data-paid]").forEach(b=>b.onclick=()=>markAdvancePaid(b.dataset.paid));
     };
     $("#advFilters").querySelectorAll("[data-adv-filter]").forEach(b=>b.onclick=()=>drawAdv(b.dataset.advFilter));
+    $("#advToPayroll").onclick=()=>go("payroll");
     drawAdv();
   }catch(err){ errorBox(node, err, renderAdvances); }
 }
@@ -5427,8 +5647,9 @@ async function renderSettings(){
   node.innerHTML=`
     ${groupTabsHtml("settings")}
     <div class="settings-workspace">
-    <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">การควบคุมระบบ</div><h2>ตั้งค่าบริษัทและการดูแลข้อมูล</h2><p>แก้เฉพาะกติกาที่มีผลกับการเช็กอิน ค่าจ้าง และเอกสารทั้งระบบ</p></div><div class="directory-count">ระดับสิทธิ์<br><b>${esc(ROLE_LABEL[state.role]||"ผู้ดูแล")}</b></div></div>
-    <div class="setting-group-label">ข้อมูลเอกสาร</div>
+    <div class="directory-page-head bvn-page-head"><div><div class="route-eyebrow">การควบคุมระบบ</div><h2>ตั้งค่าบริษัทและนโยบายการทำงาน</h2><p>เริ่มจากกติกาที่มีผลต่อเวลาและสลิปก่อน ส่วนระบบทั่วไปอยู่ด้านล่าง</p></div><div class="directory-count">สิทธิ์การใช้งาน<br><b>${esc(ROLE_LABEL[state.role]||"ผู้ดูแล")}</b></div></div>
+    <section class="settings-command" aria-label="การตั้งค่าหลัก"><div class="settings-command-head"><div><span class="settings-kicker">เริ่มจากสิ่งสำคัญ</span><h3>นโยบายที่กระทบการจ่ายเงินเดือน</h3><p>แก้ค่าแล้วใช้กับพนักงานตามนโยบายของบริษัทในรอบคำนวณถัดไป</p></div><span class="settings-command-status"><i></i> ตรวจสอบก่อนออกสลิป</span></div><div class="settings-command-grid"><button type="button" class="settings-command-card is-payroll" data-settings-action="social"><span class="settings-command-icon" aria-hidden="true">${lineIcon("bill")}</span><span><b>เงินสมทบประกันสังคม</b><small id="settingsSsoStatus">กำลังโหลดนโยบาย…</small></span><em>ตั้งค่า ›</em></button><button type="button" class="settings-command-card is-time" data-settings-action="work"><span class="settings-command-icon" aria-hidden="true">${lineIcon("clock")}</span><span><b>กะงานและการลงเวลา</b><small id="settingsWorkStatus">กำลังโหลดนโยบาย…</small></span><em>ตั้งค่า ›</em></button><button type="button" class="settings-command-card" data-settings-action="document"><span class="settings-command-icon" aria-hidden="true">${lineIcon("file")}</span><span><b>ข้อมูลบนเอกสาร</b><small>ชื่อบริษัท โลโก้ และผู้ลงนาม</small></span><em>แก้ไข ›</em></button></div></section>
+    <div class="setting-group-label">นโยบายเงินเดือนและเวลาทำงาน</div>
     <div class="panel"><div class="head"><h2>บริษัทและโลโก้เอกสาร</h2><span class="sub" style="margin-left:8px">ใช้กับ Timesheet และสลิปเงินเดือน</span><div class="spacer"></div><button class="btn" id="editDocumentIdentity">แก้ไขข้อมูลเอกสาร</button></div><div class="body"><p class="sub" style="margin:0">ตั้งชื่อบริษัท ที่อยู่ เลขผู้เสียภาษี ผู้ลงนาม และโลโก้ที่ปรากฏบนเอกสารพนักงาน</p></div></div>
     <div class="setting-group-label">นโยบายบริษัท</div>
     <div class="panel"><div class="head"><h2>เงินสมทบกองทุนประกันสังคม</h2><span class="sub" style="margin-left:8px">นโยบายเดียว ใช้กับสลิปของพนักงานทุกคน</span>
@@ -5439,7 +5660,8 @@ async function renderSettings(){
       <div class="spacer"></div><button class="btn" id="editWorkRules">แก้ไขเวลาทำงาน</button></div>
       <div class="body" id="workRulesSummary"><div class="empty">กำลังโหลดการตั้งค่าเวลาทำงาน…</div></div>
     </div>
-    <div class="panel"><div class="head"><h2>บัญชีผู้ดูแลระบบ</h2><span class="sub" style="margin-left:8px">โหมดใช้งานง่าย: รหัสผ่านแสดงใน Google Sheet และตารางนี้</span>
+    <div class="setting-group-label">ทีมผู้ดูแลและปฏิทินบริษัท</div>
+    <div class="panel"><div class="head"><h2>บัญชีผู้ดูแลระบบ</h2><span class="sub" style="margin-left:8px">จัดการผู้ที่เข้าถึงหลังบ้านและสิทธิ์การใช้งาน</span>
       <div class="spacer"></div><button class="btn ok sm" id="addAdmin">เพิ่มบัญชี</button></div>
       <div class="body flush"><table>
         <thead><tr><th>ชื่อผู้ใช้</th><th>รหัสผ่าน</th><th>ชื่อแสดง</th><th>สิทธิ์</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
@@ -5451,7 +5673,7 @@ async function renderSettings(){
       <div class="body flush"><table id="holTable"><thead><tr><th>วันที่</th><th>ชื่อวันหยุด</th><th data-nosort></th></tr></thead>
       <tbody id="holRows"><tr><td colspan="3"><div class="empty">กำลังโหลด…</div></td></tr></tbody></table></div>
     </div>
-    <div class="setting-group-label">ระบบและการเผยแพร่</div>
+    <div class="setting-group-label">แอปพนักงานและข้อมูลสำรอง</div>
     <div class="panel"><div class="head"><h2>เวอร์ชันแอปพนักงาน</h2><span class="sub" style="margin-left:8px">ปล่อยอัปเดต APK ให้พนักงาน (ไฟล์อยู่บน Google Drive)</span></div>
       <div class="body">
         <div class="grid2">
@@ -5496,15 +5718,24 @@ async function renderSettings(){
     const k=(($("#setApikey")&&$("#setApikey").value)||"").trim();
     state.endpoint=v; state.apikey=k; LS.setItem("bvn_endpoint", v); LS.setItem("bvn_apikey", k); clearApiReadCache(); syncBackendBadge(); toast("บันทึกการเชื่อมต่อแล้ว","good"); };
   $("#addAdmin").onclick=()=>adminUserDialog(null);
-  $("#editDocumentIdentity").onclick=()=>invoiceSettingsDialog();
-  $("#editWorkRules").onclick=async()=>{
+  const openDocumentIdentity=()=>invoiceSettingsDialog();
+  const openWorkRules=async()=>{
     try{ const d=await api("admin_get_settings"); workScheduleDialog(d.settings||{}); }
     catch(err){ toast(err.message,"bad"); }
   };
-  $("#editSocialSecurity").onclick=async()=>{
+  const openSocialSecurity=async()=>{
     try{ const d=await api("admin_get_settings"); socialSecurityDialog(d.settings||{}); }
     catch(err){ toast(err.message,"bad"); }
   };
+  $("#editDocumentIdentity").onclick=openDocumentIdentity;
+  $("#editWorkRules").onclick=openWorkRules;
+  $("#editSocialSecurity").onclick=openSocialSecurity;
+  node.querySelectorAll("[data-settings-action]").forEach(button=>button.onclick=()=>{
+    const action=button.dataset.settingsAction;
+    if(action==="document") openDocumentIdentity();
+    if(action==="work") openWorkRules();
+    if(action==="social") openSocialSecurity();
+  });
   $("#addHoliday").onclick=()=>holidayDialog();
   $("#importHoliday").onclick=(e)=>importHolidays(e.target);
   $("#backupBtn").onclick=(e)=>withBtn(e.target, exportFullBackup);
@@ -5523,7 +5754,21 @@ async function renderSettings(){
       toast("บันทึกเวอร์ชันแอปแล้ว · พนักงานจะได้รับแจ้งเตือนเมื่อเปิดแอป","good");
     }catch(err){ toast(err.message,"bad"); }
   }); };
-  loadSocialSecuritySummary(); loadWorkRulesSummary(); loadAdminUsers(); loadHolidays(); loadAppVersion();
+  loadSettingsCommandSummary(); loadSocialSecuritySummary(); loadWorkRulesSummary(); loadAdminUsers(); loadHolidays(); loadAppVersion();
+}
+
+async function loadSettingsCommandSummary(){
+  const sso=$("#settingsSsoStatus"), work=$("#settingsWorkStatus");
+  if(!sso&&!work) return;
+  try{
+    const s=(await api("admin_get_settings")).settings||{};
+    const ssoEnabled=String(s.sso_enabled).toLowerCase()==="true";
+    if(sso) sso.textContent=ssoEnabled?`หัก ${s.sso_rate||"5"}% · สูงสุด ${fmtBaht(Number(s.sso_cap||750))}`:"ยังไม่เปิดหักประกันสังคม";
+    if(work) work.textContent=`${normaliseTime(s.shift_start,"09:00")}–${normaliseTime(s.shift_end,"18:00")} · ผ่อนผัน ${s.shift_grace_min||"5"} นาที`;
+  }catch(_){
+    if(sso) sso.textContent="เปิดการตั้งค่าเพื่อดูรายละเอียด";
+    if(work) work.textContent="เปิดการตั้งค่าเพื่อดูรายละเอียด";
+  }
 }
 
 function socialSecurityDialog(s){
@@ -5531,7 +5776,7 @@ function socialSecurityDialog(s){
   const body=el(`<div><div class="notice blue"><div><b>ใช้กับสลิปทุกคนในทุกงวด</b><br><span class="sub">ระบบคำนวณจากรายได้ก่อนหักตามอัตราและเพดานที่กำหนด ไม่สามารถเปลี่ยนแยกรายสลิปได้</span></div></div><label class="check" style="margin:14px 0"><input type="checkbox" id="policySso" ${enabled?"checked":""}> หักเงินสมทบกองทุนประกันสังคม</label><div class="grid2"><div class="field"><label>อัตราเงินสมทบ (%)</label><input id="policySsoRate" type="number" min="0" max="100" step="0.5" value="${esc(s.sso_rate||"5")}"></div><div class="field"><label>เพดานเงินสมทบต่อเดือน (บาท)</label><input id="policySsoCap" type="number" min="0" step="1" value="${esc(s.sso_cap||"750")}"></div></div></div>`);
   const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
   const save=el(`<button class="btn">บันทึกนโยบาย</button>`);
-  save.onclick=()=>withBtn(save,async()=>{try{await api("admin_save_settings",{settings:{sso_enabled:$("#policySso").checked,sso_rate:$("#policySsoRate").value,sso_cap:$("#policySsoCap").value}}); clearApiReadCache(); closeModal(); toast("บันทึกนโยบายประกันสังคมแล้ว","good"); loadSocialSecuritySummary();}catch(err){toast(err.message,"bad");}});
+  save.onclick=()=>withBtn(save,async()=>{try{await api("admin_save_settings",{settings:{sso_enabled:$("#policySso").checked,sso_rate:$("#policySsoRate").value,sso_cap:$("#policySsoCap").value}}); clearApiReadCache(); closeModal(); toast("บันทึกนโยบายประกันสังคมแล้ว","good"); loadSettingsCommandSummary(); loadSocialSecuritySummary();}catch(err){toast(err.message,"bad");}});
   openModal("ตั้งค่าประกันสังคม",body,[cancel,save]);
 }
 
