@@ -1145,6 +1145,7 @@ async function renderPeople(){
     const pendingCount=Object.values(pendBy).reduce((sum,n)=>sum+Number(n||0),0);
     const profileReadyCount=emps.filter(e=>e.nationalId&&e.phone).length;
     const profileMissingCount=Math.max(0,emps.length-profileReadyCount);
+    if(!_peopleSel||!emps.some(e=>e.id===_peopleSel)) _peopleSel=emps[0]?.id||null;
     node.innerHTML=`
       <div id="pwReqPanel"></div>
       <div id="identityReqPanel"></div>
@@ -1163,7 +1164,26 @@ async function renderPeople(){
           </div>
           <div class="employee-table-wrap"><div id="pList"></div></div>
         </section>
+        <aside class="panel people-command" style="margin:0"><div id="pDetail"></div></aside>
       </div>`;
+    const drawDetail=()=>{
+      const host=$("#pDetail"), e=emps.find(x=>x.id===_peopleSel); if(!host) return;
+      if(!e){ host.innerHTML=`<div class="empty">เลือกพนักงานเพื่อดูรายละเอียด</div>`; return; }
+      const active=String(e.status||"").toLowerCase()==="active", pending=pendBy[e.id]||0;
+      const fields=[e.name,e.role,e.department,e.phone,e.nationalId]; const complete=fields.filter(Boolean).length, percent=Math.round(complete/fields.length*100);
+      const usage=(usageD.rows||[]).find(x=>x.employeeId===e.id)||{};
+      const todo=[]; if(!e.phone) todo.push(["โทรศัพท์","เพิ่มช่องทางติดต่อ"]); if(!e.nationalId) todo.push(["เอกสาร","บันทึกเลขบัตรประชาชน"]); if(!e.role||e.role==="Employee") todo.push(["ตำแหน่ง","ระบุตำแหน่งงาน"]); if(pending) todo.push(["งานค้าง",`รอจัดการ ${pending} รายการ`]);
+      host.innerHTML=`<div class="head"><div><b>รายละเอียดพนักงาน</b><span class="sub">เลือกจากทะเบียนด้านซ้าย</span></div><button class="employee-icon-btn" id="pDetailMenu" title="จัดการ">⋯</button></div>
+        <div class="body people-command-body"><div class="pc-identity"><div class="employee-avatar">${esc((e.name||e.id).trim().slice(0,2))}</div><div><b>${esc(e.name||e.id)}</b><span>${esc(e.id)} · ${active?"ใช้งาน":"ปิดใช้งาน"}</span><small>${esc(e.role||"ยังไม่ระบุตำแหน่ง")}${e.department?` · ${esc(e.department)}`:""}</small></div></div>
+        <div class="pc-complete"><div><span>ความครบถ้วนของโปรไฟล์</span><b>${percent}%</b></div><i><em style="width:${percent}%"></em></i><small>กรอกแล้ว ${complete} จาก ${fields.length} รายการหลัก</small></div>
+        <div class="pc-status-grid"><span><i class="pc-icon contact">◌</i><small>ติดต่อ</small><b>${e.phone?esc(e.phone):"ยังไม่ระบุ"}</b></span><span><i class="pc-icon doc">▤</i><small>เอกสาร</small><b class="${e.nationalId?"good":"warn"}">${e.nationalId?"ครบแล้ว":"รอติดตาม"}</b></span><span><i class="pc-icon pin">⌖</i><small>การลงเวลา</small><b>${e.locationRequired?"ตามพื้นที่":"ไม่บังคับ"}</b></span></div>
+        <div class="pc-section"><div class="pc-section-head"><b>สิทธิการลาปีนี้</b><span>ใช้แล้ว</span></div><div class="pc-leave"><span><b>${fmtInt(usage.usedSick||0)}</b><small>ลาป่วย</small></span><span><b>${fmtInt(usage.usedPersonal||0)}</b><small>ลากิจ</small></span><span><b>${fmtInt(usage.usedVacation||0)}</b><small>พักร้อน</small></span></div></div>
+        <div class="pc-section"><div class="pc-section-head"><b>งานที่ต้องจัดการ</b><span>${todo.length?`${todo.length} รายการ`:"พร้อม"}</span></div>${todo.length?`<div class="pc-todos">${todo.map(x=>`<button type="button" data-pc-action="edit"><i>!</i><span><b>${x[0]}</b><small>${x[1]}</small></span><em>›</em></button>`).join("")}</div>`:`<div class="pc-clear"><i>✓</i><span>ข้อมูลสำคัญพร้อมใช้งาน</span></div>`}</div>
+        <div class="pc-actions"><button class="btn sub sm" id="pDetailCalendar">ปฏิทินเวลา</button><button class="btn sm" id="pDetailEdit">แก้ไขข้อมูล</button></div></div>`;
+      $("#pDetailEdit").onclick=()=>employeeDialog(e); $("#pDetailCalendar").onclick=()=>openAttendanceCalendar(e.id);
+      host.querySelectorAll("[data-pc-action]").forEach(b=>b.onclick=()=>employeeDialog(e));
+      $("#pDetailMenu").onclick=()=>employeeDialog(e);
+    };
     const drawList=(q="")=>{
       q=q.trim().toLowerCase();
       const list=emps.filter(e=>{
@@ -1191,7 +1211,7 @@ async function renderPeople(){
         ...(emp.status==="active"?[{label:"ปิดใช้งาน", danger:true, fn:()=>deactivate(emp)}]:[]),
         ...(state.role==="owner"&&hasBackendCapability("employeeDelete")?[{label:"ลบถาวร…", danger:true, fn:()=>deleteEmployee(emp)}]:[]),
       ]; };
-      $("#pList").querySelectorAll(".p-open").forEach(b=>b.onclick=()=>{ _peopleSel=b.dataset.emp; drawList($("#pSearch").value); openAttendanceCalendar(b.dataset.emp); });
+      $("#pList").querySelectorAll(".p-open").forEach(b=>b.onclick=()=>{ _peopleSel=b.dataset.emp; drawList($("#pSearch").value); drawDetail(); });
       $("#pList").querySelectorAll(".p-cal").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); openAttendanceCalendar(b.dataset.emp); });
       $("#pList").querySelectorAll(".p-menu").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); openRowMenu(e.clientX, e.clientY, menuFor(b.dataset.emp)); });
       $("#pList").querySelectorAll(".p-emp").forEach(row=>attachRowMenu(row, menuFor(row.dataset.emp)));
@@ -1224,7 +1244,7 @@ async function renderPeople(){
       if($("#pGoRules")) $("#pGoRules").onclick=()=>go("payrules");
       if($("#pAddOt")) $("#pAddOt").onclick=()=>addOvertimeDialog();
     };
-    drawList(); loadPwRequests(); loadIdentityRequests();
+    drawList(); drawDetail(); loadPwRequests(); loadIdentityRequests();
     $("#pSearch").oninput=e=>drawList(e.target.value);
     node.querySelectorAll("[data-profile-filter]").forEach(button=>button.onclick=()=>{ _peopleProfileFilter=button.dataset.profileFilter; node.querySelectorAll("[data-profile-filter]").forEach(x=>x.classList.toggle("active",x===button)); drawList($("#pSearch").value); });
     $("#pAdd").onclick=()=>employeeDialog(null);

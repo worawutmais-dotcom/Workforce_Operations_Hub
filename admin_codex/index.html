@@ -1801,6 +1801,9 @@
   /* Employee is now a dedicated directory. Approval decisions are operated
      from the Dashboard, beside the action queue that explains their impact. */
   .employee-workspace{grid-template-columns:minmax(0,1fr)!important}
+  /* Employee command centre: the register stays visible while one selected
+     employee has a complete operational summary beside it. */
+  #page-people .employee-workspace{grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr)!important;gap:12px}.people-command{min-width:0;border-top:2px solid #365b7d!important}.people-command>.head{min-height:47px;padding:10px 13px!important;background:#f7fafc}.people-command>.head .sub{display:block;margin-top:2px;font-size:10px}.people-command-body{padding:14px!important}.pc-identity{display:flex;align-items:center;gap:10px}.pc-identity .employee-avatar{width:42px;height:42px;border-radius:12px;font-size:12px;background:#eaf1f7;color:#294d70}.pc-identity>div:last-child{min-width:0}.pc-identity b,.pc-identity span,.pc-identity small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pc-identity b{font-size:14px;font-weight:600}.pc-identity span{margin-top:2px;font-size:10px;color:#496278}.pc-identity small{margin-top:3px;font-size:10px;color:var(--muted)}.pc-complete{margin:15px 0 12px;padding:10px;border:1px solid #dce6ee;border-radius:8px;background:#f8fbfd}.pc-complete>div{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.pc-complete span{font-size:10px;color:#60778b}.pc-complete b{font-size:16px;color:#1c714d;font-weight:600}.pc-complete i{display:block;height:5px;margin:7px 0 5px;border-radius:999px;background:#dfe8ed;overflow:hidden}.pc-complete em{display:block;height:100%;border-radius:inherit;background:#29a56d}.pc-complete small{font-size:9px;color:var(--muted)}.pc-status-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.pc-status-grid>span{min-width:0;padding:8px 7px;border:1px solid #e0e8ef;border-radius:7px;background:#fff}.pc-status-grid i{display:grid;place-items:center;width:19px;height:19px;border-radius:5px;background:#edf3f8;color:#416c92;font-style:normal;font-size:12px}.pc-status-grid small,.pc-status-grid b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pc-status-grid small{margin-top:5px;color:#7d8e9d;font-size:8.5px}.pc-status-grid b{margin-top:2px;color:#365168;font-size:9px;font-weight:500}.pc-status-grid b.good{color:#168451}.pc-status-grid b.warn{color:#af680b}.pc-section{margin-top:14px;padding-top:12px;border-top:1px solid #e5edf2}.pc-section-head{display:flex;justify-content:space-between;gap:8px}.pc-section-head b{font-size:11px;font-weight:600}.pc-section-head span{font-size:9px;color:var(--muted)}.pc-leave{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}.pc-leave span{padding:7px;border-radius:7px;background:#f5f8fa}.pc-leave b,.pc-leave small{display:block}.pc-leave b{color:#294963;font-size:14px;font-weight:600}.pc-leave small{margin-top:2px;color:#72879a;font-size:9px}.pc-todos{margin-top:7px;border:1px solid #e3eaef;border-radius:7px;overflow:hidden}.pc-todos button{display:grid;grid-template-columns:19px minmax(0,1fr) auto;gap:7px;align-items:center;width:100%;padding:7px;border:0;border-bottom:1px solid #e9eff3;background:#fff;color:#304d65;text-align:left;font:inherit;cursor:pointer}.pc-todos button:last-child{border-bottom:0}.pc-todos button:hover{background:#f8fbfd}.pc-todos i{display:grid;place-items:center;width:19px;height:19px;border-radius:5px;background:#fff1df;color:#a96307;font-size:11px;font-style:normal}.pc-todos b,.pc-todos small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pc-todos b{font-size:10px;font-weight:500}.pc-todos small{margin-top:1px;color:#7a8d9e;font-size:9px}.pc-todos em{font-size:15px;font-style:normal;color:#7b91a4}.pc-clear{display:flex;align-items:center;gap:7px;margin-top:8px;padding:9px;border:1px solid #cde9db;border-radius:7px;background:#f4fbf7;color:#277951;font-size:10px}.pc-clear i{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#d9f3e5;font-style:normal}.pc-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:14px}.pc-actions .btn{min-height:29px!important;font-size:10px!important}@media(max-width:1080px){#page-people .employee-workspace{grid-template-columns:1fr!important}.people-command{order:2}}
   #page-dashboard .dashboard-approval-queue{border-top:2px solid #b98316!important}
   #page-dashboard .dashboard-approval-queue .head{background:#fffaf1!important;border-top:0!important}
   #page-dashboard .dashboard-approval-queue .body{padding:9px 10px!important}
@@ -3055,6 +3058,7 @@ async function renderPeople(){
     const pendingCount=Object.values(pendBy).reduce((sum,n)=>sum+Number(n||0),0);
     const profileReadyCount=emps.filter(e=>e.nationalId&&e.phone).length;
     const profileMissingCount=Math.max(0,emps.length-profileReadyCount);
+    if(!_peopleSel||!emps.some(e=>e.id===_peopleSel)) _peopleSel=emps[0]?.id||null;
     node.innerHTML=`
       <div id="pwReqPanel"></div>
       <div id="identityReqPanel"></div>
@@ -3073,7 +3077,26 @@ async function renderPeople(){
           </div>
           <div class="employee-table-wrap"><div id="pList"></div></div>
         </section>
+        <aside class="panel people-command" style="margin:0"><div id="pDetail"></div></aside>
       </div>`;
+    const drawDetail=()=>{
+      const host=$("#pDetail"), e=emps.find(x=>x.id===_peopleSel); if(!host) return;
+      if(!e){ host.innerHTML=`<div class="empty">เลือกพนักงานเพื่อดูรายละเอียด</div>`; return; }
+      const active=String(e.status||"").toLowerCase()==="active", pending=pendBy[e.id]||0;
+      const fields=[e.name,e.role,e.department,e.phone,e.nationalId]; const complete=fields.filter(Boolean).length, percent=Math.round(complete/fields.length*100);
+      const usage=(usageD.rows||[]).find(x=>x.employeeId===e.id)||{};
+      const todo=[]; if(!e.phone) todo.push(["โทรศัพท์","เพิ่มช่องทางติดต่อ"]); if(!e.nationalId) todo.push(["เอกสาร","บันทึกเลขบัตรประชาชน"]); if(!e.role||e.role==="Employee") todo.push(["ตำแหน่ง","ระบุตำแหน่งงาน"]); if(pending) todo.push(["งานค้าง",`รอจัดการ ${pending} รายการ`]);
+      host.innerHTML=`<div class="head"><div><b>รายละเอียดพนักงาน</b><span class="sub">เลือกจากทะเบียนด้านซ้าย</span></div><button class="employee-icon-btn" id="pDetailMenu" title="จัดการ">⋯</button></div>
+        <div class="body people-command-body"><div class="pc-identity"><div class="employee-avatar">${esc((e.name||e.id).trim().slice(0,2))}</div><div><b>${esc(e.name||e.id)}</b><span>${esc(e.id)} · ${active?"ใช้งาน":"ปิดใช้งาน"}</span><small>${esc(e.role||"ยังไม่ระบุตำแหน่ง")}${e.department?` · ${esc(e.department)}`:""}</small></div></div>
+        <div class="pc-complete"><div><span>ความครบถ้วนของโปรไฟล์</span><b>${percent}%</b></div><i><em style="width:${percent}%"></em></i><small>กรอกแล้ว ${complete} จาก ${fields.length} รายการหลัก</small></div>
+        <div class="pc-status-grid"><span><i class="pc-icon contact">◌</i><small>ติดต่อ</small><b>${e.phone?esc(e.phone):"ยังไม่ระบุ"}</b></span><span><i class="pc-icon doc">▤</i><small>เอกสาร</small><b class="${e.nationalId?"good":"warn"}">${e.nationalId?"ครบแล้ว":"รอติดตาม"}</b></span><span><i class="pc-icon pin">⌖</i><small>การลงเวลา</small><b>${e.locationRequired?"ตามพื้นที่":"ไม่บังคับ"}</b></span></div>
+        <div class="pc-section"><div class="pc-section-head"><b>สิทธิการลาปีนี้</b><span>ใช้แล้ว</span></div><div class="pc-leave"><span><b>${fmtInt(usage.usedSick||0)}</b><small>ลาป่วย</small></span><span><b>${fmtInt(usage.usedPersonal||0)}</b><small>ลากิจ</small></span><span><b>${fmtInt(usage.usedVacation||0)}</b><small>พักร้อน</small></span></div></div>
+        <div class="pc-section"><div class="pc-section-head"><b>งานที่ต้องจัดการ</b><span>${todo.length?`${todo.length} รายการ`:"พร้อม"}</span></div>${todo.length?`<div class="pc-todos">${todo.map(x=>`<button type="button" data-pc-action="edit"><i>!</i><span><b>${x[0]}</b><small>${x[1]}</small></span><em>›</em></button>`).join("")}</div>`:`<div class="pc-clear"><i>✓</i><span>ข้อมูลสำคัญพร้อมใช้งาน</span></div>`}</div>
+        <div class="pc-actions"><button class="btn sub sm" id="pDetailCalendar">ปฏิทินเวลา</button><button class="btn sm" id="pDetailEdit">แก้ไขข้อมูล</button></div></div>`;
+      $("#pDetailEdit").onclick=()=>employeeDialog(e); $("#pDetailCalendar").onclick=()=>openAttendanceCalendar(e.id);
+      host.querySelectorAll("[data-pc-action]").forEach(b=>b.onclick=()=>employeeDialog(e));
+      $("#pDetailMenu").onclick=()=>employeeDialog(e);
+    };
     const drawList=(q="")=>{
       q=q.trim().toLowerCase();
       const list=emps.filter(e=>{
@@ -3101,7 +3124,7 @@ async function renderPeople(){
         ...(emp.status==="active"?[{label:"ปิดใช้งาน", danger:true, fn:()=>deactivate(emp)}]:[]),
         ...(state.role==="owner"&&hasBackendCapability("employeeDelete")?[{label:"ลบถาวร…", danger:true, fn:()=>deleteEmployee(emp)}]:[]),
       ]; };
-      $("#pList").querySelectorAll(".p-open").forEach(b=>b.onclick=()=>{ _peopleSel=b.dataset.emp; drawList($("#pSearch").value); openAttendanceCalendar(b.dataset.emp); });
+      $("#pList").querySelectorAll(".p-open").forEach(b=>b.onclick=()=>{ _peopleSel=b.dataset.emp; drawList($("#pSearch").value); drawDetail(); });
       $("#pList").querySelectorAll(".p-cal").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); openAttendanceCalendar(b.dataset.emp); });
       $("#pList").querySelectorAll(".p-menu").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); openRowMenu(e.clientX, e.clientY, menuFor(b.dataset.emp)); });
       $("#pList").querySelectorAll(".p-emp").forEach(row=>attachRowMenu(row, menuFor(row.dataset.emp)));
@@ -3134,7 +3157,7 @@ async function renderPeople(){
       if($("#pGoRules")) $("#pGoRules").onclick=()=>go("payrules");
       if($("#pAddOt")) $("#pAddOt").onclick=()=>addOvertimeDialog();
     };
-    drawList(); loadPwRequests(); loadIdentityRequests();
+    drawList(); drawDetail(); loadPwRequests(); loadIdentityRequests();
     $("#pSearch").oninput=e=>drawList(e.target.value);
     node.querySelectorAll("[data-profile-filter]").forEach(button=>button.onclick=()=>{ _peopleProfileFilter=button.dataset.profileFilter; node.querySelectorAll("[data-profile-filter]").forEach(x=>x.classList.toggle("active",x===button)); drawList($("#pSearch").value); });
     $("#pAdd").onclick=()=>employeeDialog(null);
