@@ -266,7 +266,14 @@ class SoftCard extends StatelessWidget {
         border: Border.all(color: kHair),
         boxShadow: kSoftShadow,
       ),
-      child: Padding(padding: padding, child: child),
+      // ListTile and other tappable children need a Material immediately
+      // beneath their ink response; the card's decorated container otherwise
+      // hides the splash and triggers Flutter's debug assertion.
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(radius),
+        child: Padding(padding: padding, child: child),
+      ),
     );
     if (onTap == null) return body;
     return Material(
