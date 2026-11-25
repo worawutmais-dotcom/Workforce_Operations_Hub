@@ -11,6 +11,9 @@ const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '
 http.createServer((req, res) => {
   let p = decodeURIComponent((req.url || '/').split('?')[0]);
   if (p === '/') p = '/admin_codex/index.html';
+  // The generated console is served as the root document during local preview,
+  // while its bundled logo keeps the production-relative /assets path.
+  if (p.startsWith('/assets/')) p = '/admin_codex' + p;
   const f = path.join(root, p);
   if (!f.startsWith(root)) { res.writeHead(403); res.end('forbidden'); return; }
   fs.readFile(f, (e, d) => {
