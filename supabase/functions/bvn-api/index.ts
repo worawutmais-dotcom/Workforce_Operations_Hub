@@ -38,6 +38,7 @@ const reply = (ok: boolean, message: string, data: unknown = null) =>
   new Response(JSON.stringify({ ok, message, data }), { headers: CORS });
 
 const BACKEND_VERSION = "2.0.1-supabase";
+const REALTIME_TOPIC = "bvn-admin-refresh-v1";
 const ICT = 7 * 60;
 const todayISO = () => new Date(Date.now() + ICT * 60000).toISOString().slice(0, 10);
 const nowISO = () => new Date().toISOString();
@@ -50,6 +51,31 @@ const shortfallPolicyOf = (v: unknown) => {
   const policy = lc(v);
   return ["none", "deduct_wage", "trim_ot"].includes(policy) ? policy : "none";
 };
+
+// Realtime is intentionally a generic refresh signal only. The browser never
+// receives a changed row, employee identity, time record, or payroll amount
+// through this channel; it re-fetches through the existing admin-session API.
+async function notifyAdminRealtime(): Promise<void> {
+  try {
+    const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    await fetch(`${Deno.env.get("SUPABASE_URL")}/realtime/v1/api/broadcast`, {
+      method: "POST",
+      headers: { apikey: serviceRole, Authorization: `Bearer ${serviceRole}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: [{ topic: REALTIME_TOPIC, event: "refresh", payload: { v: 1 } }] }),
+    });
+  } catch (_) { /* A write must never fail merely because Realtime is unavailable. */ }
+}
+
+const REALTIME_MUTATIONS = new Set([
+  "admin_upsert_employee", "admin_delete_employee", "admin_review_identity_request", "admin_save_settings",
+  "admin_confirm_factory_reset", "admin_save_holiday", "admin_delete_holiday", "admin_import_holidays",
+  "admin_record_attendance", "admin_record_attendance_correction", "admin_void_attendance_day",
+  "admin_review_leave", "admin_review_time_request", "admin_add_overtime", "admin_upsert_pay_rule",
+  "admin_save_payroll_draft", "admin_lock_payroll", "admin_mark_payroll_paid", "admin_create_invoice",
+  "admin_update_invoice_status", "admin_decide_advance", "admin_mark_advance_paid", "admin_save_site",
+  "admin_upsert_admin_user", "admin_delete_admin_user", "employee_submit_identity", "attendance",
+  "leave_request", "time_request", "employee_submit_advance", "employee_request_password_reset",
+]);
 
 // ---------- password hashing (PBKDF2-SHA256) ----------
 const b64 = (buf: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(buf)));
@@ -414,7 +440,7 @@ async function previewPayroll(start: string, end: string) {
 const H: Record<string, (p: any) => Promise<Response>> = {
   async version() {
     const s = await settingsMap();
-    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-19-payslip-finance-session", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: false, otCalendar: true, timesheetReview: true, payrollReview: true, payrollPaymentControl: true, employeeDeleteRemovesAttendance: true, factoryResetWhereFix: true, payrollShortfallPolicy: true, payrollLateAbsencePolicy: true, payslipFinanceSession: true, employeeDeletePassword: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
+    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-25-admin-realtime", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: false, otCalendar: true, timesheetReview: true, payrollReview: true, payrollPaymentControl: true, employeeDeleteRemovesAttendance: true, factoryResetWhereFix: true, payrollShortfallPolicy: true, payrollLateAbsencePolicy: true, payslipFinanceSession: true, employeeDeletePassword: true, adminRealtimeBroadcast: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
   },
   async public_branding() {
     const s = await settingsMap();
@@ -1350,7 +1376,13 @@ Deno.serve(async (req) => {
   try { payload = JSON.parse((await req.text()) || "{}"); } catch { return reply(false, "คำขอไม่ถูกต้อง"); }
   const action = String(payload.action || "");
   try {
-    if (H[action]) return await H[action](payload);
+    if (H[action]) {
+      const response = await H[action](payload);
+      if (REALTIME_MUTATIONS.has(action)) {
+        try { if ((await response.clone().json()).ok) void notifyAdminRealtime(); } catch (_) { /* response remains authoritative */ }
+      }
+      return response;
+    }
     return reply(false, "ยังไม่รองรับ action นี้บน Supabase: " + action);
   } catch (e) {
     return reply(false, (e as Error).message || "เกิดข้อผิดพลาด");

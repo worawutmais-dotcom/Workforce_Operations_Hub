@@ -11,6 +11,7 @@ const DEFAULT_ENDPOINT = "https://vqualksnbctfukcbxqdd.supabase.co/functions/v1/
 const DEFAULT_APIKEY = "sb_publishable_E302-Dm85ztBPl-3o5xL_w_0UkW2fG4";
 const LEGACY_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbzIlBl0KxAI2ibRDiODZDu-m4WYYUHloSvGkm37rMAsc_be0jUikQP0ytPRho-62wN2/exec";
 const isSupabaseEndpoint = (u)=>/\.supabase\.co\/functions\//.test(String(u||""));
+const REALTIME_TOPIC = "bvn-admin-refresh-v1";
 const SS = sessionStorage, LS = localStorage;
 
 /* ---------- ผู้ออกใบแจ้งหนี้ (หัวบิล) ---------- */
@@ -65,6 +66,8 @@ const state = {
   invoiceSettings: {},
   backendCapabilities: {},
   backendRevision: "",
+  realtimeStatus: "off",
+  realtimePending: false,
   page: "dashboard",
 };
 
@@ -310,6 +313,7 @@ function enterApp(dashboardData, preloaded={}){
   // A newer Console can be served before its Edge Function. Feature gates turn
   // that release mismatch into a clear notice instead of a raw API error.
   refreshBackendCapabilities().then(()=>{
+    startRealtime();
     if(["people","employees"].includes(state.page)) PAGES[state.page].load();
   });
   // warm the employee cache (used by many pages)
@@ -324,6 +328,7 @@ function enterApp(dashboardData, preloaded={}){
 }
 async function logout(){
   const activeToken=state.token;
+  stopRealtime();
   SS.removeItem("bvn_token");
   SS.removeItem("bvn_username");
   SS.removeItem("bvn_role");
@@ -438,8 +443,16 @@ $("#logoutLink").addEventListener("click", e=>{e.preventDefault();logout();});
 // stable while an administrator is selecting an employee or typing a time.
 const AUTO_REFRESH_MS={dashboard:6000};
 var silentRefresh=false, _arTimer=null;
+let _realtimeClient=null, _realtimeChannel=null, _realtimeTimer=null;
 function modalOpen(){ const s=$("#scrim"); return !!(s && s.classList.contains("show")); }
-function syncLiveBadge(){ const b=$("#liveBadge"); if(b) b.style.display=(state.token && AUTO_REFRESH_MS[state.page])?"":"none"; }
+function syncLiveBadge(){
+  const b=$("#liveBadge"); if(!b) return;
+  const realtime=state.realtimeStatus==="connected", polling=!!AUTO_REFRESH_MS[state.page];
+  b.style.display=(state.token && (realtime||polling))?"":"none";
+  b.innerHTML=realtime?"<i></i>Realtime":polling?"<i></i>อัปเดตอัตโนมัติ":"";
+  b.title=realtime?"เชื่อมต่อ Supabase Realtime แล้ว":"กำลังตรวจข้อมูลเป็นระยะ";
+  b.classList.toggle("is-realtime",realtime);
+}
 function syncBackendBadge(){ const b=$("#beBadge"); if(!b) return; const sup=isSupabaseEndpoint(state.endpoint||LS.getItem("bvn_endpoint")||""); b.textContent=sup?"Supabase":"Apps Script"; b.className="be-badge "+(sup?"be-sup":"be-legacy"); }
 function scheduleAutoRefresh(){
   clearTimeout(_arTimer);
@@ -468,8 +481,47 @@ async function runAutoRefresh(){
   finally{ silentRefresh=false; document.body.classList.remove("ar-busy"); }
   scheduleAutoRefresh();
 }
+function supabaseProjectUrl(endpoint){
+  const match=String(endpoint||"").match(/^(https:\/\/[^/]+\.supabase\.co)\/functions\//i);
+  return match?match[1]:"";
+}
+function stopRealtime(){
+  clearTimeout(_realtimeTimer); _realtimeTimer=null;
+  if(_realtimeClient && _realtimeChannel) _realtimeClient.removeChannel(_realtimeChannel);
+  _realtimeChannel=null; _realtimeClient=null;
+  state.realtimeStatus="off"; state.realtimePending=false;
+  syncLiveBadge();
+}
+function queueRealtimeRefresh(){
+  state.realtimePending=true;
+  if(document.hidden || modalOpen()) return;
+  clearTimeout(_realtimeTimer);
+  _realtimeTimer=setTimeout(async()=>{
+    if(!state.token || document.hidden || modalOpen()) return;
+    state.realtimePending=false;
+    silentRefresh=true; document.body.classList.add("ar-busy");
+    try{ clearApiReadCache(); await PAGES[state.page]?.load(); refreshApprovalBadge(); }
+    catch(_){ /* The dashboard poll and manual refresh remain safe fallbacks. */ }
+    finally{ silentRefresh=false; document.body.classList.remove("ar-busy"); }
+  },450);
+}
+function startRealtime(){
+  stopRealtime();
+  if(!state.token || !hasBackendCapability("adminRealtimeBroadcast") || !isSupabaseEndpoint(state.endpoint)) return;
+  const url=supabaseProjectUrl(state.endpoint), key=state.apikey||DEFAULT_APIKEY;
+  if(!url || !key || !window.supabase?.createClient) return;
+  try{
+    _realtimeClient=window.supabase.createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+    _realtimeChannel=_realtimeClient.channel(REALTIME_TOPIC,{config:{broadcast:{self:false}}})
+      .on("broadcast",{event:"refresh"},queueRealtimeRefresh)
+      .subscribe(status=>{ state.realtimeStatus=status==="SUBSCRIBED"?"connected":"connecting"; syncLiveBadge(); });
+  }catch(_){ stopRealtime(); }
+}
 document.addEventListener("visibilitychange", ()=>{
-  if(!document.hidden && state.token && AUTO_REFRESH_MS[state.page]) runAutoRefresh();
+  if(!document.hidden && state.token){
+    if(state.realtimePending) queueRealtimeRefresh();
+    else if(AUTO_REFRESH_MS[state.page]) runAutoRefresh();
+  }
 });
 
 function skeleton(node){ if(silentRefresh) return; node.innerHTML=`<div class="loading"><span class="spin" style="border-color:var(--line);border-top-color:var(--blue)"></span><div style="margin-top:10px">กำลังโหลดข้อมูล…</div></div>`; }
