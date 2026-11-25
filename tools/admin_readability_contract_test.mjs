@@ -3,7 +3,7 @@ import fs from 'node:fs';
 const css = fs.readFileSync(new URL('../admin_codex/src/app.css', import.meta.url), 'utf8');
 const required = [
   'Cross-console readability contract',
-  '--ui-text:#152f49',
+  '--ui-text:#13293f',
   '--ui-secondary:#48647e',
   '--ui-success:#08704e',
   '.page table thead th',
@@ -14,7 +14,7 @@ const required = [
   '#page-dashboard .wq-copy span{color:#314a61!important}',
   '#page-owner .pm-person small',
   '#page-people .pc-status-grid small',
-  '#page-settings .settings-command-card b{color:#102a43',
+  '#page-settings .settings-command-card b{color:#15324f',
   'Typography option 2 — Operations Modern',
   '--font-sans:"IBM Plex Sans Thai"',
   '--font-mono:"IBM Plex Mono"',
