@@ -23,6 +23,7 @@
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { mobileSessionExpiresAt, mobileTokenDigest } from "./mobile_session_security.ts";
 
 const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
   auth: { persistSession: false },
@@ -153,11 +154,16 @@ async function activeSites() {
 }
 async function authMobile(token: string) {
   if (!token) return null;
-  const { data } = await db.from("mobile_access").select("employee_id").eq("token_hash", token).eq("status", "active").maybeSingle();
+  const tokenDigest = await mobileTokenDigest(token);
+  const { data } = await db.from("mobile_access").select("employee_id,expires_at").eq("token_hash", tokenDigest).eq("status", "active").maybeSingle();
   if (!data) return null;
+  if (!data.expires_at || new Date(data.expires_at).getTime() <= Date.now()) {
+    await db.from("mobile_access").update({ status: "revoked" }).eq("token_hash", tokenDigest);
+    return null;
+  }
   const { data: e } = await db.from("employees").select("*").eq("employee_id", data.employee_id).maybeSingle();
   if (!e || e.status !== "active") return null;
-  db.from("mobile_access").update({ last_used_at: nowISO() }).eq("token_hash", token).then(() => {});
+  db.from("mobile_access").update({ last_used_at: nowISO() }).eq("token_hash", tokenDigest).then(() => {});
   return e;
 }
 async function holidayMap(year: number): Promise<Record<string, string>> {
@@ -1194,7 +1200,7 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     await loginCleared(lid);
     await db.from("mobile_access").update({ status: "revoked" }).eq("employee_id", employeeId);
     const tk = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, "");
-    await db.from("mobile_access").insert({ token_hash: tk, employee_id: employeeId, status: "active", issued_at: nowISO(), last_used_at: nowISO(), device_label: String(p.deviceLabel || "Mobile login") });
+    await db.from("mobile_access").insert({ token_hash: await mobileTokenDigest(tk), employee_id: employeeId, status: "active", issued_at: nowISO(), expires_at: mobileSessionExpiresAt(), last_used_at: nowISO(), device_label: String(p.deviceLabel || "Mobile login") });
     return reply(true, "เข้าสู่ระบบสำเร็จ", { employeeId, mobileToken: tk, name: e.name });
   },
   async employee_profile(p) {

@@ -8,6 +8,7 @@ under its real slug `swift-handler`** (the CLI deploys `supabase/functions/<name
 
 ```bash
 cp supabase/functions/bvn-api/index.ts supabase/functions/swift-handler/index.ts
+cp supabase/functions/bvn-api/mobile_session_security.ts supabase/functions/swift-handler/mobile_session_security.ts
 ```
 
 See `../../DEPLOY.md` for the full deploy steps.

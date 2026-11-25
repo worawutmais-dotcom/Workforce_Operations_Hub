@@ -219,9 +219,11 @@ create table if not exists mobile_access (
   employee_id  text not null references employees(employee_id) on update cascade,
   status       text not null default 'active',
   issued_at    timestamptz,
+  expires_at   timestamptz,
   last_used_at timestamptz,
   device_label text default ''
 );
+create index if not exists mobile_access_expiry_idx on mobile_access (expires_at);
 
 create table if not exists audit_log (
   id         bigserial primary key,

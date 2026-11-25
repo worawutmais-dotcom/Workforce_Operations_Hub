@@ -3,11 +3,19 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'bvn_api.dart';
 
-/// Bump this on every release so it matches pubspec `version: x.y.z+<code>`.
+/// Must match pubspec `version: x.y.z+<code>` for the checked-in release.
 /// The backend's `version` action returns `appVersionCode`; when that is higher
 /// than this, the app offers the new APK (hosted on Drive).
-const int kAppVersionCode = 13;
-const String kAppVersionName = '1.0.13';
+const int kAppVersionCode = 14;
+const String kAppVersionName = '1.0.14';
+
+/// A backend must advertise a strictly newer build and a browser-openable APK.
+/// Keeping this pure makes the no-update path regression-testable.
+bool isUpdateAvailable({
+  required int advertisedVersionCode,
+  required String apkUrl,
+}) =>
+    advertisedVersionCode > kAppVersionCode && apkUrl.trim().startsWith('http');
 
 /// Old console metadata advertised attendance correction, a flow that is no
 /// longer available to employees. Keep the update prompt truthful while an
@@ -42,7 +50,9 @@ Future<UpdateInfo?> checkForUpdate() async {
     final d = await BvnApi().version();
     final code = (d['appVersionCode'] as num?)?.toInt() ?? 0;
     final url = '${d['appApkUrl'] ?? ''}'.trim();
-    if (code <= kAppVersionCode || !url.startsWith('http')) return null;
+    if (!isUpdateAvailable(advertisedVersionCode: code, apkUrl: url)) {
+      return null;
+    }
     return UpdateInfo(
       versionCode: code,
       versionName: '${d['appVersionName'] ?? ''}'.trim(),
