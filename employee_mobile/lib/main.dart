@@ -130,6 +130,7 @@ class WorkIdentityStatus {
 
 WorkIdentityStatus workIdentityStatus({
   required bool profileNeedsUpdate,
+  required bool identityPending,
   required bool locationRequired,
 }) {
   final locationPolicy = locationRequired
@@ -144,6 +145,17 @@ WorkIdentityStatus workIdentityStatus({
       background: kAmberSoft,
       foreground: kAmberInk,
       icon: Icons.badge_outlined,
+    ).withLocationPolicy(locationPolicy);
+  }
+  if (identityPending) {
+    return const WorkIdentityStatus(
+      label: 'กำลังตรวจสอบข้อมูล',
+      detail: 'ส่งข้อมูลให้ผู้ดูแลตรวจสอบแล้ว',
+      locationPolicy: '',
+      requiresAction: false,
+      background: Color(0xFFEAF2FF),
+      foreground: Color(0xFF2459A6),
+      icon: Icons.schedule_outlined,
     ).withLocationPolicy(locationPolicy);
   }
   return const WorkIdentityStatus(
@@ -522,7 +534,9 @@ class _EmployeeShellState extends State<EmployeeShell>
   String _shiftStart = '—', _shiftEnd = '—';
   String? _in, _out;
   bool _locationRequired = true, _busy = false;
-  bool _profileNeedsUpdate = false, _profilePromptShown = false;
+  bool _profileNeedsUpdate = false,
+      _profilePending = false,
+      _profilePromptShown = false;
   @override
   void initState() {
     super.initState();
@@ -631,11 +645,16 @@ class _EmployeeShellState extends State<EmployeeShell>
       // blocking their first check-in.
       try {
         final identity = await api.identityProfile(widget.token);
+        final profilePending = identity['pending'] == true;
         final needsUpdate =
-            identity['identityComplete'] != true ||
-            '${identity['phone'] ?? ''}'.trim().isEmpty;
+            !profilePending &&
+            (identity['identityComplete'] != true ||
+                '${identity['phone'] ?? ''}'.trim().isEmpty);
         if (mounted) {
-          setState(() => _profileNeedsUpdate = needsUpdate);
+          setState(() {
+            _profileNeedsUpdate = needsUpdate;
+            _profilePending = profilePending;
+          });
           if (needsUpdate && !_profilePromptShown) {
             _profilePromptShown = true;
             WidgetsBinding.instance.addPostFrameCallback(
@@ -753,6 +772,7 @@ class _EmployeeShellState extends State<EmployeeShell>
         role: _role,
         locationRequired: _locationRequired,
         profileNeedsUpdate: _profileNeedsUpdate,
+        identityPending: _profilePending,
         onLogout: widget.onLogout,
       ),
     ];
@@ -2983,16 +3003,19 @@ class AccountScreen extends StatelessWidget {
     required this.role,
     required this.locationRequired,
     required this.profileNeedsUpdate,
+    required this.identityPending,
     required this.onLogout,
   });
   final String token, name, id, role;
   final bool locationRequired;
   final bool profileNeedsUpdate;
+  final bool identityPending;
   final Future<void> Function() onLogout;
   @override
   Widget build(BuildContext context) {
     final status = workIdentityStatus(
       profileNeedsUpdate: profileNeedsUpdate,
+      identityPending: identityPending,
       locationRequired: locationRequired,
     );
     final displayName = name.trim().isEmpty ? id : name.trim();

@@ -6,6 +6,7 @@ void main() {
   test('maps incomplete profile to an action-needed work identity status', () {
     final status = workIdentityStatus(
       profileNeedsUpdate: true,
+      identityPending: false,
       locationRequired: true,
     );
 
@@ -18,12 +19,25 @@ void main() {
   test('maps complete profile and optional GPS to a ready status', () {
     final status = workIdentityStatus(
       profileNeedsUpdate: false,
+      identityPending: false,
       locationRequired: false,
     );
 
     expect(status.label, 'ข้อมูลยืนยันแล้ว');
     expect(status.requiresAction, isFalse);
     expect(status.locationPolicy, 'ไม่บังคับตรวจพิกัด');
+  });
+
+  test('maps a submitted identity profile to review status without action', () {
+    final status = workIdentityStatus(
+      profileNeedsUpdate: false,
+      identityPending: true,
+      locationRequired: true,
+    );
+
+    expect(status.label, 'กำลังตรวจสอบข้อมูล');
+    expect(status.detail, 'ส่งข้อมูลให้ผู้ดูแลตรวจสอบแล้ว');
+    expect(status.requiresAction, isFalse);
   });
 
   testWidgets('renders the Work Identity account at a narrow employee width', (
@@ -42,6 +56,7 @@ void main() {
             role: 'พนักงานขายประจำสาขา',
             locationRequired: true,
             profileNeedsUpdate: true,
+            identityPending: false,
             onLogout: () async {},
           ),
         ),
