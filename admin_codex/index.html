@@ -2496,6 +2496,56 @@ button,.btn{box-shadow:none!important;font-weight:500!important}
   #page-dashboard .cc-arrival .body{padding:10px 12px!important}
   #page-dashboard .cc-arrival-chart{min-height:118px!important}
   @media(max-width:980px){#page-dashboard .cc-work,#page-dashboard .cc-split{grid-template-columns:1fr!important}}
+
+  /* ============================================================
+     VIVID STATUS LAYER — professional, high-colour operations read.
+     Final cascade layer: makes today's attendance status pop so an
+     operator sees at a glance who is in, late, not-in, or clocked out.
+     ============================================================ */
+  #page-dashboard .cc-summary-tiles{display:grid!important;grid-template-columns:150px repeat(4,minmax(0,1fr))!important;gap:12px!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow:visible!important;align-items:stretch!important;margin-top:10px!important}
+  #page-dashboard .cc-summary-tiles .cc-summary-label{display:flex!important;flex-direction:column;justify-content:center;gap:2px;padding:4px 2px!important;border:0!important;background:transparent!important}
+  #page-dashboard .cc-summary-tiles .cc-stat{display:flex!important;flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;position:relative;min-height:88px!important;padding:14px 16px!important;border:0!important;border-right:0!important;border-radius:14px!important;color:#fff!important;overflow:hidden!important;box-shadow:0 10px 22px -12px rgba(15,40,64,.5)!important;filter:none!important;transform:none!important;transition:transform .15s ease,box-shadow .15s ease!important}
+  #page-dashboard .cc-summary-tiles .cc-stat:hover{background-position:right center;transform:translateY(-3px)!important;box-shadow:0 16px 30px -12px rgba(15,40,64,.6)!important;filter:none!important}
+  #page-dashboard .cc-summary-tiles .cc-stat:after{content:""!important;display:block!important;position:absolute;right:-26px;bottom:-36px;width:98px;height:98px;border:18px solid rgba(255,255,255,.17)!important;border-radius:50%;pointer-events:none}
+  #page-dashboard .cc-summary-tiles .cc-stat-ic{position:absolute!important;right:12px;top:12px;width:30px!important;height:30px!important;display:grid!important;place-items:center;border-radius:9px!important;background:rgba(255,255,255,.22)!important;color:#fff!important;opacity:1!important;margin:0!important}
+  #page-dashboard .cc-summary-tiles .cc-stat-ic svg{width:17px!important;height:17px!important}
+  #page-dashboard .cc-summary-tiles .cc-stat-l{align-self:flex-start!important;color:rgba(255,255,255,.93)!important;font-size:11px!important;font-weight:500!important;letter-spacing:.1px}
+  #page-dashboard .cc-summary-tiles .cc-stat b{grid-column:auto!important;grid-row:auto!important;align-self:flex-start!important;margin:2px 0 0!important;color:#fff!important;font-size:30px!important;font-weight:700!important;line-height:1!important;letter-spacing:-.6px}
+  #page-dashboard .cc-summary-tiles .cc-stat small{grid-column:auto!important;align-self:flex-start!important;margin:4px 0 0!important;color:rgba(255,255,255,.9)!important;font-size:10px!important}
+  #page-dashboard .cc-summary-tiles .s-blue{background:linear-gradient(135deg,#14b1a0 0%,#0a6e5d 100%)!important;color:#fff!important}
+  #page-dashboard .cc-summary-tiles .s-amber{background:linear-gradient(135deg,#f8ad2a 0%,#e07b10 100%)!important;color:#fff!important}
+  #page-dashboard .cc-summary-tiles .s-rose{background:linear-gradient(135deg,#f5566a 0%,#d4273d 100%)!important;color:#fff!important}
+  #page-dashboard .cc-summary-tiles .s-green{background:linear-gradient(135deg,#2bbd72 0%,#128a4f 100%)!important;color:#fff!important}
+  #page-dashboard .cc-summary-tiles .s-indigo{background:linear-gradient(135deg,#6472f0 0%,#4038c8 100%)!important;color:#fff!important}
+  #page-dashboard .cc-summary-tiles .cc-stat b,#page-dashboard .cc-summary-tiles .cc-stat-l,#page-dashboard .cc-summary-tiles .cc-stat small,#page-dashboard .cc-summary-tiles .cc-stat-ic{color:#fff!important}
+  @media(max-width:1100px){#page-dashboard .cc-summary-tiles{grid-template-columns:repeat(2,minmax(0,1fr))!important}#page-dashboard .cc-summary-tiles .cc-summary-label{grid-column:1/-1!important}}
+  @media(max-width:560px){#page-dashboard .cc-summary-tiles{grid-template-columns:1fr!important}}
+
+  /* Team-today status: four distinct, saturated states. */
+  #page-dashboard .cc-work .team-row{border-left-width:4px!important}
+  #page-dashboard .cc-work .team-row.tc-in{background:#f2fcf7!important;border-left-color:#17a35f!important}
+  #page-dashboard .cc-work .team-row.tc-late{background:#fff8ee!important;border-left-color:#e98a12!important}
+  #page-dashboard .cc-work .team-row.tc-out{background:#fff5f6!important;border-left-color:#e5394c!important}
+  #page-dashboard .cc-work .team-row.tc-done{background:#f3f8fd!important;border-left-color:#3f7fd6!important}
+  #page-dashboard .cc-work .tc-pill{color:#fff!important;border:0!important;box-shadow:0 2px 5px -1px rgba(15,40,64,.3)!important;font-weight:600!important}
+  #page-dashboard .cc-work .tc-in .tc-pill{background:linear-gradient(135deg,#25bd74,#128a4f)!important}
+  #page-dashboard .cc-work .tc-late .tc-pill{background:linear-gradient(135deg,#f8ad2a,#e07b10)!important}
+  #page-dashboard .cc-work .tc-out .tc-pill{background:linear-gradient(135deg,#f5566a,#d4273d)!important}
+  #page-dashboard .cc-work .tc-done .tc-pill{background:linear-gradient(135deg,#4a86da,#2b5fb0)!important}
+  #page-dashboard .cc-work .tc-pill i{background:rgba(255,255,255,.95)!important;box-shadow:0 0 0 2px rgba(255,255,255,.35)!important}
+
+  /* Team header status counters: tinted, legible. */
+  #page-dashboard .team-status-summary span{font-weight:600!important;padding:3px 8px!important;font-size:10px!important}
+  #page-dashboard .team-status-summary .not-in{background:#fdecee!important;color:#c22d3f!important}
+  #page-dashboard .team-status-summary .working{background:#e4f7ed!important;color:#12834b!important}
+  #page-dashboard .team-status-summary .finished{background:#e8f0fb!important;color:#2b5fb0!important}
+
+  /* Command-bar hero chips: solid, vivid on the navy hero. */
+  #page-dashboard .cc-chip{font-weight:600!important}
+  #page-dashboard .cc-chip.ok{background:rgba(34,189,114,.24)!important;border-color:rgba(34,189,114,.55)!important;color:#c9f6de!important}
+  #page-dashboard .cc-chip.amber{background:rgba(248,173,42,.24)!important;border-color:rgba(248,173,42,.6)!important;color:#ffe7bd!important}
+  #page-dashboard .cc-chip.rose{background:rgba(245,86,106,.24)!important;border-color:rgba(245,86,106,.6)!important;color:#ffd5db!important}
+  #page-dashboard .cc-chip.ok i{background:#34d399!important}#page-dashboard .cc-chip.amber i{background:#fbbf24!important}#page-dashboard .cc-chip.rose i{background:#fb7185!important}
 </style>
 </head>
 <body>
@@ -3308,10 +3358,10 @@ async function renderDashboard(data, preloaded={}){
       }).join("");
       const arrivalLabels=arrivalHours.map(h=>`<span>${String(h).padStart(2,"0")}:00</span>`).join("");
       const SMETA={
-        in:{soft:"#e8f6ee",ink:"#167348",ring:"#22a06b",label:"กำลังทำงาน"},
-        late:{soft:"#fff1df",ink:"#9a5d11",ring:"#e58b24",label:"เข้างานสาย"},
-        done:{soft:"#edf2f7",ink:"#52677d",ring:"#7e93a8",label:"ออกงานแล้ว"},
-        out:{soft:"#fff8e8",ink:"#9a5d11",ring:"#e6a23b",label:"ยังไม่เข้างาน"}
+        in:{soft:"#e4f7ed",ink:"#128a4f",ring:"#22b86f",label:"กำลังทำงาน"},
+        late:{soft:"#fff1df",ink:"#c57410",ring:"#f0a11f",label:"เข้างานสาย"},
+        done:{soft:"#e8f0fb",ink:"#2b5fb0",ring:"#3f7fd6",label:"ออกงานแล้ว"},
+        out:{soft:"#fdecee",ink:"#cf3042",ring:"#f5566a",label:"ยังไม่เข้างาน"}
       };
       const nowMin=(()=>{ const n=new Date(); return n.getHours()*60+n.getMinutes(); })();
       // Surface who needs attention: late first, then not-in, then on-time; by check-in time.

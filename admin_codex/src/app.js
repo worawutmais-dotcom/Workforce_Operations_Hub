@@ -719,10 +719,10 @@ async function renderDashboard(data, preloaded={}){
       }).join("");
       const arrivalLabels=arrivalHours.map(h=>`<span>${String(h).padStart(2,"0")}:00</span>`).join("");
       const SMETA={
-        in:{soft:"#e8f6ee",ink:"#167348",ring:"#22a06b",label:"กำลังทำงาน"},
-        late:{soft:"#fff1df",ink:"#9a5d11",ring:"#e58b24",label:"เข้างานสาย"},
-        done:{soft:"#edf2f7",ink:"#52677d",ring:"#7e93a8",label:"ออกงานแล้ว"},
-        out:{soft:"#fff8e8",ink:"#9a5d11",ring:"#e6a23b",label:"ยังไม่เข้างาน"}
+        in:{soft:"#e4f7ed",ink:"#128a4f",ring:"#22b86f",label:"กำลังทำงาน"},
+        late:{soft:"#fff1df",ink:"#c57410",ring:"#f0a11f",label:"เข้างานสาย"},
+        done:{soft:"#e8f0fb",ink:"#2b5fb0",ring:"#3f7fd6",label:"ออกงานแล้ว"},
+        out:{soft:"#fdecee",ink:"#cf3042",ring:"#f5566a",label:"ยังไม่เข้างาน"}
       };
       const nowMin=(()=>{ const n=new Date(); return n.getHours()*60+n.getMinutes(); })();
       // Surface who needs attention: late first, then not-in, then on-time; by check-in time.
