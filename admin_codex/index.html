@@ -2546,6 +2546,64 @@ button,.btn{box-shadow:none!important;font-weight:500!important}
   #page-dashboard .cc-chip.amber{background:rgba(248,173,42,.24)!important;border-color:rgba(248,173,42,.6)!important;color:#ffe7bd!important}
   #page-dashboard .cc-chip.rose{background:rgba(245,86,106,.24)!important;border-color:rgba(245,86,106,.6)!important;color:#ffd5db!important}
   #page-dashboard .cc-chip.ok i{background:#34d399!important}#page-dashboard .cc-chip.amber i{background:#fbbf24!important}#page-dashboard .cc-chip.rose i{background:#fb7185!important}
+
+  /* ============================================================
+     VIVID ROLLOUT — carry the Dashboard's colour energy to every page.
+     Primary KPI rows become saturated gradient cards; status tiles and
+     stat chips get semantic fills so each screen reads lively, not flat.
+     ============================================================ */
+  /* -- Payroll run: 4 gradient KPI cards -- */
+  #page-payroll .payroll-summary{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:12px!important;background:transparent!important;border:0!important;border-radius:0!important;overflow:visible!important}
+  #page-payroll .payroll-summary .payroll-metric{position:relative;min-height:86px!important;padding:14px 16px!important;border:0!important;border-radius:14px!important;color:#fff!important;overflow:hidden!important;box-shadow:0 10px 22px -12px rgba(15,40,64,.5)!important;transition:transform .15s ease,box-shadow .15s ease!important}
+  #page-payroll .payroll-summary .payroll-metric:hover{transform:translateY(-3px)!important;box-shadow:0 16px 30px -12px rgba(15,40,64,.6)!important}
+  #page-payroll .payroll-summary .payroll-metric::before{display:none!important}
+  #page-payroll .payroll-summary .payroll-metric:after{content:""!important;position:absolute;right:-24px;bottom:-32px;width:92px;height:92px;border:16px solid rgba(255,255,255,.15);border-radius:50%;pointer-events:none}
+  #page-payroll .payroll-summary .payroll-metric span{color:rgba(255,255,255,.92)!important;font-size:11px!important}
+  #page-payroll .payroll-summary .payroll-metric b{color:#fff!important;font-size:22px!important;margin-top:4px!important}
+  #page-payroll .payroll-summary .payroll-metric em{color:rgba(255,255,255,.85)!important}
+  #page-payroll .payroll-summary .payroll-metric:nth-child(1){background:linear-gradient(135deg,#14b1a0,#0a6e5d)!important}
+  #page-payroll .payroll-summary .payroll-metric:nth-child(2){background:linear-gradient(135deg,#4a86da,#2f54c8)!important}
+  #page-payroll .payroll-summary .payroll-metric:nth-child(3){background:linear-gradient(135deg,#f8ad2a,#e07b10)!important}
+  #page-payroll .payroll-summary .payroll-metric:nth-child(4){background:linear-gradient(135deg,#2bbd72,#128a4f)!important}
+  @media(max-width:820px){#page-payroll .payroll-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+
+  /* -- Payroll readiness rail: saturated soft tiles (secondary emphasis) -- */
+  #page-payroll .payroll-status-rail .payroll-state{border:0!important;border-left:4px solid transparent!important;border-radius:11px!important;box-shadow:0 4px 12px -8px rgba(15,40,64,.4)!important}
+  #page-payroll .payroll-status-rail .payroll-state:before{display:none!important}
+  #page-payroll .payroll-status-rail .payroll-state b{font-size:21px!important;font-weight:700!important}
+  #page-payroll .payroll-status-rail .payroll-state.ready{background:#e6f8ef!important;border-left-color:#13a05f!important}#page-payroll .payroll-status-rail .payroll-state.ready b{color:#0f8a4f!important}
+  #page-payroll .payroll-status-rail .payroll-state.review{background:#fff3e2!important;border-left-color:#e98a12!important}#page-payroll .payroll-status-rail .payroll-state.review b{color:#c5720a!important}
+  #page-payroll .payroll-status-rail .payroll-state.waiting{background:#eaf1fe!important;border-left-color:#3f74e0!important}#page-payroll .payroll-status-rail .payroll-state.waiting b{color:#2f54c8!important}
+  #page-payroll .payroll-status-rail .payroll-state.blocked{background:#fdecee!important;border-left-color:#e5394c!important}#page-payroll .payroll-status-rail .payroll-state.blocked b{color:#d4273d!important}
+
+  /* -- Advances: 4 gradient KPI cards -- */
+  #page-advances .cards{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:12px!important}
+  #page-advances .cards .card{position:relative;min-height:84px!important;padding:14px 16px!important;border:0!important;border-radius:14px!important;color:#fff!important;overflow:hidden!important;box-shadow:0 10px 22px -12px rgba(15,40,64,.5)!important;transition:transform .15s ease,box-shadow .15s ease!important}
+  #page-advances .cards .card:hover{transform:translateY(-3px)!important;box-shadow:0 16px 30px -12px rgba(15,40,64,.6)!important}
+  #page-advances .cards .card:after{content:""!important;position:absolute;right:-24px;bottom:-32px;width:90px;height:90px;border:16px solid rgba(255,255,255,.15);border-radius:50%;pointer-events:none}
+  #page-advances .cards .card .label{color:rgba(255,255,255,.92)!important;font-size:11px!important}
+  #page-advances .cards .card .value{color:#fff!important;font-size:22px!important}
+  #page-advances .cards .card .note{color:rgba(255,255,255,.88)!important}
+  #page-advances .cards .card .note.bad{color:#fff!important}
+  #page-advances .cards .card:nth-child(1){background:linear-gradient(135deg,#f8ad2a,#e07b10)!important}
+  #page-advances .cards .card:nth-child(2){background:linear-gradient(135deg,#4a86da,#2f54c8)!important}
+  #page-advances .cards .card:nth-child(3){background:linear-gradient(135deg,#14b1a0,#0a6e5d)!important}
+  #page-advances .cards .card:nth-child(4){background:linear-gradient(135deg,#2bbd72,#128a4f)!important}
+  @media(max-width:820px){#page-advances .cards{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+
+  /* -- Timesheet person detail: vivid semantic stat chips -- */
+  #page-owner .pm-detail-stats span{background:#e8f6ee!important;color:#12834b!important;border-radius:9px!important;padding:7px 9px!important;font-weight:500!important}
+  #page-owner .pm-detail-stats span b{color:#0f8a4f!important;font-size:13px!important}
+  #page-owner .pm-detail-stats span.late{background:#fff3e2!important;color:#b06c0e!important}#page-owner .pm-detail-stats span.late b{color:#c5720a!important}
+  #page-owner .pm-detail-stats span.absent{background:#fdecee!important;color:#c22d3f!important}#page-owner .pm-detail-stats span.absent b{color:#d4273d!important}
+  #page-owner .pm-detail-stats span:last-child{background:#e6f5f3!important;color:#0a6e5d!important}#page-owner .pm-detail-stats span:last-child b{color:#0a6e5d!important}
+  #page-owner .pm-readiness b{font-size:13px!important}
+  #page-owner .pm-readiness.watch b{background:#fff3e2!important;color:#c5720a!important;padding:1px 7px;border-radius:999px}
+  #page-owner .pm-readiness:not(.watch) b{background:#e8f6ee!important;color:#0f8a4f!important;padding:1px 7px;border-radius:999px}
+
+  /* -- Settings: colour the policy metrics -- */
+  #page-settings .settings-core-grid .metric{background:#f4f9f8!important;border-radius:9px!important;border-left:3px solid #14b1a0!important}
+  #page-settings .settings-core-grid .metric b{color:#0a6e5d!important}
 </style>
 </head>
 <body>
