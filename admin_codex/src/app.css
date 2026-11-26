@@ -2534,10 +2534,10 @@ button,.btn{box-shadow:none!important;font-weight:500!important}
   #page-dashboard .team-status-summary .finished{background:#e8f0fb!important;color:#2b5fb0!important}
 
   /* Command-bar hero chips: solid, vivid on the navy hero. */
-  #page-dashboard .cc-chip{font-weight:600!important}
-  #page-dashboard .cc-chip.ok{background:rgba(34,189,114,.24)!important;border-color:rgba(34,189,114,.55)!important;color:#c9f6de!important}
-  #page-dashboard .cc-chip.amber{background:rgba(248,173,42,.24)!important;border-color:rgba(248,173,42,.6)!important;color:#ffe7bd!important}
-  #page-dashboard .cc-chip.rose{background:rgba(245,86,106,.24)!important;border-color:rgba(245,86,106,.6)!important;color:#ffd5db!important}
+  #page-dashboard .cc-chip{font-weight:600!important;color:var(--c-ink)!important;background:#eef3f8!important;border-color:#dbe4ee!important}
+  #page-dashboard .cc-chip.ok{background:#e6f8ef!important;border-color:#bfe8d3!important;color:#0f8a4f!important}
+  #page-dashboard .cc-chip.amber{background:#fff3e2!important;border-color:#f3d9b0!important;color:#b06c0e!important}
+  #page-dashboard .cc-chip.rose{background:#fdecee!important;border-color:#f3c7cd!important;color:var(--c-red-800)!important}
   #page-dashboard .cc-chip.ok i{background:#34d399!important}#page-dashboard .cc-chip.amber i{background:#fbbf24!important}#page-dashboard .cc-chip.rose i{background:#fb7185!important}
 
   /* ============================================================
