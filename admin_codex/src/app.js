@@ -2795,10 +2795,11 @@ function pmRenderMatrix(){
   const score=m=>{ const expected=Math.max(1,m.present+m.late+m.absent); return Math.max(0,Math.round(((m.present+Math.max(0,m.late-m.incomplete)*.6)/expected)*100)); };
   const summary=m=>`${m.incomplete?`รอออก ${m.incomplete} · `:""}มา ${m.present+m.late} · สาย ${m.late} · ขาด ${m.absent}`;
   const rows=ordered.map((m,i)=>{ const active=ownerState.pmSel===m.e.id, pct=score(m), needs=m.incomplete+m.absent+m.late;
-    return `<button class="pm-exception-row${active?" active":""}" data-pm-emp="${esc(m.e.id)}" type="button">
+    return `<button class="pm-exception-row pm-line${active?" active":""}" data-pm-emp="${esc(m.e.id)}" type="button" title="ดูรายละเอียดและแก้ไขเวลาของ ${esc(m.e.name||m.e.id)}">
       <span class="pm-rank">${i+1}</span><span class="pm-av">${esc((m.e.name||m.e.id).trim().slice(0,2))}</span>
-      <span class="pm-person"><b>${esc(m.e.name||m.e.id)}</b><small>${esc(m.e.id)}${m.e.role?` · ${esc(m.e.role)}`:""}</small><em>${summary(m)}</em></span>
-      <span class="pm-readiness ${needs?"watch":"good"}"><b>${pct}%</b><small>${needs?"ต้องติดตาม":"พร้อม"}</small></span>
+      <span class="pm-nm"><b>${esc(m.e.name||m.e.id)}</b><span>${esc(m.e.id)}${m.e.role?` · ${esc(m.e.role)}`:""}</span></span>
+      <span class="pm-mini">${summary(m)}</span>
+      <span class="pm-pct ${needs?"watch":"good"}">${pct}%</span>
     </button>`;
   }).join("");
   host.innerHTML=rows;
