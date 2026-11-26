@@ -30,7 +30,7 @@
     /* Type scale (body = --text-base) */
     --text-xs:11px;--text-sm:12px;--text-base:13px;--text-lg:15px;--text-xl:18px;--text-2xl:23px;
     /* Font family */
-    --font-sans:"IBM Plex Sans Thai","Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --font-sans:"Anuphan","IBM Plex Sans Thai","Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%}
@@ -2226,7 +2226,7 @@
   /* Typography option 2 — Operations Modern.  IBM Plex Sans Thai gives Thai
      labels an intentional, technical rhythm; the mono face is limited to
      times and amounts so dense tables scan on a dependable fixed baseline. */
-:root{--font-sans:"IBM Plex Sans Thai",Tahoma,"Segoe UI",sans-serif;--font-mono:"IBM Plex Mono","SFMono-Regular",Consolas,monospace}
+:root{--font-sans:"Anuphan","IBM Plex Sans Thai",Tahoma,"Segoe UI",sans-serif;--font-mono:"IBM Plex Mono","SFMono-Regular",Consolas,monospace}
 /* Bright Enterprise — Sky Blue + Mint
    Semantic colour roles are deliberately shared across every page. */
 :root{

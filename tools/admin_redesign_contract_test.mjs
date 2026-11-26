@@ -110,7 +110,7 @@ const required = [
   'ตรวจข้อยกเว้นก่อนปิดงวด',
   'ดูทุกวันในเดือนที่เลือก',
   'family=IBM+Plex+Mono',
-  'family=IBM+Plex+Sans+Thai:wght@400;500;600',
+  'family=Anuphan:wght@400;500;600',
 ];
 
 const missing = required.filter((token) => !html.includes(token));

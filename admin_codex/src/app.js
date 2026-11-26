@@ -361,9 +361,9 @@ const PAGES = {
 };
 const ROLE_LABEL={owner:"เจ้าของระบบ",manager:"ผู้จัดการ",operations:"ฝ่ายปฏิบัติการ",finance:"ฝ่ายการเงิน"};
 const ROLE_PAGES={
-  owner:["dashboard","owner","people","payroll","advances","payrules","settings"],
-  manager:["dashboard","owner","people","payroll","advances","payrules"],
-  operations:["dashboard","people","advances"],
+  owner:["dashboard","owner","people","payroll","payrules","settings"],
+  manager:["dashboard","owner","people","payroll","payrules"],
+  operations:["dashboard","people"],
   finance:["dashboard","payroll","payrules"],
 };
 function allowedPages(){ return ROLE_PAGES[state.role]||ROLE_PAGES.owner; }
@@ -387,9 +387,9 @@ function applyRoleNavigation(){
   if(!allowed.includes(state.page)) state.page="dashboard";
   const foot=$("#footReviewer"); if(foot) foot.textContent=(state.reviewer||"ผู้ดูแลระบบ")+" · "+(ROLE_LABEL[state.role]||ROLE_LABEL.owner);
 }
-const NAV_GROUP={advances:"payroll",payrules:"payroll",audit:"settings"};
+const NAV_GROUP={payrules:"payroll",audit:"settings"};
 const GROUP_TABS={
-  payroll:[["payroll","ตรวจ Timesheet · ออกสลิป"],["advances","เงินล่วงหน้า"],["payrules","ตั้งเรตค่าจ้าง · OT"]],
+  payroll:[["payroll","ตรวจ Timesheet · ออกสลิป"],["payrules","ตั้งเรตค่าจ้าง · OT"]],
   settings:[["settings","ตั้งค่าระบบ"]]
 };
 function groupTabsHtml(active){
@@ -631,13 +631,12 @@ async function renderDashboard(data, preloaded={}){
     const calendarMonth=_dashCalendarMonth||new Date();
     const calendarStart=`${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth()+1).padStart(2,"0")}-01`;
     const calendarEnd=`${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth()+1).padStart(2,"0")}-${String(new Date(calendarMonth.getFullYear(),calendarMonth.getMonth()+1,0).getDate()).padStart(2,"0")}`;
-    const [leaveD, timeD, attendanceD, setD, calendarD, advanceD] = await Promise.all([
+    const [leaveD, timeD, attendanceD, setD, calendarD] = await Promise.all([
       preloaded.leaveD || optional(canOperations,"admin_list_leave_requests",{requests:[]}),
       preloaded.timeD || optional(canOperations,"admin_list_time_requests",{requests:[]}),
       preloaded.attendanceD || optional(canOperations,"admin_attendance_days",{days:[]}),
       optional(canOperations,"admin_get_settings",{settings:{}}),
       canOperations ? api("admin_attendance_days",{startDate:calendarStart,endDate:calendarEnd}).catch(error=>({days:[],_loadError:error.message})) : Promise.resolve({days:[],_restricted:true}),
-      optional(canFinance,"admin_list_advances",{advances:[]}),
     ]);
     const dashSettings=setD.settings||{};
     const dashShiftStart=dashSettings.shift_start||"09:00", dashGrace=Number(dashSettings.shift_grace_min||5);
@@ -677,7 +676,6 @@ async function renderDashboard(data, preloaded={}){
         </span></div>`;
     }).join(""):`<div class="empty">ยังไม่มีรายชื่อพนักงานที่ใช้งานอยู่</div>`;
       const pendL=leaves.filter(r=>r.status==="pending"), pendT=times.filter(r=>r.status==="pending");
-      const pendAdv=(advanceD.advances||[]).filter(r=>r.status==="pending");
     setApprovalBadge(pendL.length+pendT.length);
     // Pending approvals scoped to the current month (for the "วันนี้" notification).
     const _ymNow=todayISO().slice(0,7), _inMonth=(d)=>String(d||"").slice(0,7)===_ymNow;
@@ -776,12 +774,11 @@ async function renderDashboard(data, preloaded={}){
         :`<div class="empty">วันนี้ไม่มีรายการค้างตรวจ</div>`;
       const approvalSets={
         ot:pendT.filter(r=>r.requestType==="overtime").map(r=>({kind:"OT",name:empName(r.employeeId),detail:`${fmtDate(r.workDate)} · ${fmtHours(r.requestedMinutes)}${r.reason?` · ${r.reason}`:""}`,requestId:r.requestId})),
-        leave:pendL.map(r=>({kind:"การลา",name:empName(r.employeeId),detail:`${r.leaveType||"ลา"} · ${fmtDate(r.startDate)}${r.endDate&&r.endDate!==r.startDate?` – ${fmtDate(r.endDate)}`:""}`,requestId:r.requestId})),
-        advance:pendAdv.map(r=>({kind:"เบิกเงิน",name:r.name||empName(r.employeeId),detail:`${fmtBaht(r.amount)}${r.reason?` · ${r.reason}`:""}`,advanceId:r.advanceId}))
+        leave:pendL.map(r=>({kind:"การลา",name:empName(r.employeeId),detail:`${r.leaveType||"ลา"} · ${fmtDate(r.startDate)}${r.endDate&&r.endDate!==r.startDate?` – ${fmtDate(r.endDate)}`:""}`,requestId:r.requestId}))
       };
-      const approvalTotal=approvalSets.ot.length+approvalSets.leave.length+approvalSets.advance.length;
-      const initialApprovalMode=approvalSets.ot.length?"ot":approvalSets.leave.length?"leave":"advance";
-      const approvalTabLabel={ot:"OT",leave:"การลา",advance:"เบิกเงิน"};
+      const approvalTotal=approvalSets.ot.length+approvalSets.leave.length;
+      const initialApprovalMode=approvalSets.ot.length?"ot":"leave";
+      const approvalTabLabel={ot:"OT",leave:"การลา"};
       const dashboardApprovalHtml=`<section class="panel dashboard-approval-queue" id="dashboardApprovals" aria-label="คิวอนุมัติ"><div class="head"><div class="wq-title"><b>คิวอนุมัติ</b><span>${fmtInt(approvalTotal)} รายการ</span></div><div class="spacer"></div><button class="btn ok sm" type="button" id="dashAddOt">บันทึก OT</button></div><div class="body"><p class="daq-note">คำขอที่อนุมัติแล้วจึงจะนำไปคำนวณเงินเดือนได้</p><div class="daq-tabs" role="tablist">${Object.keys(approvalSets).map(mode=>`<button type="button" data-daq-mode="${mode}" class="${mode===initialApprovalMode?"active":""}">${approvalTabLabel[mode]} <b>${fmtInt(approvalSets[mode].length)}</b></button>`).join("")}</div>${Object.entries(approvalSets).map(([mode,items])=>`<div class="daq-list ${mode===initialApprovalMode?"active":""}" data-daq-list="${mode}">${items.length?items.map(item=>`<div class="daq-row"><span class="daq-kind ${mode}">${esc(item.kind)}</span><div class="daq-copy"><b>${esc(item.name)}</b><span>${esc(item.detail)}</span></div><div class="daq-actions">${mode==="advance"?`<button class="btn ok sm" data-daq-advance="${esc(item.advanceId)}">อนุมัติ</button><button class="btn danger sm" data-daq-advance-reject="${esc(item.advanceId)}">ปฏิเสธ</button>`:`<button class="btn ok sm" data-daq-approve="${mode}:${esc(item.requestId)}">อนุมัติ</button><button class="btn danger sm" data-daq-reject="${mode}:${esc(item.requestId)}">ปฏิเสธ</button>`}</div></div>`).join(""):`<div class="daq-empty">ไม่มีคำขอรออนุมัติ</div>`}</div>`).join("")}</div></section>`;
       // Payday reminder: when the pay cycle is near/at/overdue, nudge the owner to
       // review timesheets and issue payslips. Window = 3 days before → 2 days after.
