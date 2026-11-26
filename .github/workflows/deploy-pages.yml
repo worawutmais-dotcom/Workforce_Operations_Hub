@@ -1,0 +1,67 @@
+name: Deploy admin console to Pages
+
+# Builds the admin console from admin_codex/src/* and publishes it to GitHub
+# Pages on every push to main that touches the console (or the build tool).
+# This replaces the manual "republish index.html" step so a merge is live.
+#
+# One-time setup (repo owner): Settings -> Pages -> Source = "GitHub Actions".
+# The console is served at:  https://<owner>.github.io/<repo>/admin_codex/
+# (the site root redirects there too).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'admin_codex/**'
+      - 'tools/build_admin.mjs'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Guard: never publish a stale console — build from src/ and fail if it drifts.
+      - name: Build admin console from src/
+        run: node tools/build_admin.mjs
+
+      - name: Verify build is fresh
+        run: node tools/admin_build_fresh_test.mjs
+
+      - name: Assemble Pages site
+        run: |
+          mkdir -p _site/admin_codex
+          cp admin_codex/index.html _site/admin_codex/index.html
+          cp -r admin_codex/assets _site/admin_codex/assets
+          printf '%s' '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=admin_codex/index.html"><title>BVN Package</title>' > _site/index.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
