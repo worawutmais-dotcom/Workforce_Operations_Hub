@@ -40,7 +40,7 @@ void main() {
     expect(status.requiresAction, isFalse);
   });
 
-  testWidgets('renders the Work Identity account at a narrow employee width', (
+  testWidgets('renders the compact account without advance payments or scrolling', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(360, 800));
@@ -66,15 +66,15 @@ void main() {
     expect(find.text('ข้อมูลการทำงานของฉัน'), findsOneWidget);
     expect(find.text('สถานะบัญชี'), findsOneWidget);
     expect(find.text('ต้องอัปเดตข้อมูล'), findsOneWidget);
-    expect(find.text('นโยบายการลงเวลา'), findsOneWidget);
-    expect(find.text('ลงเวลาตามพิกัดที่อนุญาต'), findsOneWidget);
+    expect(
+      find.text('นโยบายการลงเวลา · ลงเวลาตามพิกัดที่อนุญาต'),
+      findsOneWidget,
+    );
     expect(find.text('ข้อมูลส่วนตัว'), findsAtLeastNWidgets(1));
-    await tester.scrollUntilVisible(find.text('ขอเบิกเงินล่วงหน้า'), 280);
-    expect(find.text('ขอเบิกเงินล่วงหน้า'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('เปลี่ยนรหัสผ่าน'), 280);
     expect(find.text('เปลี่ยนรหัสผ่าน'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('ออกจากระบบ'), 280);
     expect(find.text('ออกจากระบบ'), findsOneWidget);
+    expect(find.text('ขอเบิกเงินล่วงหน้า'), findsNothing);
+    expect(find.byType(ListView), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

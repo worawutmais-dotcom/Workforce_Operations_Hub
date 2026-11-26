@@ -2325,10 +2325,9 @@ class _RequestsPage extends StatefulWidget {
 }
 
 class _RequestsPageState extends State<_RequestsPage> {
-  List<Map<String, dynamic>> _leaves = [], _advances = [];
+  List<Map<String, dynamic>> _leaves = [];
   bool _loading = true;
   String? _error;
-  String _filter = 'all';
 
   @override
   void initState() {
@@ -2342,14 +2341,10 @@ class _RequestsPageState extends State<_RequestsPage> {
       _error = null;
     });
     try {
-      final result = await Future.wait([
-        BvnApi().leaveCalendar(widget.token),
-        BvnApi().advances(widget.token),
-      ]);
+      final leaves = await BvnApi().leaveCalendar(widget.token);
       if (mounted) {
         setState(() {
-          _leaves = result[0];
-          _advances = result[1];
+          _leaves = leaves;
           _loading = false;
         });
       }
@@ -2455,52 +2450,6 @@ class _RequestsPageState extends State<_RequestsPage> {
     ),
   );
 
-  Widget _advanceCard(BuildContext context, Map<String, dynamic> item) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _requestIcon(context, Icons.payments_outlined),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'เบิกเงินล่วงหน้า',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '${item['requestDate'] ?? '—'} · ฿${((item['amount'] as num?) ?? 0).toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                if ('${item['reason'] ?? ''}'.trim().isNotEmpty) ...[
-                  const SizedBox(height: 5),
-                  Text(
-                    '${item['reason']}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          _badge('${item['status'] ?? 'pending'}'),
-        ],
-      ),
-    ),
-  );
-
   Widget _requestIcon(BuildContext context, IconData icon) => Container(
     width: 38,
     height: 38,
@@ -2517,8 +2466,7 @@ class _RequestsPageState extends State<_RequestsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final leaves = _filter == 'advance' ? <Map<String, dynamic>>[] : _leaves;
-    final advances = _filter == 'leave' ? <Map<String, dynamic>>[] : _advances;
+    final leaves = _leaves;
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
@@ -2539,7 +2487,7 @@ class _RequestsPageState extends State<_RequestsPage> {
                     ),
                     SizedBox(height: 3),
                     Text(
-                      'ติดตามสถานะลาและเงินล่วงหน้า',
+                      'ติดตามสถานะคำขอลาของคุณ',
                       style: TextStyle(fontSize: 12),
                     ),
                   ],
@@ -2551,17 +2499,7 @@ class _RequestsPageState extends State<_RequestsPage> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'all', label: Text('ทั้งหมด')),
-              ButtonSegment(value: 'leave', label: Text('ลา')),
-              ButtonSegment(value: 'advance', label: Text('เงินล่วงหน้า')),
-            ],
-            selected: {_filter},
-            onSelectionChanged: (v) => setState(() => _filter = v.first),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           if (_loading)
             const Padding(
               padding: EdgeInsets.all(30),
@@ -2584,7 +2522,7 @@ class _RequestsPageState extends State<_RequestsPage> {
                 ),
               ),
             )
-          else if (leaves.isEmpty && advances.isEmpty)
+          else if (leaves.isEmpty)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -2602,7 +2540,7 @@ class _RequestsPageState extends State<_RequestsPage> {
                     ),
                     const SizedBox(height: 3),
                     const Text(
-                      'เมื่อส่งคำขอลาหรือเบิกเงินล่วงหน้า สถานะจะแสดงที่นี่',
+                      'เมื่อส่งคำขอลา สถานะจะแสดงที่นี่',
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -2610,41 +2548,21 @@ class _RequestsPageState extends State<_RequestsPage> {
               ),
             )
           else ...[
-            if (leaves.isNotEmpty) ...[
-              Text(
-                'การลา',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+            Text(
+              'การลา',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              const SizedBox(height: 8),
-              ...leaves.map(
-                (e) => Padding(
-                  padding: const EdgeInsets.only(bottom: 9),
-                  child: _leaveCard(context, e),
-                ),
+            ),
+            const SizedBox(height: 8),
+            ...leaves.map(
+              (e) => Padding(
+                padding: const EdgeInsets.only(bottom: 9),
+                child: _leaveCard(context, e),
               ),
-            ],
-            if (advances.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                'เงินล่วงหน้า',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 8),
-              ...advances.map(
-                (e) => Padding(
-                  padding: const EdgeInsets.only(bottom: 9),
-                  child: _advanceCard(context, e),
-                ),
-              ),
-            ],
+            ),
           ],
         ],
       ),
@@ -3020,107 +2938,87 @@ class AccountScreen extends StatelessWidget {
     );
     final displayName = name.trim().isEmpty ? id : name.trim();
     final displayRole = role.trim().isEmpty ? 'พนักงาน' : role.trim();
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const SectionLabel('ข้อมูลการทำงานของฉัน'),
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            gradient: kHeroGradient,
-            borderRadius: BorderRadius.circular(kRadius),
-            boxShadow: kHeroShadow,
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: Colors.white.withValues(alpha: .18),
-                child: Text(
-                  displayName.isEmpty ? '?' : displayName[0].toUpperCase(),
-                  style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800),
+    return SafeArea(
+      minimum: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SectionLabel('ข้อมูลการทำงานของฉัน'),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              gradient: kHeroGradient,
+              borderRadius: BorderRadius.circular(kRadiusSm),
+              boxShadow: kHeroShadow,
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 21,
+                  backgroundColor: Colors.white.withValues(alpha: .18),
+                  child: Text(displayName.isEmpty ? '?' : displayName[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
                 ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(displayName, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 3),
-                    Text('$displayRole · $id', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withValues(alpha: .84), fontSize: 12.5)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: _statusCard('สถานะบัญชี', 'ใช้งานอยู่', Icons.person_outline_rounded, const Color(0xFFE8F7EF), const Color(0xFF08764E))),
-            const SizedBox(width: 10),
-            Expanded(child: _statusCard('ข้อมูลส่วนตัว', status.label, status.icon, status.background, status.foreground)),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(color: kBrandSoft, borderRadius: BorderRadius.circular(kRadiusSm), border: Border.all(color: kHair)),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(width: 34, height: 34, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)), child: Icon(locationRequired ? Icons.location_on_outlined : Icons.location_off_outlined, color: kBrandDeep, size: 19)),
-              const SizedBox(width: 10),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('นโยบายการลงเวลา', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kInk)),
-                const SizedBox(height: 2),
-                Text(status.locationPolicy, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kBrandDeep)),
-                const SizedBox(height: 2),
-                Text(locationRequired ? 'กรุณาอนุญาต GPS และอยู่ในจุดทำงานที่บริษัทกำหนด' : 'คุณลงเวลาได้โดยไม่ต้องส่งตำแหน่ง', style: const TextStyle(fontSize: 11.5, color: kMuted)),
-              ])),
-            ],
-          ),
-        ),
-        if (status.requiresAction) ...[
-          const SizedBox(height: 12),
-          InkWell(
-            onTap: () => _identityDialog(context),
-            borderRadius: BorderRadius.circular(kRadiusSm),
-            child: Container(
-              padding: const EdgeInsets.all(13),
-              decoration: BoxDecoration(color: status.background, borderRadius: BorderRadius.circular(kRadiusSm), border: Border.all(color: status.foreground.withValues(alpha: .25))),
-              child: Row(children: [Icon(Icons.info_outline_rounded, color: status.foreground, size: 19), const SizedBox(width: 9), Expanded(child: Text(status.detail, style: TextStyle(color: status.foreground, fontSize: 12.5, fontWeight: FontWeight.w600))), Icon(Icons.chevron_right_rounded, color: status.foreground)]),
+                const SizedBox(width: 11),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text('$displayRole · $id', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withValues(alpha: .84), fontSize: 11.5)),
+                ])),
+              ],
             ),
           ),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(child: _statusCard('สถานะบัญชี', 'ใช้งานอยู่', Icons.person_outline_rounded, const Color(0xFFE8F7EF), const Color(0xFF08764E))),
+            const SizedBox(width: 8),
+            Expanded(child: _statusCard('ข้อมูลส่วนตัว', status.label, status.icon, status.background, status.foreground)),
+          ]),
+          const SizedBox(height: 8),
+          _locationPolicy(status),
+          if (status.requiresAction) ...[
+            const SizedBox(height: 8),
+            _identityAlert(context, status),
+          ],
+          const SizedBox(height: 10),
+          SoftCard(
+            padding: EdgeInsets.zero,
+            child: Column(children: [
+              _accountTile(context, Icons.badge_outlined, 'ข้อมูลส่วนตัว', status.requiresAction ? 'กรอกข้อมูลเพื่อส่งให้ผู้ดูแลตรวจสอบ' : status.detail, () => _identityDialog(context)),
+              const Divider(height: 1, indent: 52),
+              _accountTile(context, Icons.lock_outline_rounded, 'เปลี่ยนรหัสผ่าน', 'ใช้รหัสผ่านเดิมเพื่อยืนยัน', () => _changePasswordDialog(context)),
+              const Divider(height: 1, indent: 52),
+              _accountTile(context, Icons.lock_reset_rounded, 'รีเซ็ตรหัสผ่าน', 'ขอให้ผู้ดูแลช่วยเมื่อเข้าไม่ได้', () => _requestResetDialog(context)),
+            ]),
+          ),
+          const Spacer(),
+          OutlinedButton.icon(onPressed: onLogout, style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(42), foregroundColor: kDanger, side: const BorderSide(color: Color(0xFFE6C3C3))), icon: const Icon(Icons.logout_rounded, size: 18), label: const Text('ออกจากระบบ')),
+          const SizedBox(height: 4),
+          Center(child: Text('เวอร์ชัน $kAppVersionName', style: const TextStyle(fontSize: 10.5, color: kMuted))),
         ],
-        const SizedBox(height: 20),
-        const SectionLabel('บัญชีและคำขอ'),
-        SoftCard(
-          padding: EdgeInsets.zero,
-          child: Column(children: [
-            _accountTile(context, Icons.badge_outlined, 'ข้อมูลส่วนตัว', status.requiresAction ? 'กรอกข้อมูลเพื่อส่งให้ผู้ดูแลตรวจสอบ' : status.detail, () => _identityDialog(context)),
-            const Divider(height: 1, indent: 58),
-            _accountTile(context, Icons.payments_outlined, 'ขอเบิกเงินล่วงหน้า', 'ส่งคำขอและติดตามสถานะ', () => _advanceDialog(context)),
-          ]),
-        ),
-        const SizedBox(height: 18),
-        const SectionLabel('ความปลอดภัยบัญชี'),
-        SoftCard(
-          padding: EdgeInsets.zero,
-          child: Column(children: [
-            _accountTile(context, Icons.lock_outline_rounded, 'เปลี่ยนรหัสผ่าน', 'ต้องใช้รหัสผ่านเดิม', () => _changePasswordDialog(context)),
-            const Divider(height: 1, indent: 58),
-            _accountTile(context, Icons.lock_reset_rounded, 'ขอให้ผู้ดูแลรีเซ็ตรหัสผ่าน', 'ใช้เมื่อเข้าสู่ระบบไม่ได้', () => _requestResetDialog(context)),
-          ]),
-        ),
-        const SizedBox(height: 20),
-        OutlinedButton.icon(onPressed: onLogout, style: OutlinedButton.styleFrom(foregroundColor: kDanger, side: const BorderSide(color: Color(0xFFE6C3C3))), icon: const Icon(Icons.logout_rounded, size: 18), label: const Text('ออกจากระบบ')),
-        const SizedBox(height: 8),
-        Center(child: Text('เวอร์ชัน $kAppVersionName', style: const TextStyle(fontSize: 11.5, color: kMuted))),
-      ],
+      ),
     );
   }
+
+  Widget _locationPolicy(WorkIdentityStatus status) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+    decoration: BoxDecoration(color: kBrandSoft, borderRadius: BorderRadius.circular(kRadiusSm), border: Border.all(color: kHair)),
+    child: Row(children: [
+      Icon(locationRequired ? Icons.location_on_outlined : Icons.location_off_outlined, color: kBrandDeep, size: 18),
+      const SizedBox(width: 8),
+      Expanded(child: Text('นโยบายการลงเวลา · ${status.locationPolicy}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: kInk))),
+    ]),
+  );
+
+  Widget _identityAlert(BuildContext context, WorkIdentityStatus status) => InkWell(
+    onTap: () => _identityDialog(context),
+    borderRadius: BorderRadius.circular(kRadiusSm),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+      decoration: BoxDecoration(color: status.background, borderRadius: BorderRadius.circular(kRadiusSm), border: Border.all(color: status.foreground.withValues(alpha: .25))),
+      child: Row(children: [Icon(Icons.info_outline_rounded, color: status.foreground, size: 18), const SizedBox(width: 8), Expanded(child: Text(status.detail, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: status.foreground, fontSize: 12, fontWeight: FontWeight.w600))), Icon(Icons.chevron_right_rounded, color: status.foreground)]),
+    ),
+  );
 
   Widget _statusCard(String title, String value, IconData icon, Color bg, Color fg) => Container(
     padding: const EdgeInsets.all(12),
@@ -3140,23 +3038,25 @@ class AccountScreen extends StatelessWidget {
     VoidCallback onTap,
   ) => ListTile(
     onTap: onTap,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+    dense: true,
+    minVerticalPadding: 2,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
     leading: Container(
-      width: 34,
-      height: 34,
+      width: 32,
+      height: 32,
       decoration: BoxDecoration(
         color: kBrandSoft,
         borderRadius: BorderRadius.circular(9),
       ),
-      child: Icon(icon, size: 19, color: kBrandDeep),
+      child: Icon(icon, size: 18, color: kBrandDeep),
     ),
     title: Text(
       title,
-      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
+      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
     ),
     subtitle: subtitle == null
         ? null
-        : Text(subtitle, style: const TextStyle(fontSize: 12, color: kMuted)),
+        : Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: kMuted)),
     trailing: const Icon(Icons.chevron_right_rounded, color: kMuted),
   );
 
@@ -3241,56 +3141,6 @@ class AccountScreen extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Future<void> _advanceDialog(BuildContext context) async {
-    final amount = TextEditingController(), reason = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('ขอเบิกเงินล่วงหน้า'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: amount,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'จำนวนเงิน (บาท)'),
-            ),
-            TextField(
-              controller: reason,
-              decoration: const InputDecoration(labelText: 'เหตุผล'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: const Text('ยกเลิก'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(c, true),
-            child: const Text('ส่งคำขอ'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    final amt = double.tryParse(amount.text.trim()) ?? 0;
-    if (amt <= 0) {
-      _snack(context, 'จำนวนเงินไม่ถูกต้อง');
-      return;
-    }
-    try {
-      await BvnApi().submitAdvance(
-        token: token,
-        amount: amt,
-        reason: reason.text.trim(),
-      );
-      _snack(context, 'ส่งคำขอเบิกเงินล่วงหน้าแล้ว');
-    } catch (e) {
-      _snack(context, e.toString());
-    }
   }
 
   Future<void> _changePasswordDialog(BuildContext context) async {
