@@ -3596,6 +3596,8 @@ async function renderSettings(){
     ${groupTabsHtml("settings")}
     <div class="settings-workspace">
     <div class="directory-page-head bvn-page-head settings-page-head"><div><div class="route-eyebrow">การควบคุมระบบ</div><h2>ตั้งค่าบริษัทและนโยบาย</h2><p>กำหนดเอกสาร กะงาน และสิทธิ์ที่ใช้ทั้งบริษัท</p></div><div class="directory-count">สิทธิ์<br><b>${esc(ROLE_LABEL[state.role]||"ผู้ดูแล")}</b></div></div>
+    <nav class="set-tabs" role="tablist" aria-label="หมวดการตั้งค่า"><button type="button" class="active" data-set-tab="policy">นโยบาย</button><button type="button" data-set-tab="admins">ทีมผู้ดูแล</button><button type="button" data-set-tab="calendar">ปฏิทิน · แอป</button><button type="button" data-set-tab="system">ระบบ</button></nav>
+    <div class="set-tab active" data-tabpanel="policy">
     <section class="settings-command settings-command-compact" aria-label="การตั้งค่าหลัก"><div class="settings-command-head"><div><span class="settings-kicker">ตั้งค่าหลัก</span><h3>สิ่งที่มีผลต่อเวลาและสลิป</h3></div><span class="settings-command-status"><i></i> ตรวจสอบก่อนออกสลิป</span></div><div class="settings-command-grid"><button type="button" class="settings-command-card" data-settings-action="document"><span class="settings-command-icon" aria-hidden="true">${lineIcon("file")}</span><span><b>ข้อมูลบริษัทและเอกสาร</b><small>ชื่อบริษัท โลโก้ ผู้ลงนาม</small></span><em>แก้ไข ›</em></button><button type="button" class="settings-command-card is-time" data-settings-action="work"><span class="settings-command-icon" aria-hidden="true">${lineIcon("clock")}</span><span><b>กะงานและการลงเวลา</b><small id="settingsWorkStatus">กำลังโหลดนโยบาย…</small></span><em>ตั้งค่า ›</em></button><button type="button" class="settings-command-card is-payroll" data-settings-action="social"><span class="settings-command-icon" aria-hidden="true">${lineIcon("bill")}</span><span><b>ประกันสังคม</b><small id="settingsSsoStatus">กำลังโหลดนโยบาย…</small></span><em>ตั้งค่า ›</em></button></div></section>
     <div class="setting-group-label">ภาพรวมนโยบายที่ใช้งาน</div>
     <section class="settings-core-grid" aria-label="ภาพรวมนโยบาย">
@@ -3605,14 +3607,16 @@ async function renderSettings(){
     <div class="panel"><div class="head"><h2>กะงานและเวลา</h2><div class="spacer"></div><button class="btn sub sm" id="editWorkRules">แก้ไข</button></div>
       <div class="body" id="workRulesSummary"><div class="empty">กำลังโหลดการตั้งค่าเวลาทำงาน…</div></div>
     </div></section>
-    <div class="setting-group-label">ทีมผู้ดูแล</div>
-    <details class="panel settings-fold"><summary><span><b>บัญชีผู้ดูแลระบบ</b><small>จัดการผู้เข้าถึงและสิทธิ์การใช้งาน</small></span><span aria-hidden="true">⌄</span></summary><div class="body settings-fold-toolbar"><button class="btn ok sm" id="addAdmin">เพิ่มบัญชี</button></div>
+    </div>
+    <div class="set-tab" data-tabpanel="admins">
+    <details class="panel settings-fold" open><summary><span><b>บัญชีผู้ดูแลระบบ</b><small>จัดการผู้เข้าถึงและสิทธิ์การใช้งาน</small></span><span aria-hidden="true">⌄</span></summary><div class="body settings-fold-toolbar"><button class="btn ok sm" id="addAdmin">เพิ่มบัญชี</button></div>
       <div class="body flush"><table>
         <thead><tr><th>ชื่อผู้ใช้</th><th>รหัสผ่าน</th><th>ชื่อแสดง</th><th>สิทธิ์</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
         <tbody id="adminRows"><tr><td colspan="6"><div class="empty">กำลังโหลด…</div></td></tr></tbody>
       </table></div>
     </details>
-    <div class="setting-group-label">ปฏิทินและแอปพนักงาน</div>
+    </div>
+    <div class="set-tab" data-tabpanel="calendar">
     <section class="settings-support-grid" aria-label="ปฏิทินและแอปพนักงาน">
     <div class="panel settings-holiday-panel"><div class="head"><h2>วันหยุดบริษัท</h2><div class="spacer"></div><button class="btn sub sm" id="importHoliday">เติมปีนี้</button><button class="btn ok sm" id="addHoliday">เพิ่ม</button></div>
       <div class="body flush"><table id="holTable"><thead><tr><th>วันที่</th><th>ชื่อวันหยุด</th></tr></thead>
@@ -3631,6 +3635,8 @@ async function renderSettings(){
         <div class="notice" id="appPolicyHint">ตรวจนโยบายเวอร์ชันแอป…</div>
       </div>
     </div></section>
+    </div>
+    <div class="set-tab" data-tabpanel="system">
     <div class="setting-group-label">ข้อมูลสำรอง</div>
     <details class="panel settings-fold"><summary><span><b>สำรองข้อมูล</b><small>ดาวน์โหลดข้อมูลตั้งค่าและพนักงานเป็น JSON</small></span><span aria-hidden="true">⌄</span></summary>
       <div class="body">
@@ -3656,7 +3662,12 @@ async function renderSettings(){
         <div class="notice blue">ค่าเชื่อมต่อนี้บันทึกในเครื่องนี้เท่านั้น · apikey จำเป็นเฉพาะ endpoint แบบ Supabase (public key ไม่ลับ)</div>
         <div class="toolbar"><button class="btn" id="saveEndpoint">บันทึก Endpoint</button></div>
       </div>
-    </details></div>`;
+    </details></div></div>`;
+  node.querySelectorAll(".set-tabs [data-set-tab]").forEach(tab=>tab.onclick=()=>{
+    const t=tab.dataset.setTab;
+    node.querySelectorAll(".set-tabs [data-set-tab]").forEach(x=>x.classList.toggle("active",x===tab));
+    node.querySelectorAll("[data-tabpanel]").forEach(p=>p.classList.toggle("active",p.dataset.tabpanel===t));
+  });
   $("#setEndpoint").value = state.endpoint || LS.getItem("bvn_endpoint") || DEFAULT_ENDPOINT;
   $("#saveEndpoint").onclick=(e)=>{ const v=$("#setEndpoint").value.trim(); if(!v){ toast("กรอก endpoint","bad"); return; }
     const k=(($("#setApikey")&&$("#setApikey").value)||"").trim();

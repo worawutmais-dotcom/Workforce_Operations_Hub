@@ -2618,3 +2618,11 @@ button,.btn{box-shadow:none!important;font-weight:500!important}
   #page-dashboard .wq-row.wq-approve{cursor:default}
   #page-dashboard .wq-approve-actions{display:inline-flex;gap:6px;flex:none;white-space:nowrap}
   #page-dashboard .wq-approve-actions .btn{min-height:28px;padding:4px 12px}
+
+  /* Settings tabs: group the overloaded settings page into 4 sections. */
+  #page-settings .set-tabs{display:flex;gap:2px;margin:6px 0 14px;border-bottom:1px solid #e1e8f0;flex-wrap:wrap}
+  #page-settings .set-tabs button{border:0;background:none;font:inherit;font-size:12.5px;color:#5b6b7d;padding:8px 15px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+  #page-settings .set-tabs button:hover{color:#13293f}
+  #page-settings .set-tabs button.active{color:#0a6e5d;border-bottom-color:#0d9488;font-weight:600}
+  #page-settings .set-tab{display:none}
+  #page-settings .set-tab.active{display:block}
