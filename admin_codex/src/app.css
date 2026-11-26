@@ -2689,3 +2689,23 @@ button,.btn{box-shadow:none!important;font-weight:500!important}
   #page-owner .pm-line .pm-pct.watch{background:#fff3e2;color:var(--c-amber-800)}
   #page-owner .pm-line .pm-pct.good{background:#e6f8ef;color:#0f8a4f}
   @media(max-width:760px){#page-owner .pm-line .pm-mini{display:none}}
+
+/* Dashboard team board — grouped by presence so who's in / not-in reads at a glance */
+#page-dashboard .cc-work .team-group{margin:0}
+#page-dashboard .cc-work .team-group+.team-group{margin-top:4px}
+#page-dashboard .cc-work .team-group-head{display:flex;align-items:center;gap:8px;padding:7px 14px;font-size:11px;font-weight:700;letter-spacing:.01em;position:sticky;top:0;z-index:1}
+#page-dashboard .cc-work .team-group-head b{font-weight:700}
+#page-dashboard .cc-work .team-group-head em{margin-left:auto;font-style:normal;font-weight:700;font-variant-numeric:tabular-nums;padding:1px 9px;border-radius:999px;background:#fff;font-size:11px}
+#page-dashboard .cc-work .team-group-head .tg-dot{width:9px;height:9px;border-radius:50%;flex:none}
+#page-dashboard .cc-work .team-group.tg-out .team-group-head{background:#fdecee;color:#b5283a}
+#page-dashboard .cc-work .team-group.tg-out .tg-dot{background:#f5566a}
+#page-dashboard .cc-work .team-group.tg-out .team-group-head em{color:#b5283a}
+#page-dashboard .cc-work .team-group.tg-late .team-group-head{background:#fff3e1;color:#a9620d}
+#page-dashboard .cc-work .team-group.tg-late .tg-dot{background:#f0a11f}
+#page-dashboard .cc-work .team-group.tg-late .team-group-head em{color:#a9620d}
+#page-dashboard .cc-work .team-group.tg-in .team-group-head{background:#e4f7ed;color:#0f7a46}
+#page-dashboard .cc-work .team-group.tg-in .tg-dot{background:#22b86f}
+#page-dashboard .cc-work .team-group.tg-in .team-group-head em{color:#0f7a46}
+#page-dashboard .cc-work .team-group.tg-done .team-group-head{background:#e8f0fb;color:#2b5fb0}
+#page-dashboard .cc-work .team-group.tg-done .tg-dot{background:#3f7fd6}
+#page-dashboard .cc-work .team-group.tg-done .team-group-head em{color:#2b5fb0}

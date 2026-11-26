@@ -723,16 +723,9 @@ async function renderDashboard(data, preloaded={}){
         out:{soft:"#fdecee",ink:"#cf3042",ring:"#f5566a",label:"ยังไม่เข้างาน"}
       };
       const nowMin=(()=>{ const n=new Date(); return n.getHours()*60+n.getMinutes(); })();
-      // Surface who needs attention: late first, then not-in, then on-time; by check-in time.
-      const sOrder={late:0,out:1,in:2};
-      team.sort((a,b)=>{ const sa=tstat(a),sb=tstat(b); if(sOrder[sa]!==sOrder[sb]) return sOrder[sa]-sOrder[sb];
-        const ta=todayByEmp[a.id],tb=todayByEmp[b.id]; return pmHM(ta&&ta.checkIn)-pmHM(tb&&tb.checkIn); });
-      const teamHtml=team.length?team.map(e=>{
+      // Render one person row (used by the grouped team board below).
+      const teamRow=(e)=>{
         const s=tstat(e), t=todayByEmp[e.id], m=SMETA[s];
-        let meta;
-        if(s==="out") meta="ยังไม่มีเวลาเข้า";
-        else if(s==="done") meta=`เข้า ${esc(t.checkIn)} · ออก ${esc(t.checkOut)}`;
-        else { const w=Math.max(0,nowMin-pmHM(t.checkIn)); meta=`เข้า ${esc(t.checkIn)} · ${w>=30?fmtHours(w):"เพิ่งเข้า"}`; }
         const checkIn=t&&t.checkIn?esc(t.checkIn):"—";
         const checkOut=t&&t.checkOut?esc(t.checkOut):"—";
         const canCheckIn=s==="out", canCheckOut=s==="in"||s==="late";
@@ -746,6 +739,23 @@ async function renderDashboard(data, preloaded={}){
           <span class="tc-pill"><i></i>${m.label}</span>
           <span class="tc-actions" aria-label="บันทึกเวลาแทน"><button type="button" class="btn ok sm" data-checkin="${esc(e.id)}" ${canCheckIn?"":"disabled"}>Check-In</button><button type="button" class="btn sub sm" data-checkout="${esc(e.id)}" ${canCheckOut?"":"disabled"}>Check-Out</button></span>
         </div>`;
+      };
+      // Group the team board by presence so "ใครเข้าแล้ว / ยังไม่เข้า" is obvious
+      // at a glance. Not-in comes first (needs action), then late, working, done.
+      const teamByStatus={out:[],late:[],in:[],done:[]};
+      team.forEach(e=>{ const s=tstat(e); (teamByStatus[s]||teamByStatus.out).push(e); });
+      const byInTime=(a,b)=>pmHM(todayByEmp[a.id]&&todayByEmp[a.id].checkIn)-pmHM(todayByEmp[b.id]&&todayByEmp[b.id].checkIn);
+      teamByStatus.late.sort(byInTime); teamByStatus.in.sort(byInTime); teamByStatus.done.sort(byInTime);
+      teamByStatus.out.sort((a,b)=>String(a.name||a.id).localeCompare(String(b.name||b.id),"th"));
+      const teamGroupMeta=[
+        {key:"out",label:"ยังไม่เข้างาน",tone:"out"},
+        {key:"late",label:"เข้างานสาย",tone:"late"},
+        {key:"in",label:"กำลังทำงาน",tone:"in"},
+        {key:"done",label:"ออกงานแล้ว",tone:"done"}
+      ];
+      const teamHtml=team.length?teamGroupMeta.map(g=>{
+        const people=teamByStatus[g.key]; if(!people.length) return "";
+        return `<div class="team-group tg-${g.tone}"><div class="team-group-head"><span class="tg-dot"></span><b>${g.label}</b><em>${fmtInt(people.length)} คน</em></div>${people.map(teamRow).join("")}</div>`;
       }).join(""):`<div class="empty">ยังไม่มีพนักงานที่ใช้งานอยู่</div>`;
       // One queue, ordered by payroll risk.  A generic count made operators
       // hunt for the affected employee before they could act.
@@ -1967,8 +1977,13 @@ async function doPreview(btn){
       }
       const flowIssue=$("#flowIssue");
       if(flowIssue){
-        flowIssue.disabled=!payrollReady||!readyPayrollRows.length;
+        // Issue slips for everyone who is ready now — don't wait for the whole
+        // period to be complete. Blocked/waiting employees are simply skipped.
+        flowIssue.disabled=!readyPayrollRows.length;
         flowIssue.classList.toggle("ready",!flowIssue.disabled);
+        const notReady=payrollRows.length-readyPayrollRows.length;
+        const sm=flowIssue.querySelector("small");
+        if(sm) sm.textContent=readyPayrollRows.length?`ออกได้ ${fmtInt(readyPayrollRows.length)} คนที่พร้อม${notReady>0?` · อีก ${fmtInt(notReady)} ติดเงื่อนไข`:""}`:"ยังไม่มีคนพร้อมออกสลิป";
         flowIssue.onclick=flowIssue.disabled?null:()=>readyPayslipReviewDialog(readyPayrollRows,lastPreview.period);
       }
       const lateAbsenceNotice=Number(data.lateAbsenceDays||0)>0?`<div class="notice" style="margin:0 0 12px;border-color:#f0d49a;background:#fff7ea"><div><b>นโยบายมาสายสะสม:</b> สาย ${fmtInt(data.lateDaysCount||0)} วัน · ทุก ${fmtInt(data.lateAbsenceThreshold||4)} วันเท่ากับขาด 1 วัน · คิดขาดงานเทียบเท่า ${fmtInt(data.lateAbsenceDays)} วัน${Number(data.totalLateAbsenceDeduction||0)>0?` · หักค่าแรงรวม −${fmtBaht(data.totalLateAbsenceDeduction)}`:""}</div></div>`:"";
@@ -1977,7 +1992,7 @@ async function doPreview(btn){
         <div class="payroll-metric"><span>รายได้รวม</span><b>${fmtBaht(data.totalGross)}</b><em>ก่อนหักรายการ</em></div>
         <div class="payroll-metric"><span>ยอดหักรวม</span><b>${fmtBaht((data.totalAdvance||0)+(data.totalSso||0)+(data.totalOther||0))}</b><em>เบิกล่วงหน้า / ปกส. / อื่นๆ</em></div>
         <div class="payroll-metric"><span>ยอดจ่ายสุทธิ</span><b>${fmtBaht(data.totalNet!=null?data.totalNet:data.totalGross)}</b><em>${incompleteCount?`ต้องตรวจเวลา ${fmtInt(incompleteCount)} รายการ`:pendingOtCount?`OT รออนุมัติ ${fmtInt(pendingOtCount)} คน`:`ไม่มีเวลาค้างตรวจ`}</em></div>`;
-      box.innerHTML=`<div class="payroll-readiness ${payrollReady?"":"is-blocked"}"><div><span class="ready-dot"></span><b>${payrollReady?"พร้อมออกสลิป":"ยังมีรายการที่ต้องจัดการก่อนออกสลิป"}</b><span class="sub"> · ${incompleteCount?`เวลาไม่ครบ ${fmtInt(incompleteCount)} รายการ`:pendingOtCount?`OT รออนุมัติ ${fmtInt(pendingOtCount)} คน`:"ตรวจสถานะรายบุคคลด้านล่าง"}</span></div>${payrollReady?"":`<div class="toolbar"><button class="btn ghost sm" data-nav="owner">ตรวจเวลา</button><button class="btn ghost sm" data-nav="payrules">ตั้งเรต</button></div>`}</div><section class="payroll-status-rail" aria-label="ความพร้อมของงวด"><div class="payroll-state ready"><span>พร้อมออกสลิป</span><b>${fmtInt(readyCount)}</b><small>ตรวจ Timesheet แล้ว</small></div><button class="payroll-state review" data-payroll-nav="owner"><span>เวลาไม่ครบ</span><b>${fmtInt(incompleteCount)}</b><small>เปิดรายการเพื่อตรวจ</small></button><button class="payroll-state waiting" data-payroll-nav="approvals"><span>OT รออนุมัติ</span><b>${fmtInt(pendingOtCount)}</b><small>ยังไม่นำไปคิดเงิน</small></button><button class="payroll-state blocked" data-payroll-nav="payrules"><span>ต้องตั้งเรต</span><b>${fmtInt(missingRateCount)}</b><small>แก้ก่อนออกสลิป</small></button></section>`+lateAbsenceNotice+((data.shortfallPolicy&&data.shortfallPolicy!=="none"&&(data.shortDaysCount||0)>0)?`<div class="notice" style="margin:0 0 12px;border-color:#f0d49a;background:#fff7ea"><div><b>นโยบายไม่ครบกะ:</b> ${data.shortfallPolicy==="deduct_wage"?"ตัดค่าแรงตามสัดส่วน":"หัก OT เท่าชั่วโมงที่ขาด"} · มี ${fmtInt(data.shortDaysCount)} วันที่ไม่ครบกะในงวดนี้${(data.totalShortfallDeduction||0)>0?` · ตัดค่าแรงรวม −${fmtBaht(data.totalShortfallDeduction)}`:""}</div></div>`:"")+incWarn+`
+      box.innerHTML=`<div class="payroll-readiness ${readyCount?"":"is-blocked"}"><div><span class="ready-dot"></span><b>${payrollReady?"พร้อมออกสลิปทั้งงวด":readyCount?`ออกสลิปได้ ${fmtInt(readyCount)} คนที่พร้อม`:"ยังไม่มีคนพร้อมออกสลิป"}</b><span class="sub"> · ${incompleteCount?`เวลาไม่ครบ ${fmtInt(incompleteCount)} รายการ`:pendingOtCount?`OT รออนุมัติ ${fmtInt(pendingOtCount)} คน`:"ตรวจสถานะรายบุคคลด้านล่าง"}</span></div>${payrollReady?"":`<div class="toolbar"><button class="btn ghost sm" data-nav="owner">ตรวจเวลา</button><button class="btn ghost sm" data-nav="payrules">ตั้งเรต</button></div>`}</div><section class="payroll-status-rail" aria-label="ความพร้อมของงวด"><div class="payroll-state ready"><span>พร้อมออกสลิป</span><b>${fmtInt(readyCount)}</b><small>ตรวจ Timesheet แล้ว</small></div><button class="payroll-state review" data-payroll-nav="owner"><span>เวลาไม่ครบ</span><b>${fmtInt(incompleteCount)}</b><small>เปิดรายการเพื่อตรวจ</small></button><button class="payroll-state waiting" data-payroll-nav="approvals"><span>OT รออนุมัติ</span><b>${fmtInt(pendingOtCount)}</b><small>ยังไม่นำไปคิดเงิน</small></button><button class="payroll-state blocked" data-payroll-nav="payrules"><span>ต้องตั้งเรต</span><b>${fmtInt(missingRateCount)}</b><small>แก้ก่อนออกสลิป</small></button></section>`+lateAbsenceNotice+((data.shortfallPolicy&&data.shortfallPolicy!=="none"&&(data.shortDaysCount||0)>0)?`<div class="notice" style="margin:0 0 12px;border-color:#f0d49a;background:#fff7ea"><div><b>นโยบายไม่ครบกะ:</b> ${data.shortfallPolicy==="deduct_wage"?"ตัดค่าแรงตามสัดส่วน":"หัก OT เท่าชั่วโมงที่ขาด"} · มี ${fmtInt(data.shortDaysCount)} วันที่ไม่ครบกะในงวดนี้${(data.totalShortfallDeduction||0)>0?` · ตัดค่าแรงรวม −${fmtBaht(data.totalShortfallDeduction)}`:""}</div></div>`:"")+incWarn+`
         <div class="payroll-table-tools"><span class="table-caption">รายการในงวด <b>${fmtInt(payrollRows.length)}</b> คน · เรียงตามผู้ที่ต้องดำเนินการ</span><div class="payroll-filter-set" role="group" aria-label="กรองรายการเงินเดือน"><button class="active" data-payroll-filter="all">ทั้งหมด ${fmtInt(payrollRows.length)}</button><button data-payroll-filter="action">ต้องจัดการ ${fmtInt(Math.max(0,payrollRows.length-readyCount))}</button><button data-payroll-filter="ready">พร้อมออกสลิป ${fmtInt(readyCount)}</button></div></div>
         <table><thead><tr><th>พนักงาน</th><th>ความพร้อม</th><th class="num">วันทำงาน</th><th class="num">ชม.ปกติ</th><th class="num">OT</th>
           <th class="num">ฐาน</th><th class="num">OT (เงิน)</th><th class="num">รวม gross</th><th class="num">หักเบิก</th><th class="num">ปกส./อื่นๆ</th><th class="num">สุทธิ</th><th data-nosort></th></tr></thead>
