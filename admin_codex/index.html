@@ -2502,6 +2502,15 @@ button,.btn{box-shadow:none!important;font-weight:500!important}
   #page-dashboard .cc-arrival .body{padding:10px 12px!important}
   #page-dashboard .cc-arrival-chart{min-height:118px!important}
   @media(max-width:980px){#page-dashboard .cc-work,#page-dashboard .cc-split{grid-template-columns:1fr!important}}
+  /* Mobile: surface "ทีมวันนี้" (who's in / late / not in) right after the status
+     card, and show the per-person list before the work queue. */
+  @media(max-width:760px){
+    #page-dashboard .cc>.cc-work{order:3!important}
+    #page-dashboard .cc>.cc-summary-tiles{order:4!important}
+    #page-dashboard .cc>.cc-command-alert{order:5!important}
+    #page-dashboard .cc-work{display:flex!important;flex-direction:column!important}
+    #page-dashboard .cc-work .team-register{order:-1!important}
+  }
 
   /* ============================================================
      VIVID STATUS LAYER — professional, high-colour operations read.
@@ -2645,6 +2654,36 @@ button,.btn{box-shadow:none!important;font-weight:500!important}
   #page-settings .set-tabs button.active{color:var(--c-teal-700);border-bottom-color:var(--c-teal);font-weight:600}
   #page-settings .set-tab{display:none}
   #page-settings .set-tab.active{display:block}
+
+  /* Mobile team-today rows: name on its own line (no per-character wrap),
+     status pill beside it, Check-In/Out buttons on a second row. */
+  @media(max-width:760px){
+    #page-dashboard .cc-work .team-row{display:grid!important;grid-template-columns:30px minmax(0,1fr) auto!important;grid-template-areas:"av name pill" "av act act"!important;column-gap:9px!important;row-gap:7px!important;align-items:center!important;padding:10px 12px!important}
+    #page-dashboard .cc-work .team-row>.pm-av{grid-area:av!important;align-self:center}
+    #page-dashboard .cc-work .team-row>span:not(.pm-av):not(.tc-time-flow):not(.tc-pill):not(.tc-actions){grid-area:name!important;min-width:0!important}
+    #page-dashboard .cc-work .team-row .tc-name{white-space:normal!important;word-break:normal!important;overflow-wrap:anywhere;font-size:13px!important}
+    #page-dashboard .cc-work .team-row .tc-role{white-space:normal!important}
+    #page-dashboard .cc-work .team-row .tc-time-flow{display:none!important}
+    #page-dashboard .cc-work .team-row .tc-pill{grid-area:pill!important;justify-self:end!important;align-self:center!important;width:auto!important;min-width:0!important}
+    #page-dashboard .cc-work .team-row .tc-actions{grid-area:act!important;display:flex!important;gap:8px!important;justify-content:flex-start!important}
+    #page-dashboard .cc-work .team-row .tc-actions .btn{flex:1 1 0!important;min-height:30px!important}
+  }
+
+  /* Mobile: the dashboard work section must fill the screen width (its parent
+     doesn't stretch it), so team rows get real room for names. */
+  @media(max-width:760px){
+    #page-dashboard .cc>.cc-work{width:100%!important}
+    #page-dashboard .cc-work .cc-left-stack,
+    #page-dashboard .cc-work .team-register{width:100%!important;min-width:0!important}
+    #page-dashboard .cc-work .team-grid{display:block!important}
+  }
+
+  /* Mobile: the off-canvas sidebar must leave the content full width. A later
+     ≤1040px rule was overriding the ≤900px collapse and leaving an empty 210px
+     grid column, squeezing the whole page. Restore single-column main. */
+  @media(max-width:900px){
+    #app{grid-template-columns:1fr!important}
+  }
 </style>
 </head>
 <body>
