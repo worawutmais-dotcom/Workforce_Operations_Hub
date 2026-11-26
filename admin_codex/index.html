@@ -3800,6 +3800,8 @@ async function calRender(){
     }
   }
   host.innerHTML=cal+`</div>`;
+  // Guard: right-click on a calendar day must not delete/clear recorded times.
+  host.oncontextmenu=e=>{ if(e.target.closest(".cd")) e.preventDefault(); };
 }
 
 async function calendarQuickClock(employeeId,eventType,button){
@@ -5512,6 +5514,8 @@ function pmRenderDetail(){
     <div class="pm-detail-stats"><span><b>${m.present+m.late}</b> มาทำงาน</span><span class="late"><b>${m.late}</b> สาย</span><span class="absent"><b>${m.absent}</b> ขาด</span><span><b>${fmtHours(m.workedMin)}</b> ชั่วโมง</span></div>
     <div class="pm-recent-label">ทั้งเดือน ${PM_TH_MON[r.m]} ${r.y+543} <span>คลิกวันที่มีรายการเพื่อดูและแก้ไขเวลา</span></div><div class="pm-recent-days">${days}</div>`;
   host.querySelectorAll("[data-detail-iso]").forEach(btn=>btn.onclick=()=>{ const c=m.cells.find(x=>x.iso===btn.dataset.detailIso); if(c&&c.d) openAttendanceRecordDialog(c.d,()=>loadPersonMonth()); });
+  // Guard: right-click must never reach a delete/clear path for check-in/out times.
+  host.querySelectorAll(".pm-day").forEach(b=>b.oncontextmenu=e=>{ e.preventDefault(); });
   const pb=host.querySelector("#pmPrintTs");
   if(pb) pb.onclick=()=>{ const days=m.cells.map(c=>({date:c.iso,checkIn:c.d?c.d.checkIn:"",checkOut:c.d?c.d.checkOut:"",workedMinutes:c.d?c.d.workedMinutes:0,status:c.d?c.d.status:"",base:c.base,holName:c.holName})); printTimesheet({employeeId:m.e.id,role:m.e.role,regularMinutes:(pl.regularMinutes!=null?pl.regularMinutes:m.workedMin),otMinutes:(pl.otMinutes||0)},{start:r.start,end:r.end},days,{}); };
   // Issue a payslip for this employee straight from Timesheet (review → adjust → ออกสลิป).
