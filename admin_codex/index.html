@@ -5460,8 +5460,8 @@ function openAttendanceRecordDialog(day, refresh){
   const close=el(`<button class="btn sub">ปิด</button>`); close.onclick=closeModal;
   if(hasBackendCapability("attendanceEdit")){
     const editor=el(`<section class="att-edit" style="margin-top:4px">
-      <div style="display:flex;align-items:center;gap:10px;margin:10px 0"><label style="width:72px;font-size:12px;color:var(--muted)">เวลาเข้า</label><input id="edIn" type="time" value="${esc(curIn)}" style="flex:1"><button type="button" class="btn danger sm" data-clr="check_in"${curIn?"":" disabled"}>ลบ</button></div>
-      <div style="display:flex;align-items:center;gap:10px;margin:10px 0"><label style="width:72px;font-size:12px;color:var(--muted)">เวลาออก</label><input id="edOut" type="time" value="${esc(curOut)}" style="flex:1"><button type="button" class="btn danger sm" data-clr="check_out"${curOut?"":" disabled"}>ลบ</button></div>
+      <div style="display:flex;align-items:center;gap:10px;margin:10px 0"><label style="width:72px;font-size:12px;color:var(--muted)">เวลาเข้า</label><input id="edIn" type="time" value="${esc(curIn)}" style="width:150px;flex:none"><button type="button" class="btn danger sm" data-clr="check_in"${curIn?"":" disabled"}>ลบ</button></div>
+      <div style="display:flex;align-items:center;gap:10px;margin:10px 0"><label style="width:72px;font-size:12px;color:var(--muted)">เวลาออก</label><input id="edOut" type="time" value="${esc(curOut)}" style="width:150px;flex:none"><button type="button" class="btn danger sm" data-clr="check_out"${curOut?"":" disabled"}>ลบ</button></div>
       <div class="notice blue" style="margin-top:6px">แก้ไข/ลบเวลาจะบันทึกโดย ${esc(state.reviewer||"Admin")} และเก็บประวัติเดิมไว้เพื่อตรวจสอบย้อนหลัง (ไม่ลบจริงจากฐานข้อมูล)</div></section>`);
     body.appendChild(editor);
     editor.querySelectorAll("[data-clr]").forEach(btn=>btn.onclick=async()=>{
