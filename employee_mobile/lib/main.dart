@@ -5,8 +5,11 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'attendance_view_state.dart';
 import 'bvn_api.dart';
 import 'notif.dart';
+import 'pwa_runtime.dart';
+import 'pwa_support.dart';
 import 'theme.dart';
 import 'update.dart';
 
@@ -63,6 +66,68 @@ class PppBrandMark extends StatelessWidget {
         fontSize: size * .30,
         letterSpacing: -size * .02,
       ),
+    ),
+  );
+}
+
+/// Lightweight Safari instruction card. It never blocks the login form; users
+/// can dismiss it and continue directly to attendance.
+class PwaInstallGuide extends StatelessWidget {
+  const PwaInstallGuide({super.key, required this.onDismiss});
+
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) => SoftCard(
+    padding: const EdgeInsets.all(14),
+    color: const Color(0xFFF8FAFC),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: kBrandSoft,
+            borderRadius: BorderRadius.circular(kRadiusSm),
+          ),
+          child: const Icon(
+            Icons.add_to_home_screen_rounded,
+            color: kBrandDeep,
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'เพิ่มแอปไว้บนหน้าจอ iPhone',
+                style: TextStyle(
+                  color: kInk,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 3),
+              const Text(
+                'กด Share ใน Safari แล้วเลือก Add to Home Screen เพื่อเปิดใช้งานเหมือนแอป',
+                style: TextStyle(color: kMuted, fontSize: 12, height: 1.35),
+              ),
+              const SizedBox(height: 5),
+              TextButton(
+                onPressed: onDismiss,
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(0, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                ),
+                child: const Text('ไว้ภายหลัง'),
+              ),
+            ],
+          ),
+        ),
+      ],
     ),
   );
 }
@@ -318,7 +383,13 @@ class _LoginPageState extends State<LoginPage> {
   final _password = TextEditingController();
   List<Map<String, dynamic>> _people = [];
   String? _id, _error;
-  bool _hidden = true, _loading = true;
+  bool _hidden = true, _loading = true, _pwaGuideDismissed = false;
+
+  bool get _showPwaGuide => shouldShowPwaInstallGuide(
+    isIosWeb: isIosPwaBrowser,
+    isStandalone: isPwaStandalone,
+    isDismissed: _pwaGuideDismissed,
+  );
   @override
   void initState() {
     super.initState();
@@ -398,6 +469,12 @@ class _LoginPageState extends State<LoginPage> {
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 13, color: kMuted),
                 ),
+                if (_showPwaGuide) ...[
+                  const SizedBox(height: 18),
+                  PwaInstallGuide(
+                    onDismiss: () => setState(() => _pwaGuideDismissed = true),
+                  ),
+                ],
                 const SizedBox(height: 30),
                 if (!_loading && _people.isEmpty)
                   Card(
@@ -540,6 +617,7 @@ class _EmployeeShellState extends State<EmployeeShell>
   String _shiftStart = '—', _shiftEnd = '—';
   String? _in, _out;
   bool _locationRequired = true, _busy = false;
+  int _attendanceRevision = 0;
   bool _profileNeedsUpdate = false,
       _profilePending = false,
       _profilePromptShown = false;
@@ -682,7 +760,10 @@ class _EmployeeShellState extends State<EmployeeShell>
     try {
       Position? p;
       // Check-out is allowed anywhere, so only the location-required check-IN needs GPS.
-      if (_locationRequired && type == 'check_in') {
+      if (shouldRequestCheckInLocation(
+        locationRequired: _locationRequired,
+        eventType: type,
+      )) {
         if (!await Geolocator.isLocationServiceEnabled()) {
           throw Exception('กรุณาเปิด Location/GPS');
         }
@@ -714,6 +795,7 @@ class _EmployeeShellState extends State<EmployeeShell>
         accuracy: p?.accuracy ?? 0,
         mocked: mocked,
       );
+      if (mounted) setState(() => _attendanceRevision++);
       await _refresh();
       if (mounted) {
         final ot =
@@ -768,7 +850,10 @@ class _EmployeeShellState extends State<EmployeeShell>
         onOut: () => _attendance('check_out'),
         onRefresh: () => _refresh(force: true),
       ),
-      _MonthCalendar(token: widget.token),
+      _MonthCalendar(
+        token: widget.token,
+        attendanceRevision: _attendanceRevision,
+      ),
       _LeaveForm(token: widget.token, onSent: () => setState(() => _tab = 3)),
       _RequestsPage(token: widget.token),
       AccountScreen(
@@ -1138,7 +1223,12 @@ class _Today extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           if (locationRequired)
-            Expanded(child: _CheckInMap(token: token))
+            Expanded(
+              child: _CheckInMap(
+                token: token,
+                hasCompletedAttendance: hasFinished,
+              ),
+            )
           else
             const Spacer(),
           const SizedBox(height: 8),
@@ -1253,8 +1343,12 @@ class _Today extends StatelessWidget {
 // Live check-in map: shows allowed sites (circles) + the employee's position,
 // and whether they are inside any site's radius yet.
 class _CheckInMap extends StatefulWidget {
-  const _CheckInMap({required this.token});
+  const _CheckInMap({
+    required this.token,
+    required this.hasCompletedAttendance,
+  });
   final String token;
+  final bool hasCompletedAttendance;
   @override
   State<_CheckInMap> createState() => _CheckInMapState();
 }
@@ -1342,8 +1436,18 @@ class _CheckInMapState extends State<_CheckInMap> {
             bestName = '${s['name'] ?? s['id']}';
           }
         }
-        msg = inside
-            ? 'คุณอยู่ในพื้นที่ "$bestName" แล้ว เช็กอินได้'
+        msg = widget.hasCompletedAttendance
+            ? geofenceAttendanceMessage(
+                insideAllowedSite: inside,
+                siteName: bestName,
+                hasCompletedAttendance: true,
+              )
+            : inside
+            ? geofenceAttendanceMessage(
+                insideAllowedSite: true,
+                siteName: bestName,
+                hasCompletedAttendance: false,
+              )
             : 'ยังอยู่นอกพื้นที่ — ใกล้สุด "$bestName" (อีก ~${best.round()} ม.)';
       }
       if (mounted) {
@@ -1642,8 +1746,12 @@ class _CheckInMapState extends State<_CheckInMap> {
 
 // Month calendar of attendance: color-coded days + one row per day with times.
 class _MonthCalendar extends StatefulWidget {
-  const _MonthCalendar({required this.token});
+  const _MonthCalendar({
+    required this.token,
+    required this.attendanceRevision,
+  });
   final String token;
+  final int attendanceRevision;
   @override
   State<_MonthCalendar> createState() => _MonthCalendarState();
 }
@@ -1751,6 +1859,17 @@ class _MonthCalendarState extends State<_MonthCalendar> {
     _load();
   }
 
+  @override
+  void didUpdateWidget(covariant _MonthCalendar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (shouldReloadMonthForAttendanceRevision(
+      previousRevision: oldWidget.attendanceRevision,
+      currentRevision: widget.attendanceRevision,
+    )) {
+      _load();
+    }
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -1765,7 +1884,7 @@ class _MonthCalendarState extends State<_MonthCalendar> {
         data['shiftStart'] ?? data['shift_start'],
         fallback: '',
       );
-      final todayStr = DateTime.now().toIso8601String().substring(0, 10);
+      final todayStr = bangkokAttendanceDay(DateTime.now().toUtc());
       final hasToday = days.any((d) => '${d['date']}' == todayStr);
       if (mounted) {
         setState(() {
@@ -1993,7 +2112,7 @@ class _MonthCalendarState extends State<_MonthCalendar> {
   Widget _dayCell(Map<String, dynamic> d) {
     final st = _statusStyle('${d['status']}');
     final date = '${d['date']}';
-    final today = date == DateTime.now().toIso8601String().substring(0, 10);
+    final today = date == bangkokAttendanceDay(DateTime.now().toUtc());
     final selected = date == _selected;
     final hasIn = '${d['checkIn']}'.isNotEmpty;
     final hasOut = '${d['checkOut']}'.isNotEmpty;

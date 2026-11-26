@@ -149,4 +149,25 @@ void main() {
     expect(find.text('ระบบลงเวลาพนักงาน'), findsOneWidget);
     expect(find.byType(LoginPage), findsOneWidget);
   });
+
+  testWidgets('renders the PWA install guide and lets the user dismiss it', (
+    tester,
+  ) async {
+    var dismissed = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PwaInstallGuide(onDismiss: () => dismissed = true),
+        ),
+      ),
+    );
+
+    expect(find.text('เพิ่มแอปไว้บนหน้าจอ iPhone'), findsOneWidget);
+    expect(find.textContaining('Share'), findsOneWidget);
+    expect(find.textContaining('Add to Home Screen'), findsOneWidget);
+
+    await tester.tap(find.text('ไว้ภายหลัง'));
+    expect(dismissed, isTrue);
+  });
 }
