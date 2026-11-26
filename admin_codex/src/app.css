@@ -2613,3 +2613,8 @@ button,.btn{box-shadow:none!important;font-weight:500!important}
   #page-owner .pm-ts-act .btn{min-height:26px;padding:3px 10px;margin-left:4px}
   #page-owner .pm-ts-row.is-today{background:#f0faf8}
   #page-owner .pm-ts-row.tc-off td,#page-owner .pm-ts-row.tc-future td{color:#9aacbb}
+
+  /* Action Inbox: inline approve/reject inside the dashboard work queue. */
+  #page-dashboard .wq-row.wq-approve{cursor:default}
+  #page-dashboard .wq-approve-actions{display:inline-flex;gap:6px;flex:none;white-space:nowrap}
+  #page-dashboard .wq-approve-actions .btn{min-height:28px;padding:4px 12px}

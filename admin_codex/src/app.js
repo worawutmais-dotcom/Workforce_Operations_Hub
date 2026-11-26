@@ -752,9 +752,9 @@ async function renderDashboard(data, preloaded={}){
       const incompleteRows=attendanceDays.filter(d=>d.date<=todayAtt&&d.status!=="complete");
       const actionQueue=[];
       incompleteRows.forEach(d=>actionQueue.push({kind:"time",name:d.name||empName(d.employeeId)||d.employeeId,detail:`${fmtDate(d.date)} · ${d.checkIn?"ยังไม่ได้เช็กเอาต์":"เวลาเข้า–ออกไม่ครบ"}`,cta:"ตรวจเวลา",target:"owner",filter:"review",priority:0}));
-      pendT.filter(r=>String(r.requestType||"").toLowerCase()==="overtime").forEach(r=>actionQueue.push({kind:"ot",name:empName(r.employeeId),detail:`${fmtDate(r.workDate)} · ${fmtHours(r.requestedMinutes)} · รออนุมัติก่อนนำไปคำนวณเงินเดือน`,cta:"อนุมัติ OT",target:"dashboard-approvals",priority:1}));
+      pendT.filter(r=>String(r.requestType||"").toLowerCase()==="overtime").forEach(r=>actionQueue.push({kind:"ot",name:empName(r.employeeId),detail:`${fmtDate(r.workDate)} · ${fmtHours(r.requestedMinutes)} · รออนุมัติก่อนนำไปคำนวณเงินเดือน`,cta:"อนุมัติ OT",target:"dashboard-approvals",requestId:r.requestId,priority:1}));
       dashboardTeam.filter(e=>!e.nationalId||!e.phone).forEach(e=>actionQueue.push({kind:"profile",name:e.name||e.id,detail:`ข้อมูลเอกสารยังไม่ครบ · ${!e.nationalId?"ยังไม่มีเลขบัตรประชาชน":"ยังไม่มีเบอร์โทรศัพท์"}`,cta:"จัดการข้อมูล",target:"people",priority:2}));
-      pendL.forEach(r=>actionQueue.push({kind:"leave",name:empName(r.employeeId),detail:`${fmtDate(r.startDate||r.leaveDate||r.workDate)} · คำขอลารออนุมัติ`,cta:"พิจารณา",target:"dashboard-approvals",priority:2}));
+      pendL.forEach(r=>actionQueue.push({kind:"leave",name:empName(r.employeeId),detail:`${fmtDate(r.startDate||r.leaveDate||r.workDate)} · คำขอลารออนุมัติ`,cta:"พิจารณา",target:"dashboard-approvals",requestId:r.requestId,priority:2}));
       if(canFinance&&actionQueue.length===0&&payrollEligible>0) actionQueue.push({kind:"payroll",name:"งวดเงินเดือนปัจจุบัน",detail:`คำนวณได้ ${fmtInt(payrollEligible)} คน · พร้อมตรวจและออกสลิป`,cta:"ออกสลิป",target:"payroll",priority:3});
       actionQueue.sort((a,b)=>a.priority-b.priority);
       const queueStyle={time:"red",ot:"amber",profile:"blue",leave:"blue",payroll:"green"};
@@ -769,7 +769,7 @@ async function renderDashboard(data, preloaded={}){
         :actionQueue.length?queueGroups.map(group=>{
           const items=actionQueue.filter(item=>group.kinds.includes(item.kind)).slice(0,4);
           if(!items.length) return "";
-          return `<section class="wq-group wq-${group.key}"><div class="wq-group-head"><span class="wq-group-icon">${queueIcon[group.icon]}</span><b>${group.title}</b><em>${fmtInt(items.length)}</em></div><div class="wq-rows">${items.map((item,index)=>`<div class="wq-row${index===0&&item.priority===0?" is-priority":""}" data-action-target="${esc(item.target)}" data-owner-filter="${esc(item.filter||"")}" role="button" tabindex="0"><span class="wq-kind ${queueStyle[item.kind]||"grey"}">${item.kind==="time"?lineIcon("clock"):item.kind==="profile"?lineIcon("users"):item.kind==="ot"?"OT":item.kind==="leave"?"ลา":lineIcon("bill")}</span><div class="wq-copy"><b>${esc(item.name)}</b><span>${esc(item.detail)}</span></div>${index===0&&item.priority===0?'<span class="wq-urgent">เร่งด่วน</span>':""}<button class="btn sub sm aq-action" type="button" data-action-target="${esc(item.target)}" data-owner-filter="${esc(item.filter||"")}">${esc(item.cta)}<i>›</i></button></div>`).join("")}</div></section>`;
+          return `<section class="wq-group wq-${group.key}"><div class="wq-group-head"><span class="wq-group-icon">${queueIcon[group.icon]}</span><b>${group.title}</b><em>${fmtInt(items.length)}</em></div><div class="wq-rows">${items.map((item,index)=>{const canApprove=(item.kind==="ot"||item.kind==="leave")&&item.requestId;return `<div class="wq-row${index===0&&item.priority===0?" is-priority":""}${canApprove?" wq-approve":""}" ${canApprove?"":`data-action-target="${esc(item.target)}" data-owner-filter="${esc(item.filter||"")}" role="button" tabindex="0"`}><span class="wq-kind ${queueStyle[item.kind]||"grey"}">${item.kind==="time"?lineIcon("clock"):item.kind==="profile"?lineIcon("users"):item.kind==="ot"?"OT":item.kind==="leave"?"ลา":lineIcon("bill")}</span><div class="wq-copy"><b>${esc(item.name)}</b><span>${esc(item.detail)}</span></div>${index===0&&item.priority===0?'<span class="wq-urgent">เร่งด่วน</span>':""}${canApprove?`<span class="wq-approve-actions"><button class="btn ok sm" type="button" data-inbox-approve="${item.kind}:${esc(item.requestId)}">อนุมัติ</button><button class="btn danger sm" type="button" data-inbox-reject="${item.kind}:${esc(item.requestId)}">ปฏิเสธ</button></span>`:`<button class="btn sub sm aq-action" type="button" data-action-target="${esc(item.target)}" data-owner-filter="${esc(item.filter||"")}">${esc(item.cta)}<i>›</i></button>`}</div>`}).join("")}</div></section>`;
         }).join("")
         :`<div class="empty">วันนี้ไม่มีรายการค้างตรวจ</div>`;
       const approvalSets={
@@ -852,8 +852,7 @@ async function renderDashboard(data, preloaded={}){
           </section>
           <section class="cc-work">
             <div class="cc-left-stack">
-              <div class="panel cc-decide"><div class="head"><div class="wq-title"><b>งานที่ต้องจัดการ</b><span>${fmtInt(actionQueue.length)} รายการ</span></div><div class="spacer"></div>${approvalTotal?`<button class="btn sub sm" data-daq-focus>คิวอนุมัติ <b>${fmtInt(approvalTotal)}</b> <i>⌄</i></button>`:""}</div><div class="body flush work-queue">${workQueueHtml}</div></div>
-              ${approvalTotal?dashboardApprovalHtml:""}
+              <div class="panel cc-decide"><div class="head"><div class="wq-title"><b>งานที่ต้องจัดการ</b><span>${fmtInt(actionQueue.length)} รายการ</span></div><div class="spacer"></div><button class="btn ok sm" type="button" data-act="ot">+ บันทึก OT</button></div><div class="body flush work-queue">${workQueueHtml}</div></div>
             </div>
             <div class="panel team-register hr-team"><div class="head"><div><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">เลือกชื่อเพื่อดูเวลาเข้า–ออกและประวัติ</span></div><div class="spacer"></div><div class="team-status-summary" aria-label="สรุปสถานะทีม"><span class="not-in">ยังไม่เข้า <b>${fmtInt(cOut)}</b></span><span class="working">ทำงาน <b>${fmtInt(cOn+cLate)}</b></span><span class="finished">ออกแล้ว <b>${fmtInt(cDone)}</b></span></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เข้างาน</span><span>ออกงาน</span><span>สถานะ</span><span>การทำงาน</span></div><div class="team-grid">${teamHtml}</div></div></div>
           </section>
@@ -900,6 +899,9 @@ async function renderDashboard(data, preloaded={}){
       if(row.dataset.ownerFilter) ownerState.filter=row.dataset.ownerFilter;
       go(row.dataset.actionTarget);
     });
+    // Action Inbox: approve/reject OT and leave requests inline from the work queue.
+    node.querySelectorAll("[data-inbox-approve]").forEach(b=>b.onclick=(ev)=>{ ev.stopPropagation(); const [mode,id]=b.dataset.inboxApprove.split(":"); if(mode==="ot") reviewTime(b,id,"approved"); else reviewLeave(b,id,"approved"); });
+    node.querySelectorAll("[data-inbox-reject]").forEach(b=>b.onclick=(ev)=>{ ev.stopPropagation(); const [mode,id]=b.dataset.inboxReject.split(":"); if(mode==="ot") reviewTime(b,id,"rejected"); else reviewLeave(b,id,"rejected"); });
     const dashApproval=node.querySelector("#dashboardApprovals");
     if(dashApproval){
       dashApproval.querySelectorAll("[data-daq-mode]").forEach(tab=>tab.onclick=()=>{
@@ -1802,12 +1804,9 @@ async function reviewLeave(btn, requestId, decision){
   });
 }
 async function reviewTime(btn, requestId, decision){
-  let note="";
-  if(decision==="rejected"){
-    note=prompt("หมายเหตุถึงพนักงาน (ไม่บังคับ):")||"";
-  }
+  if(decision==="rejected" && !await confirmDialog("ปฏิเสธคำขอ OT","ยืนยันการปฏิเสธคำขอ OT นี้?",{danger:true,okText:"ปฏิเสธ"})) return;
   await withBtn(btn, async ()=>{
-    try{ await api("admin_review_time_request",{requestId, decision, reviewer:state.reviewer||"Admin", reviewerNote:note});
+    try{ await api("admin_review_time_request",{requestId, decision, reviewer:state.reviewer||"Admin", reviewerNote:""});
       toast("บันทึกการ"+(decision==="approved"?"อนุมัติ":"ปฏิเสธ")+"แล้ว","good"); PAGES[state.page].load(); refreshApprovalBadge();
     }catch(err){ toast(err.message,"bad"); }
   });
