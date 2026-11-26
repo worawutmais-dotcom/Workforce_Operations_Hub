@@ -1,8 +1,19 @@
 import 'package:employee_mobile/main.dart';
+import 'package:employee_mobile/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('uses high-contrast text tokens for employee-facing screens', () {
+    expect(kInk, const Color(0xFF0F172A));
+    expect(kMuted, const Color(0xFF475569));
+    expect(bvnTheme(Brightness.light).scaffoldBackgroundColor, Colors.white);
+    expect(
+      bvnTheme(Brightness.light).textTheme.bodyMedium?.color,
+      kInk,
+    );
+  });
+
   test('maps incomplete profile to an action-needed work identity status', () {
     final status = workIdentityStatus(
       profileNeedsUpdate: true,

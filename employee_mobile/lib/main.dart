@@ -1229,7 +1229,7 @@ class _Today extends StatelessWidget {
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -.3,
-                  color: completed ? kInk : const Color(0xFFAAB4AC),
+                  color: completed ? kInk : kMuted,
                 ),
               ),
             ],

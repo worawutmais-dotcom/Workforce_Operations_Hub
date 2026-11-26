@@ -28,14 +28,16 @@ const kBrandInk = Color(0xFF1E3A5F);
 /// Primary text — a deep green-slate that reads calm against white.
 const kInk = Color(0xFF0F172A);
 
-/// Secondary / muted text.
-const kMuted = Color(0xFF64748B);
+/// Secondary text. This remains clearly readable on a phone outdoors; use it
+/// for supporting information, never for disabled or decorative content.
+const kMuted = Color(0xFF475569);
 
-/// App canvas — a barely-there green tint so white cards lift off it.
-const kCanvas = Color(0xFFF8FAFC);
+/// App canvas. A plain white canvas keeps attendance data calm and avoids the
+/// layered-card look that made operational screens visually noisy.
+const kCanvas = Colors.white;
 
 /// Hairline borders on cards and inputs.
-const kHair = Color(0xFFEEF1F6);
+const kHair = Color(0xFFDCE4EE);
 
 // ── Semantic ───────────────────────────────────────────────────────────────
 /// Attention / late / pending.
@@ -84,6 +86,10 @@ ThemeData bvnTheme(Brightness brightness) {
     secondary: kBrandDeep,
     surface: Colors.white,
     onSurface: kInk,
+  ).copyWith(
+    onSurfaceVariant: kMuted,
+    outline: const Color(0xFF94A3B8),
+    outlineVariant: kHair,
   );
   final base = ThemeData(
     useMaterial3: true,
@@ -106,6 +112,33 @@ ThemeData bvnTheme(Brightness brightness) {
         color: kInk,
       ),
       toolbarHeight: 56,
+    ),
+    textTheme: base.textTheme.copyWith(
+      bodyLarge: base.textTheme.bodyLarge?.copyWith(
+        color: kInk,
+        fontSize: 16,
+        height: 1.35,
+      ),
+      bodyMedium: base.textTheme.bodyMedium?.copyWith(
+        color: kInk,
+        fontSize: 14,
+        height: 1.35,
+      ),
+      bodySmall: base.textTheme.bodySmall?.copyWith(
+        color: kMuted,
+        fontSize: 12.5,
+        height: 1.3,
+      ),
+      titleMedium: base.textTheme.titleMedium?.copyWith(
+        color: kInk,
+        fontSize: 17,
+        fontWeight: FontWeight.w700,
+      ),
+      titleSmall: base.textTheme.titleSmall?.copyWith(
+        color: kInk,
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+      ),
     ),
     cardTheme: CardThemeData(
       color: Colors.white,
@@ -228,7 +261,7 @@ ThemeData bvnTheme(Brightness brightness) {
       ),
       labelTextStyle: WidgetStateProperty.resolveWith(
         (s) => TextStyle(
-          fontSize: 11,
+          fontSize: 11.5,
           fontWeight: FontWeight.w600,
           color: s.contains(WidgetState.selected) ? kBrandDeep : kMuted,
         ),
