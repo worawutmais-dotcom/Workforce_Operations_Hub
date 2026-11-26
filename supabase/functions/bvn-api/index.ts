@@ -125,15 +125,17 @@ async function verify(adminToken: string, roles?: string[]) {
 }
 const OPS = ["owner", "manager", "operations"];
 const FIN = ["owner", "manager", "finance"];
-// Retain evidence only for money, approval and configuration decisions. We do
-// not retain page views or ordinary clicks, keeping the database small while
-// preserving enough history to investigate a payroll result.
+// Retain evidence only for money, approval, configuration and attendance-override
+// decisions. We do not retain page views or ordinary clicks, keeping the database
+// small while preserving enough history to investigate a payroll result. Admin
+// edits to recorded times feed payroll, so who changed a time (and when) is kept.
 const FINANCIAL_AUDIT_ACTIONS = new Set([
   "pay_rule_saved", "payroll_locked", "payroll_paid", "payslip_issued",
   "advance_approved", "advance_rejected", "advance_paid",
   "time_request_approved", "time_request_rejected",
   "invoice_created", "invoice_issued", "invoice_paid", "invoice_void",
   "settings_saved",
+  "attendance_set", "attendance_clear", "attendance_voided", "attendance_admin",
 ]);
 async function audit(actor: string, action: string, target: string, detail = "") {
   if (!FINANCIAL_AUDIT_ACTIONS.has(action)) return;
@@ -446,7 +448,7 @@ async function previewPayroll(start: string, end: string) {
 const H: Record<string, (p: any) => Promise<Response>> = {
   async version() {
     const s = await settingsMap();
-    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-26-attendance-edit", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: false, attendanceEdit: true, otCalendar: true, timesheetReview: true, payrollReview: true, payrollPaymentControl: true, employeeDeleteRemovesAttendance: true, factoryResetWhereFix: true, payrollShortfallPolicy: true, payrollLateAbsencePolicy: true, payslipFinanceSession: true, employeeDeletePassword: true, adminRealtimeBroadcast: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
+    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-26-attendance-audit", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: false, attendanceEdit: true, otCalendar: true, timesheetReview: true, payrollReview: true, payrollPaymentControl: true, employeeDeleteRemovesAttendance: true, factoryResetWhereFix: true, payrollShortfallPolicy: true, payrollLateAbsencePolicy: true, payslipFinanceSession: true, employeeDeletePassword: true, adminRealtimeBroadcast: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
   },
   async public_branding() {
     const s = await settingsMap();
