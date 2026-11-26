@@ -3,6 +3,16 @@
 
 > ขอบเขตหลักฐาน: ตรวจจาก source จริง — `admin_codex/src/{app.js,app.css,index.template.html}`, backend Edge Function `supabase/functions/{bvn-api,swift-handler}/index.ts`, guard/policy tests ใน `tools/`, และการใช้งานจริงทุกหน้าจอผ่าน live preview + backend ที่ deploy แล้ว. ส่วนที่ไม่ได้ทดสอบจะระบุ **N/A** หรือ "ไม่ทราบ" ไม่เดา.
 
+### Post-deploy smoke evidence — 26 Nov 2026
+
+- GitHub Pages `admin_codex/index.html` ตอบ HTTP 200 และเนื้อหาเทียบเท่า
+  artifact ใน `main` หลัง normalize line ending.
+- Browser smoke ด้วย Playwright เปิด URL จริง, พบ title `BVN Package | Admin Codex`,
+  ฟอร์มชื่อผู้ใช้/รหัสผ่าน และปุ่มเข้าสู่ระบบครบ; ไม่มี console error.
+- Screenshot หลักฐานถูกเก็บแบบ local-only ใน `output/playwright/` (ไม่ commit).
+- ไม่ได้ล็อกอินหรือส่งข้อมูลใด ๆ: ขั้นตอน Dashboard, Timesheet, Audit log และการแก้
+  เวลา ยังต้องใช้บัญชี Owner/UAT ที่ได้รับอนุญาต.
+
 ---
 
 ## 3. Software Discovery (ข้อเท็จจริง)
