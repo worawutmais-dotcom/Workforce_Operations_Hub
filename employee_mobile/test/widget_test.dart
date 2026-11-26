@@ -14,6 +14,25 @@ void main() {
     );
   });
 
+  test('uses the compact Operational Calm application chrome', () {
+    final theme = bvnTheme(Brightness.light);
+
+    expect(theme.appBarTheme.backgroundColor, kBrandDeep);
+    expect(theme.appBarTheme.foregroundColor, Colors.white);
+    expect(theme.appBarTheme.toolbarHeight, 52);
+    expect(theme.navigationBarTheme.height, 62);
+    expect(kRadius, 12);
+    expect(kRadiusSm, 10);
+    expect(
+      theme.filledButtonTheme.style?.minimumSize?.resolve(<WidgetState>{}),
+      const Size(0, 44),
+    );
+    expect(
+      theme.outlinedButtonTheme.style?.minimumSize?.resolve(<WidgetState>{}),
+      const Size(0, 44),
+    );
+  });
+
   test('maps incomplete profile to an action-needed work identity status', () {
     final status = workIdentityStatus(
       profileNeedsUpdate: true,
@@ -87,6 +106,35 @@ void main() {
     expect(find.text('ขอเบิกเงินล่วงหน้า'), findsNothing);
     expect(find.byType(ListView), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('uses a solid account identity surface instead of a gradient', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AccountScreen(
+            token: 'test-token',
+            name: 'Worawut Muangsuwan',
+            id: 'BVN-0002',
+            role: 'Employee',
+            locationRequired: false,
+            profileNeedsUpdate: false,
+            identityPending: false,
+            onLogout: () async {},
+          ),
+        ),
+      ),
+    );
+
+    final gradientSurfaces = tester
+        .widgetList<Container>(find.byType(Container))
+        .map((container) => container.decoration)
+        .whereType<BoxDecoration>()
+        .where((decoration) => decoration.gradient != null);
+
+    expect(gradientSurfaces, isEmpty);
   });
 
   testWidgets('renders the current employee login shell', (tester) async {

@@ -54,8 +54,8 @@ const kInfo = Color(0xFF2F6BE0);
 const kInfoSoft = Color(0xFFE4EDFF);
 
 // ── Shape & elevation ────────────────────────────────────────────────────────
-const double kRadius = 16;
-const double kRadiusSm = 12;
+const double kRadius = 12;
+const double kRadiusSm = 10;
 
 /// Solid signature surface. Existing widgets use a [Gradient] decoration, but
 /// there is deliberately no hue transition.
@@ -100,18 +100,18 @@ ThemeData bvnTheme(Brightness brightness) {
     scaffoldBackgroundColor: kCanvas,
     splashFactory: InkSparkle.splashFactory,
     appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.white,
-      foregroundColor: kInk,
+      backgroundColor: kBrandDeep,
+      foregroundColor: Colors.white,
       elevation: 0,
-      scrolledUnderElevation: 0.5,
+      scrolledUnderElevation: 0,
       surfaceTintColor: Colors.transparent,
-      shadowColor: Color(0x14000000),
+      shadowColor: Colors.transparent,
       titleTextStyle: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w700,
-        color: kInk,
+        color: Colors.white,
       ),
-      toolbarHeight: 56,
+      toolbarHeight: 52,
     ),
     textTheme: base.textTheme.copyWith(
       bodyLarge: base.textTheme.bodyLarge?.copyWith(
@@ -154,7 +154,7 @@ ThemeData bvnTheme(Brightness brightness) {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: const Color(0xFFF8FAFC),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       labelStyle: const TextStyle(color: kMuted, fontSize: 14),
       floatingLabelStyle: const TextStyle(
         color: kBrandDeep,
@@ -179,8 +179,8 @@ ThemeData bvnTheme(Brightness brightness) {
         foregroundColor: Colors.white,
         disabledBackgroundColor: const Color(0xFFCBD5E1),
         disabledForegroundColor: Colors.white,
-        minimumSize: const Size(0, 50),
-        textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+        minimumSize: const Size(0, 44),
+        textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(kRadiusSm),
         ),
@@ -190,7 +190,7 @@ ThemeData bvnTheme(Brightness brightness) {
       style: OutlinedButton.styleFrom(
         foregroundColor: kBrandDeep,
         side: const BorderSide(color: Color(0xFFCBD5E1)),
-        minimumSize: const Size(0, 48),
+        minimumSize: const Size(0, 44),
         textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(kRadiusSm),
@@ -247,7 +247,7 @@ ThemeData bvnTheme(Brightness brightness) {
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: Colors.white,
       elevation: 0,
-      height: 66,
+      height: 62,
       surfaceTintColor: Colors.transparent,
       indicatorColor: kBrandSoft,
       indicatorShape: RoundedRectangleBorder(

@@ -6,8 +6,8 @@ import 'bvn_api.dart';
 /// Must match pubspec `version: x.y.z+<code>` for the checked-in release.
 /// The backend's `version` action returns `appVersionCode`; when that is higher
 /// than this, the app offers the new APK (hosted on Drive).
-const int kAppVersionCode = 17;
-const String kAppVersionName = '1.0.17';
+const int kAppVersionCode = 18;
+const String kAppVersionName = '1.0.18';
 
 /// A backend must advertise a strictly newer build and a browser-openable APK.
 /// Keeping this pure makes the no-update path regression-testable.

@@ -21,9 +21,15 @@ const _orange = kAmber;
 /// Embedded PPP mark: it is always available offline in a fresh APK. When the
 /// owner uploads a brand image in Admin, [logoUrl] replaces this fallback.
 class PppBrandMark extends StatelessWidget {
-  const PppBrandMark({super.key, this.size = 48, this.logoUrl = ''});
+  const PppBrandMark({
+    super.key,
+    this.size = 48,
+    this.logoUrl = '',
+    this.onDark = false,
+  });
   final double size;
   final String logoUrl;
+  final bool onDark;
 
   @override
   Widget build(BuildContext context) {
@@ -45,14 +51,14 @@ class PppBrandMark extends StatelessWidget {
     width: size,
     height: size,
     decoration: BoxDecoration(
-      color: kBrand,
+      color: onDark ? Colors.white : kBrand,
       borderRadius: BorderRadius.circular(size * .28),
     ),
     alignment: Alignment.center,
     child: Text(
       'BVN',
       style: TextStyle(
-        color: Colors.white,
+        color: onDark ? kBrandDeep : Colors.white,
         fontWeight: FontWeight.w700,
         fontSize: size * .30,
         letterSpacing: -size * .02,
@@ -780,7 +786,11 @@ class _EmployeeShellState extends State<EmployeeShell>
       appBar: AppBar(
         title: Row(
           children: [
-            PppBrandMark(size: 28, logoUrl: widget.brandLogoUrl),
+            PppBrandMark(
+              size: 28,
+              logoUrl: widget.brandLogoUrl,
+              onDark: true,
+            ),
             const SizedBox(width: 9),
             Expanded(
               child: Text(widget.brandName, overflow: TextOverflow.ellipsis),
@@ -1134,7 +1144,7 @@ class _Today extends StatelessWidget {
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
-            height: 50,
+            height: 48,
             child: hasFinished
                 ? OutlinedButton.icon(
                     onPressed: null,
@@ -1907,7 +1917,7 @@ class _MonthCalendarState extends State<_MonthCalendar> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
               decoration: BoxDecoration(
-                gradient: kHeroGradient,
+                color: kBrandDeep,
                 borderRadius: BorderRadius.circular(kRadius),
                 boxShadow: kHeroShadow,
               ),
@@ -2948,7 +2958,7 @@ class AccountScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              gradient: kHeroGradient,
+              color: kBrandDeep,
               borderRadius: BorderRadius.circular(kRadiusSm),
               boxShadow: kHeroShadow,
             ),
