@@ -2739,6 +2739,7 @@ function pmRange(){ const d=ownerState.pmMonth||new Date(); const y=d.getFullYea
 function shiftPersonMonth(delta){ const d=ownerState.pmMonth||new Date(); ownerState.pmMonth=new Date(d.getFullYear(),d.getMonth()+delta,1); ownerState.pmSel=null; loadPersonMonth(); }
 
 let pmModel=[];
+let pmDetailView="calendar";
 async function loadPersonMonth(){
   if(!ownerState.pmMonth) ownerState.pmMonth=new Date();
   const r=pmRange();
@@ -2828,17 +2829,54 @@ function pmRenderDetail(){
   const host=$("#pmDetail"); if(!host) return;
   const m=pmModel.find(x=>x.e.id===ownerState.pmSel); if(!m){ host.innerHTML=""; return; }
   const r=pmRange(), pl=m.pl, net=pl.netPay!=null?pl.netPay:(pl.grossPay||0);
+  const canEdit=hasBackendCapability("attendanceEdit");
+  const dowTH=["อา","จ","อ","พ","พฤ","ศ","ส"];
   const days=m.cells.map(c=>{ const type=c.d&&c.d.status!=="complete"?"review":c.base;
     const text=type==="present"?"ครบ":type==="late"?"สาย":type==="absent"?"ขาด":type==="off"?"หยุด":"รอ";
     const times=c.d?`${esc(c.d.checkIn||"—")} – ${esc(c.d.checkOut||"—")}`:"—";
     return `<button class="pm-day ${type}${c.isToday?" today":""}" data-detail-iso="${c.iso}" type="button"><b>${c.dn}</b><small>${text}</small><em>${times}</em></button>`;
   }).join("");
+  const tableRows=m.cells.map(c=>{ const type=c.d&&c.d.status!=="complete"?"review":c.base;
+    const text=type==="present"?"ครบ":type==="late"?"สาย":type==="absent"?"ขาด":type==="off"?"หยุด":"รอ";
+    const ci=c.d?esc(c.d.checkIn||""):"", co=c.d?esc(c.d.checkOut||""):"";
+    const hrs=c.d&&c.d.workedMinutes?fmtHours(c.d.workedMinutes):"—";
+    const dow=dowTH[new Date(c.iso+"T00:00:00+07:00").getDay()];
+    const inCell=canEdit?`<input type="time" class="pm-ts-in" value="${ci}" aria-label="เวลาเข้า ${c.dn}">`:`<span>${ci||"—"}</span>`;
+    const outCell=canEdit?`<input type="time" class="pm-ts-out" value="${co}" aria-label="เวลาออก ${c.dn}">`:`<span>${co||"—"}</span>`;
+    const act=canEdit?`<button class="btn sm pm-ts-save" type="button">บันทึก</button><button class="btn danger sm pm-ts-clr" type="button"${(ci||co)?"":" disabled"}>ลบ</button>`:"";
+    return `<tr class="pm-ts-row tc-${type}${c.isToday?" is-today":""}" data-iso="${c.iso}" data-oin="${ci}" data-oout="${co}"><td class="pm-ts-date"><b>${c.dn}</b> <span>${dow}</span></td><td><span class="pm-ts-st s-${type}">${text}</span></td><td>${inCell}</td><td>${outCell}</td><td class="num">${hrs}</td><td class="pm-ts-act">${act}</td></tr>`;
+  }).join("");
+  const isTable=pmDetailView==="table";
+  const toggle=`<span class="pm-view-toggle" role="group" aria-label="สลับมุมมอง"><button type="button" data-pmview="calendar" class="${isTable?"":"active"}">ปฏิทิน</button><button type="button" data-pmview="table" class="${isTable?"active":""}">ตาราง</button></span>`;
+  const bodyView=isTable
+    ? `<div class="pm-ts-table-wrap"><table class="pm-ts-table"><thead><tr><th>วันที่</th><th>สถานะ</th><th>เวลาเข้า</th><th>เวลาออก</th><th class="num">ชม.</th><th></th></tr></thead><tbody>${tableRows}</tbody></table></div>`
+    : `<div class="pm-recent-days">${days}</div>`;
+  const hint=canEdit?(isTable?"แก้เวลาในช่องแล้วกดบันทึก · เว้นว่างแล้วบันทึกเพื่อลบ":"คลิกวันเพื่อแก้ไข/ลบเวลา"):"คลิกวันเพื่อดูรายละเอียด";
   host.innerHTML=`<div class="pm-detail-head"><div class="pm-av">${esc((m.e.name||m.e.id).slice(0,2))}</div><div><b>${esc(m.e.name||m.e.id)}</b><span>${esc(m.e.id)}${m.e.role?` · ${esc(m.e.role)}`:""}</span></div><div class="pm-detail-total"><small>ประมาณการงวดนี้</small><b>${fmtBaht(net)}</b></div><button class="btn sub sm" id="pmPrintTs" type="button">พิมพ์</button><button class="btn sm" id="pmIssueSlip" type="button">ออกสลิป</button></div>
     <div class="pm-detail-stats"><span><b>${m.present+m.late}</b> มาทำงาน</span><span class="late"><b>${m.late}</b> สาย</span><span class="absent"><b>${m.absent}</b> ขาด</span><span><b>${fmtHours(m.workedMin)}</b> ชั่วโมง</span></div>
-    <div class="pm-recent-label">ทั้งเดือน ${PM_TH_MON[r.m]} ${r.y+543} <span>คลิกวันที่มีรายการเพื่อดูและแก้ไขเวลา</span></div><div class="pm-recent-days">${days}</div>`;
-  host.querySelectorAll("[data-detail-iso]").forEach(btn=>btn.onclick=()=>{ const c=m.cells.find(x=>x.iso===btn.dataset.detailIso); if(!c) return; const day=c.d||{employeeId:m.e.id,name:m.e.name,date:c.iso,checkIn:"",checkOut:"",status:"incomplete"}; openAttendanceRecordDialog(day,()=>loadPersonMonth()); });
-  // Guard: right-click must never reach a delete/clear path for check-in/out times.
-  host.querySelectorAll(".pm-day").forEach(b=>b.oncontextmenu=e=>{ e.preventDefault(); });
+    <div class="pm-recent-label">ทั้งเดือน ${PM_TH_MON[r.m]} ${r.y+543} ${toggle}<span>${hint}</span></div>${bodyView}`;
+  host.querySelectorAll("[data-pmview]").forEach(b=>b.onclick=()=>{ pmDetailView=b.dataset.pmview; pmRenderDetail(); });
+  if(!isTable){
+    host.querySelectorAll("[data-detail-iso]").forEach(btn=>btn.onclick=()=>{ const c=m.cells.find(x=>x.iso===btn.dataset.detailIso); if(!c) return; const day=c.d||{employeeId:m.e.id,name:m.e.name,date:c.iso,checkIn:"",checkOut:"",status:"incomplete"}; openAttendanceRecordDialog(day,()=>loadPersonMonth()); });
+    // Guard: right-click must never reach a delete/clear path for check-in/out times.
+    host.querySelectorAll(".pm-day").forEach(b=>b.oncontextmenu=e=>{ e.preventDefault(); });
+  } else {
+    const setT=(iso,field,time)=>api("admin_set_attendance_time",{employeeId:m.e.id,date:iso,eventType:field,time});
+    host.querySelectorAll(".pm-ts-save").forEach(btn=>btn.onclick=()=>withBtn(btn,async()=>{
+      const row=btn.closest(".pm-ts-row"), iso=row.dataset.iso;
+      const nIn=row.querySelector(".pm-ts-in").value||"", nOut=row.querySelector(".pm-ts-out").value||"";
+      const oin=row.dataset.oin||"", oout=row.dataset.oout||"";
+      const jobs=[]; if(nIn!==oin) jobs.push(["check_in",nIn]); if(nOut!==oout) jobs.push(["check_out",nOut]);
+      if(!jobs.length){ toast("ไม่มีการเปลี่ยนแปลง","bad"); return; }
+      if(nIn&&nOut&&pmHM(nOut)<=pmHM(nIn)){ toast("เวลาออกต้องหลังเวลาเข้า","bad"); return; }
+      try{ for(const [f,t] of jobs){ await setT(iso,f,t); } toast("บันทึกเวลาแล้ว","good"); loadPersonMonth(); renderDashboard(); }catch(e){ toast(e.message,"bad"); }
+    }));
+    host.querySelectorAll(".pm-ts-clr").forEach(btn=>btn.onclick=async()=>{
+      const row=btn.closest(".pm-ts-row"), iso=row.dataset.iso;
+      if(!await confirmDialog("ลบเวลา",`ลบเวลาเข้า–ออกของ <b>${esc(m.e.name||m.e.id)}</b> วันที่ <b>${fmtDate(iso)}</b>?<br><span class="sub">เก็บประวัติเดิมไว้เพื่อ audit</span>`,{danger:true,okText:"ลบ"})) return;
+      await withBtn(btn,async()=>{ try{ if(row.dataset.oin) await setT(iso,"check_in",""); if(row.dataset.oout) await setT(iso,"check_out",""); toast("ลบเวลาแล้ว","good"); loadPersonMonth(); renderDashboard(); }catch(e){ toast(e.message,"bad"); } });
+    });
+  }
   const pb=host.querySelector("#pmPrintTs");
   if(pb) pb.onclick=()=>{ const days=m.cells.map(c=>({date:c.iso,checkIn:c.d?c.d.checkIn:"",checkOut:c.d?c.d.checkOut:"",workedMinutes:c.d?c.d.workedMinutes:0,status:c.d?c.d.status:"",base:c.base,holName:c.holName})); printTimesheet({employeeId:m.e.id,role:m.e.role,regularMinutes:(pl.regularMinutes!=null?pl.regularMinutes:m.workedMin),otMinutes:(pl.otMinutes||0)},{start:r.start,end:r.end},days,{}); };
   // Issue a payslip for this employee straight from Timesheet (review → adjust → ออกสลิป).
