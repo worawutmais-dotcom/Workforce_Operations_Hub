@@ -1,0 +1,13 @@
+# Netlify build + deploy for the BVN admin console (private repo friendly).
+# One-time setup (owner): netlify.com -> Add new site -> Import an existing
+# project -> pick this GitHub repo. Netlify reads this file; every push to the
+# production branch rebuilds the console from admin_codex/src/* and publishes it.
+# The console is served at the site root:  https://<your-site>.netlify.app/
+
+[build]
+  # Build the console from src/, then stage only index.html + assets (no docs/src).
+  command = "node tools/build_admin.mjs && rm -rf _site && mkdir -p _site && cp admin_codex/index.html _site/index.html && cp -r admin_codex/assets _site/assets"
+  publish = "_site"
+
+[build.environment]
+  NODE_VERSION = "20"
