@@ -70,7 +70,7 @@ async function notifyAdminRealtime(): Promise<void> {
 const REALTIME_MUTATIONS = new Set([
   "admin_upsert_employee", "admin_delete_employee", "admin_review_identity_request", "admin_save_settings",
   "admin_confirm_factory_reset", "admin_save_holiday", "admin_delete_holiday", "admin_import_holidays",
-  "admin_record_attendance", "admin_record_attendance_correction", "admin_void_attendance_day",
+  "admin_record_attendance", "admin_record_attendance_correction", "admin_void_attendance_day", "admin_set_attendance_time",
   "admin_review_leave", "admin_review_time_request", "admin_add_overtime", "admin_upsert_pay_rule",
   "admin_save_payroll_draft", "admin_lock_payroll", "admin_mark_payroll_paid", "admin_create_invoice",
   "admin_update_invoice_status", "admin_decide_advance", "admin_mark_advance_paid", "admin_save_site",
@@ -446,7 +446,7 @@ async function previewPayroll(start: string, end: string) {
 const H: Record<string, (p: any) => Promise<Response>> = {
   async version() {
     const s = await settingsMap();
-    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-25-admin-realtime", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: false, otCalendar: true, timesheetReview: true, payrollReview: true, payrollPaymentControl: true, employeeDeleteRemovesAttendance: true, factoryResetWhereFix: true, payrollShortfallPolicy: true, payrollLateAbsencePolicy: true, payslipFinanceSession: true, employeeDeletePassword: true, adminRealtimeBroadcast: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
+    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-26-attendance-edit", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: false, attendanceEdit: true, otCalendar: true, timesheetReview: true, payrollReview: true, payrollPaymentControl: true, employeeDeleteRemovesAttendance: true, factoryResetWhereFix: true, payrollShortfallPolicy: true, payrollLateAbsencePolicy: true, payslipFinanceSession: true, employeeDeletePassword: true, adminRealtimeBroadcast: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
   },
   async public_branding() {
     const s = await settingsMap();
@@ -867,6 +867,26 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     await db.from("attendance_log").update({ validity: "voided", source: "voided by " + a.display_name }).in("id", ids);
     audit(a.display_name, "attendance_voided", employeeId, date + " · " + ids.length + " rows");
     return reply(true, "ยกเลิกบันทึกเวลาแล้ว (เก็บไว้เพื่อ audit)", { employeeId, date, voided: ids.length });
+  },
+  async admin_set_attendance_time(p) {
+    const a = await verify(p.adminToken, OPS);
+    const employeeId = String(p.employeeId || "").trim().toUpperCase(), date = String(p.date || "").trim();
+    const field = String(p.eventType || ""), time = String(p.time || "").trim();
+    if (!employeeId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !["check_in", "check_out"].includes(field)) return reply(false, "ข้อมูลไม่ครบ");
+    if (time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return reply(false, "รูปแบบเวลาไม่ถูกต้อง (HH:MM)");
+    const { data: existing } = await db.from("attendance_log").select("id").eq("employee_id", employeeId).eq("event_type", field).eq("validity", "accepted")
+      .gte("event_time", date + "T00:00:00+07:00").lte("event_time", date + "T23:59:59+07:00");
+    const ids = (existing || []).map((r: any) => r.id);
+    if (ids.length) await db.from("attendance_log").update({ validity: "voided", source: "edited by " + a.display_name }).in("id", ids);
+    if (time) {
+      const { error } = await db.from("attendance_log").insert({ employee_id: employeeId, site_id: "", event_type: field, event_time: date + "T" + time + ":00+07:00", validity: "accepted", source: "admin_edit:" + a.display_name, review_status: "accepted" });
+      if (error) return reply(false, error.message);
+      audit(a.display_name, "attendance_set", employeeId, date + " " + field + " " + time);
+      return reply(true, (field === "check_in" ? "ตั้งเวลาเข้า" : "ตั้งเวลาออก") + " " + time + " แล้ว", { employeeId, date, eventType: field, time });
+    }
+    if (!ids.length) return reply(false, "ไม่มีเวลาให้ลบในวันนั้น");
+    audit(a.display_name, "attendance_clear", employeeId, date + " " + field);
+    return reply(true, (field === "check_in" ? "ลบเวลาเข้า" : "ลบเวลาออก") + "แล้ว (เก็บไว้เพื่อ audit)", { employeeId, date, eventType: field, time: "" });
   },
 
   async admin_list_leave_requests(p) {

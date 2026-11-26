@@ -5378,10 +5378,33 @@ function openAttendanceRecordDialog(day, refresh){
   const today=todayISO(), isToday=day.date===today;
   const status=day.status==="complete"?"เวลาครบ":day.checkIn?"รอเช็กเอาต์":"ไม่มีเวลาเข้า";
   const body=el(`<div><section class="employee-review-summary"><div class="employee-review-identity"><div class="profile-line"><div class="pm-av">${esc((day.name||day.employeeId||"?").trim().slice(0,2))}</div><div><h4>${esc(day.name||empName(day.employeeId)||day.employeeId)}</h4><p>${esc(day.employeeId||"")} · ${fmtDate(day.date)}</p></div></div></div><div class="employee-review-history"><h4>สถานะ Timesheet</h4><div><span>${esc(status)}</span><b>${day.status==="complete"?"ครบ":"ต้องตรวจ"}</b></div></div></section><section class="employee-review-calendar"><div class="employee-review-today"><div><span>เวลาเข้า</span><b>${esc(day.checkIn||"—")}</b></div><div><span>เวลาออก</span><b>${esc(day.checkOut||"—")}</b></div><div><span>ชั่วโมงทำงาน</span><b>${day.workedMinutes?fmtHours(day.workedMinutes):"—"}</b></div><div><span>แหล่งข้อมูล</span><b>บันทึกเวลา</b></div></div><div class="notice blue" style="margin-top:12px"><div><b>การแก้ไขต้องทำจากรายการที่จำเป็นเท่านั้น</b><br><span class="sub">ระบบจะไม่แก้ยอดเงินเดือนย้อนหลังจนกว่าจะคำนวณ Payroll run ใหม่</span></div></div></section></div>`);
+  const empId=day.employeeId, name=day.name||empName(day.employeeId)||day.employeeId, curIn=day.checkIn||"", curOut=day.checkOut||"";
+  const refreshAfter=()=>{ if(typeof refresh==="function") refresh(); renderDashboard(); };
   const close=el(`<button class="btn sub">ปิด</button>`); close.onclick=closeModal;
+  if(hasBackendCapability("attendanceEdit")){
+    const editor=el(`<section class="att-edit" style="margin-top:4px">
+      <div style="display:flex;align-items:center;gap:10px;margin:10px 0"><label style="width:72px;font-size:12px;color:var(--muted)">เวลาเข้า</label><input id="edIn" type="time" value="${esc(curIn)}" style="flex:1"><button type="button" class="btn danger sm" data-clr="check_in"${curIn?"":" disabled"}>ลบ</button></div>
+      <div style="display:flex;align-items:center;gap:10px;margin:10px 0"><label style="width:72px;font-size:12px;color:var(--muted)">เวลาออก</label><input id="edOut" type="time" value="${esc(curOut)}" style="flex:1"><button type="button" class="btn danger sm" data-clr="check_out"${curOut?"":" disabled"}>ลบ</button></div>
+      <div class="notice blue" style="margin-top:6px">แก้ไข/ลบเวลาจะบันทึกโดย ${esc(state.reviewer||"Admin")} และเก็บประวัติเดิมไว้เพื่อตรวจสอบย้อนหลัง (ไม่ลบจริงจากฐานข้อมูล)</div></section>`);
+    body.appendChild(editor);
+    editor.querySelectorAll("[data-clr]").forEach(btn=>btn.onclick=async()=>{
+      const field=btn.dataset.clr, lbl=field==="check_in"?"เวลาเข้า":"เวลาออก";
+      if(!await confirmDialog("ลบ"+lbl, `ลบ${lbl}ของ <b>${esc(name)}</b> วันที่ <b>${fmtDate(day.date)}</b>?<br><span class="sub">เก็บประวัติเดิมไว้เพื่อ audit</span>`, {danger:true,okText:"ลบ"})) return;
+      await withBtn(btn,async()=>{ try{ const d=await api("admin_set_attendance_time",{employeeId:empId,date:day.date,eventType:field,time:""}); toast(d.message||"ลบแล้ว","good"); closeModal(); refreshAfter(); }catch(e){ toast(e.message,"bad"); } });
+    });
+    const save=el(`<button class="btn">บันทึกการแก้ไข</button>`);
+    save.onclick=()=>withBtn(save,async()=>{
+      const nIn=editor.querySelector("#edIn").value||"", nOut=editor.querySelector("#edOut").value||"";
+      const jobs=[]; if(nIn!==curIn) jobs.push(["check_in",nIn]); if(nOut!==curOut) jobs.push(["check_out",nOut]);
+      if(!jobs.length){ toast("ไม่มีการเปลี่ยนแปลง","bad"); return; }
+      if(nIn&&nOut&&pmHM(nOut)<=pmHM(nIn)){ toast("เวลาออกต้องหลังเวลาเข้า","bad"); return; }
+      try{ for(const [field,time] of jobs){ await api("admin_set_attendance_time",{employeeId:empId,date:day.date,eventType:field,time}); } toast("บันทึกการแก้ไขเวลาแล้ว","good"); closeModal(); refreshAfter(); }catch(e){ toast(e.message,"bad"); }
+    });
+    openModal("แก้ไขเวลา · "+fmtDate(day.date),body,[close,save]); return;
+  }
   const actions=[close];
-  if(isToday&&!day.checkIn){ const checkIn=el(`<button class="btn ok">ลงเวลาเข้า</button>`); checkIn.onclick=()=>adminClock("check_in",day.employeeId,()=>{closeModal(); refresh();},checkIn); actions.push(checkIn); }
-  else if(isToday&&!day.checkOut){ const checkOut=el(`<button class="btn danger">ลงเวลาออก</button>`); checkOut.onclick=()=>adminClock("check_out",day.employeeId,()=>{closeModal(); refresh();},checkOut); actions.push(checkOut); }
+  if(isToday&&!curIn){ const checkIn=el(`<button class="btn ok">ลงเวลาเข้า</button>`); checkIn.onclick=()=>adminClock("check_in",empId,()=>{closeModal(); refreshAfter();},checkIn); actions.push(checkIn); }
+  else if(isToday&&!curOut){ const checkOut=el(`<button class="btn danger">ลงเวลาออก</button>`); checkOut.onclick=()=>adminClock("check_out",empId,()=>{closeModal(); refreshAfter();},checkOut); actions.push(checkOut); }
   openModal("รายละเอียด Timesheet",body,actions);
 }
 
@@ -5509,7 +5532,7 @@ function pmRenderDetail(){
   host.innerHTML=`<div class="pm-detail-head"><div class="pm-av">${esc((m.e.name||m.e.id).slice(0,2))}</div><div><b>${esc(m.e.name||m.e.id)}</b><span>${esc(m.e.id)}${m.e.role?` · ${esc(m.e.role)}`:""}</span></div><div class="pm-detail-total"><small>ประมาณการงวดนี้</small><b>${fmtBaht(net)}</b></div><button class="btn sub sm" id="pmPrintTs" type="button">พิมพ์</button><button class="btn sm" id="pmIssueSlip" type="button">ออกสลิป</button></div>
     <div class="pm-detail-stats"><span><b>${m.present+m.late}</b> มาทำงาน</span><span class="late"><b>${m.late}</b> สาย</span><span class="absent"><b>${m.absent}</b> ขาด</span><span><b>${fmtHours(m.workedMin)}</b> ชั่วโมง</span></div>
     <div class="pm-recent-label">ทั้งเดือน ${PM_TH_MON[r.m]} ${r.y+543} <span>คลิกวันที่มีรายการเพื่อดูและแก้ไขเวลา</span></div><div class="pm-recent-days">${days}</div>`;
-  host.querySelectorAll("[data-detail-iso]").forEach(btn=>btn.onclick=()=>{ const c=m.cells.find(x=>x.iso===btn.dataset.detailIso); if(c&&c.d) openAttendanceRecordDialog(c.d,()=>loadPersonMonth()); });
+  host.querySelectorAll("[data-detail-iso]").forEach(btn=>btn.onclick=()=>{ const c=m.cells.find(x=>x.iso===btn.dataset.detailIso); if(!c) return; const day=c.d||{employeeId:m.e.id,name:m.e.name,date:c.iso,checkIn:"",checkOut:"",status:"incomplete"}; openAttendanceRecordDialog(day,()=>loadPersonMonth()); });
   // Guard: right-click must never reach a delete/clear path for check-in/out times.
   host.querySelectorAll(".pm-day").forEach(b=>b.oncontextmenu=e=>{ e.preventDefault(); });
   const pb=host.querySelector("#pmPrintTs");
