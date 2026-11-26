@@ -448,7 +448,7 @@ async function previewPayroll(start: string, end: string) {
 const H: Record<string, (p: any) => Promise<Response>> = {
   async version() {
     const s = await settingsMap();
-    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-26-attendance-audit", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: false, attendanceEdit: true, otCalendar: true, timesheetReview: true, payrollReview: true, payrollPaymentControl: true, employeeDeleteRemovesAttendance: true, factoryResetWhereFix: true, payrollShortfallPolicy: true, payrollLateAbsencePolicy: true, payslipFinanceSession: true, employeeDeletePassword: true, adminRealtimeBroadcast: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
+    return reply(true, "ok", { backendVersion: BACKEND_VERSION, sourceRevision: "2026-11-26-rate-limit", capabilities: { employeeIdentity: true, employeeDelete: true, attendanceCorrection: false, attendanceEdit: true, otCalendar: true, timesheetReview: true, payrollReview: true, payrollPaymentControl: true, employeeDeleteRemovesAttendance: true, factoryResetWhereFix: true, payrollShortfallPolicy: true, payrollLateAbsencePolicy: true, payslipFinanceSession: true, employeeDeletePassword: true, adminRealtimeBroadcast: true }, appVersionCode: num(s.app_version_code), appVersionName: s.app_version_name || "", appApkUrl: s.app_apk_url || "", appMandatory: s.app_update_mandatory === "true", appNotes: s.app_update_notes || "" });
   },
   async public_branding() {
     const s = await settingsMap();
@@ -1403,6 +1403,15 @@ Deno.serve(async (req) => {
   let payload: any = {};
   try { payload = JSON.parse((await req.text()) || "{}"); } catch { return reply(false, "คำขอไม่ถูกต้อง"); }
   const action = String(payload.action || "");
+  // Per-IP rate limit for the public function (verify_jwt is off). Fail-open so a
+  // limiter hiccup never blocks a legitimate payroll action; floods still get 429.
+  const ip = (req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "").split(",")[0].trim() || "unknown";
+  try {
+    const { data: allowed, error: rlErr } = await db.rpc("api_rate_hit", { p_key: ip, p_limit: 300, p_window_sec: 60 });
+    if (!rlErr && allowed === false) {
+      return new Response(JSON.stringify({ ok: false, message: "คำขอถี่เกินไป กรุณาลองใหม่ในอีกสักครู่" }), { status: 429, headers: CORS });
+    }
+  } catch (_) { /* fail-open */ }
   try {
     if (H[action]) {
       const response = await H[action](payload);
