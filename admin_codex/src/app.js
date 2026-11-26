@@ -361,7 +361,7 @@ const PAGES = {
 };
 const ROLE_LABEL={owner:"เจ้าของระบบ",manager:"ผู้จัดการ",operations:"ฝ่ายปฏิบัติการ",finance:"ฝ่ายการเงิน"};
 const ROLE_PAGES={
-  owner:["dashboard","owner","people","payroll","payrules","settings"],
+  owner:["dashboard","owner","people","payroll","payrules","settings","audit"],
   manager:["dashboard","owner","people","payroll","payrules"],
   operations:["dashboard","people"],
   finance:["dashboard","payroll","payrules"],
@@ -390,7 +390,7 @@ function applyRoleNavigation(){
 const NAV_GROUP={payrules:"payroll",audit:"settings"};
 const GROUP_TABS={
   payroll:[["payroll","ตรวจ Timesheet · ออกสลิป"],["payrules","ตั้งเรตค่าจ้าง · OT"]],
-  settings:[["settings","ตั้งค่าระบบ"]]
+  settings:[["settings","ตั้งค่าระบบ"],["audit","บันทึกการใช้งาน"]]
 };
 function groupTabsHtml(active){
   const grp=NAV_GROUP[active]||active, all=GROUP_TABS[grp]; if(!all) return "";
