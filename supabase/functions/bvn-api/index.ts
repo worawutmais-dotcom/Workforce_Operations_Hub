@@ -23,20 +23,17 @@
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { corsHeadersFor, isRetiredMobileAction } from "./edge_security.ts";
 import { mobileSessionExpiresAt, mobileTokenDigest } from "./mobile_session_security.ts";
 
 const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
   auth: { persistSession: false },
 });
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json; charset=utf-8",
-};
 const reply = (ok: boolean, message: string, data: unknown = null) =>
-  new Response(JSON.stringify({ ok, message, data }), { headers: CORS });
+  new Response(JSON.stringify({ ok, message, data }), { headers: { "Content-Type": "application/json; charset=utf-8" } });
+const withCors = (response: Response, origin: string | null) =>
+  new Response(response.body, { status: response.status, statusText: response.statusText, headers: corsHeadersFor(origin) });
 
 const BACKEND_VERSION = "2.0.1-supabase";
 const REALTIME_TOPIC = "bvn-admin-refresh-v1";
@@ -1209,10 +1206,6 @@ const H: Record<string, (p: any) => Promise<Response>> = {
   },
 
   // ===================== Mobile (employee app) =====================
-  async employee_directory() {
-    const { data } = await db.from("employees").select("employee_id,name,role,status").eq("status", "active");
-    return reply(true, "ok", { employees: (data || []).map((e: any) => ({ employeeId: e.employee_id, name: e.name, role: e.role || "" })) });
-  },
   async employee_login(p) {
     const employeeId = String(p.employeeId || "").trim().toUpperCase(), password = String(p.password || "");
     const lid = "emp:" + employeeId;
@@ -1399,17 +1392,19 @@ const H: Record<string, (p: any) => Promise<Response>> = {
 };
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  const origin = req.headers.get("origin");
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeadersFor(origin) });
   let payload: any = {};
-  try { payload = JSON.parse((await req.text()) || "{}"); } catch { return reply(false, "คำขอไม่ถูกต้อง"); }
+  try { payload = JSON.parse((await req.text()) || "{}"); } catch { return withCors(reply(false, "คำขอไม่ถูกต้อง"), origin); }
   const action = String(payload.action || "");
+  if (isRetiredMobileAction(action)) return withCors(reply(false, "ไม่รองรับ action นี้"), origin);
   // Per-IP rate limit for the public function (verify_jwt is off). Fail-open so a
   // limiter hiccup never blocks a legitimate payroll action; floods still get 429.
   const ip = (req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "").split(",")[0].trim() || "unknown";
   try {
     const { data: allowed, error: rlErr } = await db.rpc("api_rate_hit", { p_key: ip, p_limit: 300, p_window_sec: 60 });
     if (!rlErr && allowed === false) {
-      return new Response(JSON.stringify({ ok: false, message: "คำขอถี่เกินไป กรุณาลองใหม่ในอีกสักครู่" }), { status: 429, headers: CORS });
+      return withCors(new Response(JSON.stringify({ ok: false, message: "คำขอถี่เกินไป กรุณาลองใหม่ในอีกสักครู่" }), { status: 429, headers: { "Content-Type": "application/json; charset=utf-8" } }), origin);
     }
   } catch (_) { /* fail-open */ }
   try {
@@ -1418,10 +1413,10 @@ Deno.serve(async (req) => {
       if (REALTIME_MUTATIONS.has(action)) {
         try { if ((await response.clone().json()).ok) void notifyAdminRealtime(); } catch (_) { /* response remains authoritative */ }
       }
-      return response;
+      return withCors(response, origin);
     }
-    return reply(false, "ยังไม่รองรับ action นี้บน Supabase: " + action);
+    return withCors(reply(false, "ยังไม่รองรับ action นี้บน Supabase: " + action), origin);
   } catch (e) {
-    return reply(false, (e as Error).message || "เกิดข้อผิดพลาด");
+    return withCors(reply(false, (e as Error).message || "เกิดข้อผิดพลาด"), origin);
   }
 });
