@@ -2821,6 +2821,95 @@ button,.btn{box-shadow:none!important;font-weight:500!important}
 #page-dashboard .cc-summary-tiles .s-indigo{border-left-color:#4b47b8!important}
 #page-dashboard .cc-summary-tiles .s-indigo b,#page-dashboard .cc-summary-tiles .s-indigo .cc-stat-ic{color:#4b47b8!important}
 /* status pills & group headers keep their colors (defined earlier) — do not touch */
+
+/* ============================================================
+   RAWER PROGRAM PASS (user request): push the look further toward a
+   plain native desktop app — square-ish corners, inset field borders,
+   classic command buttons, and a native right-click menu. Color stays
+   reserved for status only.
+   ============================================================ */
+:root:not([data-theme="dark"]){
+  /* tighten radii to a program-like 2px everywhere */
+}
+/* near-square corners on the main surfaces */
+:root:not([data-theme="dark"]) .panel,
+:root:not([data-theme="dark"]) .card,
+:root:not([data-theme="dark"]) .cc-command-bar,
+:root:not([data-theme="dark"]) .cc-hero,
+:root:not([data-theme="dark"]) .cc-left-stack,
+:root:not([data-theme="dark"]) .team-register,
+:root:not([data-theme="dark"]) .modal,
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .cc-stat{border-radius:2px!important}
+
+/* Inputs / selects: inset "sunken" field look like a classic form control */
+:root:not([data-theme="dark"]) .field input,
+:root:not([data-theme="dark"]) .field select,
+:root:not([data-theme="dark"]) .field textarea,
+:root:not([data-theme="dark"]) .toolbar input,
+:root:not([data-theme="dark"]) .toolbar select,
+:root:not([data-theme="dark"]) input[type="text"],
+:root:not([data-theme="dark"]) input[type="search"],
+:root:not([data-theme="dark"]) input[type="time"],
+:root:not([data-theme="dark"]) input[type="date"],
+:root:not([data-theme="dark"]) input[type="number"],
+:root:not([data-theme="dark"]) input[type="password"],
+:root:not([data-theme="dark"]) select,
+:root:not([data-theme="dark"]) textarea{
+  border-radius:2px!important;
+  border:1px solid #b9bec5!important;
+  background:#fff!important;
+  box-shadow:inset 0 1px 1px rgba(0,0,0,.06)!important;
+}
+:root:not([data-theme="dark"]) input:focus,
+:root:not([data-theme="dark"]) select:focus,
+:root:not([data-theme="dark"]) textarea:focus{
+  border-color:var(--app-accent)!important;
+  box-shadow:inset 0 1px 1px rgba(0,0,0,.06),0 0 0 2px rgba(47,111,176,.25)!important;
+  outline:none!important;
+}
+
+/* Buttons: classic raised command-button look (primary stays accent-ish,
+   neutral buttons are grey). No pill radius, thin border, pressed = inset. */
+:root:not([data-theme="dark"]) .btn{
+  border-radius:2px!important;
+  border:1px solid #b9bec5!important;
+  box-shadow:0 1px 0 rgba(0,0,0,.04)!important;
+}
+:root:not([data-theme="dark"]) .btn:active{box-shadow:inset 0 1px 2px rgba(0,0,0,.18)!important}
+:root:not([data-theme="dark"]) .btn.sub,
+:root:not([data-theme="dark"]) .btn.ghost,
+:root:not([data-theme="dark"]) .btn.secondary{background:#f3f4f6!important;color:var(--app-ink)!important}
+:root:not([data-theme="dark"]) .btn.sub:hover,
+:root:not([data-theme="dark"]) .btn.ghost:hover,
+:root:not([data-theme="dark"]) .btn.secondary:hover{background:#e8eaee!important}
+
+/* Badges / pills: squared off (status colors themselves are kept) */
+:root:not([data-theme="dark"]) .badge,
+:root:not([data-theme="dark"]) .nav .pill{border-radius:3px!important}
+
+/* ---- Native right-click menu: classic flat program menu ---- */
+:root:not([data-theme="dark"]) .ctxmenu{
+  border-radius:2px!important;
+  border:1px solid #9aa0a8!important;
+  box-shadow:1px 2px 6px rgba(0,0,0,.22)!important;
+  padding:2px!important;
+  min-width:184px!important;
+  background:#fbfbfc!important;
+}
+:root:not([data-theme="dark"]) .ctxmenu button{
+  border-radius:1px!important;
+  padding:6px 12px!important;
+  font-size:12.5px!important;
+  color:var(--app-ink)!important;
+}
+:root:not([data-theme="dark"]) .ctxmenu button:hover{background:var(--app-accent)!important;color:#fff!important}
+:root:not([data-theme="dark"]) .ctxmenu button.danger{color:#c23a4b!important}
+:root:not([data-theme="dark"]) .ctxmenu button.danger:hover{background:#c23a4b!important;color:#fff!important}
+
+/* A row you can right-click gets a context-menu cursor affordance */
+:root:not([data-theme="dark"]) .team-row[data-calendar],
+:root:not([data-theme="dark"]) tr.p-emp,
+:root:not([data-theme="dark"]) .pm-exception-row{cursor:context-menu}
 </style>
 </head>
 <body>
@@ -3774,7 +3863,7 @@ async function renderDashboard(data, preloaded={}){
             ${canFinance?`<div class="panel cc-payroll"><div class="head"><div><b>เงินเดือนงวดปัจจุบัน</b><span class="sub" style="margin-left:8px">${esc(payrollPeriodLabel)}</span></div><div class="spacer"></div><span class="cc-pay-badge ${payrollIncomplete?"wait":"ok"}">${payrollIncomplete?"ต้องตรวจ":"พร้อมออกสลิป"}</span></div><div class="body"><div class="cc-pay-metrics"><div><span>ยอดสุทธิตาม Timesheet</span><b class="money">${fmtBaht(totalNet)}</b><em>ก่อนหัก ${fmtBaht(payrollGross)} · หัก ${fmtBaht(payrollDed)}</em></div><div><span>คำนวณได้</span><b>${fmtInt(payrollEligible)} คน</b><em>มีเวลาและเรตครบ</em></div><div><span>เวลาค้างตรวจ</span><b class="${payrollIncomplete?"warn":""}">${fmtInt(payrollIncomplete)} รายการ</b><em>${payrollIncomplete?"ต้องตรวจให้ครบก่อนออกสลิป":"ไม่มีรายการค้าง"}</em></div></div><div class="cc-pay-actions"><button class="btn sub sm" data-nav="owner">ตรวจเวลาเข้า–ออก</button><button class="btn sm" data-nav="payroll">${payrollActionLabel}</button></div></div></div>`:""}
           </section>
           <section class="cc-work">
-            <div class="panel team-register hr-team"><div class="head"><div><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">เลือกชื่อเพื่อดูเวลาเข้า–ออกและประวัติ</span></div><div class="spacer"></div><div class="team-status-summary" aria-label="สรุปสถานะทีม"><span class="not-in">ยังไม่เข้า <b>${fmtInt(cOut)}</b></span><span class="working">ทำงาน <b>${fmtInt(cOn+cLate)}</b></span><span class="finished">ออกแล้ว <b>${fmtInt(cDone)}</b></span></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เข้างาน</span><span>ออกงาน</span><span>สถานะ</span><span>การทำงาน</span></div><div class="team-grid">${teamHtml}</div></div></div>
+            <div class="panel team-register hr-team"><div class="head"><div><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">คลิกเพื่อดูประวัติ · คลิกขวาเพื่อแก้ไขข้อมูล</span></div><div class="spacer"></div><div class="team-status-summary" aria-label="สรุปสถานะทีม"><span class="not-in">ยังไม่เข้า <b>${fmtInt(cOut)}</b></span><span class="working">ทำงาน <b>${fmtInt(cOn+cLate)}</b></span><span class="finished">ออกแล้ว <b>${fmtInt(cDone)}</b></span></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เข้างาน</span><span>ออกงาน</span><span>สถานะ</span><span>การทำงาน</span></div><div class="team-grid">${teamHtml}</div></div></div>
             <div class="cc-left-stack">
               <div class="panel cc-decide"><div class="head"><div class="wq-title"><b>งานที่ต้องจัดการ</b><span>${fmtInt(actionQueue.length)} รายการ</span></div><div class="spacer"></div><button class="btn ok sm" type="button" data-act="ot">+ บันทึก OT</button></div><div class="body flush work-queue">${workQueueHtml}</div></div>
             </div>
@@ -3848,6 +3937,17 @@ async function renderDashboard(data, preloaded={}){
     node.querySelectorAll("[data-calendar]").forEach(b=>{ b.onclick=()=>openAttendanceCalendar(b.dataset.calendar, attendanceDays, attendanceD, owner); b.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openAttendanceCalendar(b.dataset.calendar, attendanceDays, attendanceD, owner); } }; });
     node.querySelectorAll('[data-checkin]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); quickClock(b.dataset.checkin,"check_in",b); });
     node.querySelectorAll('[data-checkout]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); quickClock(b.dataset.checkout,"check_out",b); });
+    // Right-click a person on the team board to edit their data directly.
+    node.querySelectorAll(".team-row[data-calendar]").forEach(row=>{
+      const id=row.dataset.calendar; const emp=state.empById[id];
+      attachRowMenu(row, [
+        {label:"บันทึก/แก้ไขเวลาวันนี้", fn:()=>attendanceCorrectionDialog(id)},
+        {label:"ลงเวลาเข้า", fn:()=>quickClock(id,"check_in")},
+        {label:"ลงเวลาออก", fn:()=>quickClock(id,"check_out")},
+        {label:"เปิดปฏิทินการทำงาน", fn:()=>openAttendanceCalendar(id, attendanceDays, attendanceD, owner)},
+        ...(emp?[{label:"แก้ไขข้อมูลพนักงาน", fn:()=>employeeDialog(emp)}]:[]),
+      ]);
+    });
     node.querySelectorAll('[data-act="clock"]').forEach(b=>b.onclick=()=>adminAttendanceDialog());
     node.querySelectorAll('[data-act="emp"]').forEach(b=>b.onclick=()=>employeeDialog(null));
     node.querySelectorAll('[data-act="ot"]').forEach(b=>b.onclick=()=>addOvertimeDialog());
@@ -5732,7 +5832,16 @@ function pmRenderMatrix(){
   }).join("");
   host.innerHTML=rows;
   const count=$("#pmRosterCount"); if(count) count.textContent=`${pmModel.length} คน`;
-  host.querySelectorAll("[data-pm-emp]").forEach(row=>row.onclick=()=>pmSelectEmployee(row.dataset.pmEmp));
+  host.querySelectorAll("[data-pm-emp]").forEach(row=>{
+    row.onclick=()=>pmSelectEmployee(row.dataset.pmEmp);
+    const id=row.dataset.pmEmp, emp=state.empById[id];
+    attachRowMenu(row, [
+      {label:"ดูรายละเอียด", fn:()=>pmSelectEmployee(id)},
+      {label:"บันทึก/แก้ไขเวลาวันนี้", fn:()=>attendanceCorrectionDialog(id)},
+      {label:"เปิดปฏิทินการทำงาน", fn:()=>openAttendanceCalendar(id)},
+      ...(emp?[{label:"แก้ไขข้อมูลพนักงาน", fn:()=>employeeDialog(emp)}]:[]),
+    ]);
+  });
   pmRenderReviewQueue();
 }
 function pmSelectEmployee(id){ ownerState.pmSel=id; pmRenderMatrix(); pmRenderDetail(); }

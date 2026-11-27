@@ -33,7 +33,7 @@ const required = [
   'data-adv-filter',
   'ล็อกยอดแล้ว · พร้อมออกสลิป',
   'ทีมวันนี้',
-  'เลือกชื่อเพื่อดูเวลาเข้า–ออกและประวัติ',
+  'คลิกเพื่อดูประวัติ · คลิกขวาเพื่อแก้ไขข้อมูล',
   'employee-review-modal',
   'employee-review-summary',
   'employeeReviewHistory',

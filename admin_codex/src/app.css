@@ -2808,3 +2808,92 @@ button,.btn{box-shadow:none!important;font-weight:500!important}
 #page-dashboard .cc-summary-tiles .s-indigo{border-left-color:#4b47b8!important}
 #page-dashboard .cc-summary-tiles .s-indigo b,#page-dashboard .cc-summary-tiles .s-indigo .cc-stat-ic{color:#4b47b8!important}
 /* status pills & group headers keep their colors (defined earlier) — do not touch */
+
+/* ============================================================
+   RAWER PROGRAM PASS (user request): push the look further toward a
+   plain native desktop app — square-ish corners, inset field borders,
+   classic command buttons, and a native right-click menu. Color stays
+   reserved for status only.
+   ============================================================ */
+:root:not([data-theme="dark"]){
+  /* tighten radii to a program-like 2px everywhere */
+}
+/* near-square corners on the main surfaces */
+:root:not([data-theme="dark"]) .panel,
+:root:not([data-theme="dark"]) .card,
+:root:not([data-theme="dark"]) .cc-command-bar,
+:root:not([data-theme="dark"]) .cc-hero,
+:root:not([data-theme="dark"]) .cc-left-stack,
+:root:not([data-theme="dark"]) .team-register,
+:root:not([data-theme="dark"]) .modal,
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .cc-stat{border-radius:2px!important}
+
+/* Inputs / selects: inset "sunken" field look like a classic form control */
+:root:not([data-theme="dark"]) .field input,
+:root:not([data-theme="dark"]) .field select,
+:root:not([data-theme="dark"]) .field textarea,
+:root:not([data-theme="dark"]) .toolbar input,
+:root:not([data-theme="dark"]) .toolbar select,
+:root:not([data-theme="dark"]) input[type="text"],
+:root:not([data-theme="dark"]) input[type="search"],
+:root:not([data-theme="dark"]) input[type="time"],
+:root:not([data-theme="dark"]) input[type="date"],
+:root:not([data-theme="dark"]) input[type="number"],
+:root:not([data-theme="dark"]) input[type="password"],
+:root:not([data-theme="dark"]) select,
+:root:not([data-theme="dark"]) textarea{
+  border-radius:2px!important;
+  border:1px solid #b9bec5!important;
+  background:#fff!important;
+  box-shadow:inset 0 1px 1px rgba(0,0,0,.06)!important;
+}
+:root:not([data-theme="dark"]) input:focus,
+:root:not([data-theme="dark"]) select:focus,
+:root:not([data-theme="dark"]) textarea:focus{
+  border-color:var(--app-accent)!important;
+  box-shadow:inset 0 1px 1px rgba(0,0,0,.06),0 0 0 2px rgba(47,111,176,.25)!important;
+  outline:none!important;
+}
+
+/* Buttons: classic raised command-button look (primary stays accent-ish,
+   neutral buttons are grey). No pill radius, thin border, pressed = inset. */
+:root:not([data-theme="dark"]) .btn{
+  border-radius:2px!important;
+  border:1px solid #b9bec5!important;
+  box-shadow:0 1px 0 rgba(0,0,0,.04)!important;
+}
+:root:not([data-theme="dark"]) .btn:active{box-shadow:inset 0 1px 2px rgba(0,0,0,.18)!important}
+:root:not([data-theme="dark"]) .btn.sub,
+:root:not([data-theme="dark"]) .btn.ghost,
+:root:not([data-theme="dark"]) .btn.secondary{background:#f3f4f6!important;color:var(--app-ink)!important}
+:root:not([data-theme="dark"]) .btn.sub:hover,
+:root:not([data-theme="dark"]) .btn.ghost:hover,
+:root:not([data-theme="dark"]) .btn.secondary:hover{background:#e8eaee!important}
+
+/* Badges / pills: squared off (status colors themselves are kept) */
+:root:not([data-theme="dark"]) .badge,
+:root:not([data-theme="dark"]) .nav .pill{border-radius:3px!important}
+
+/* ---- Native right-click menu: classic flat program menu ---- */
+:root:not([data-theme="dark"]) .ctxmenu{
+  border-radius:2px!important;
+  border:1px solid #9aa0a8!important;
+  box-shadow:1px 2px 6px rgba(0,0,0,.22)!important;
+  padding:2px!important;
+  min-width:184px!important;
+  background:#fbfbfc!important;
+}
+:root:not([data-theme="dark"]) .ctxmenu button{
+  border-radius:1px!important;
+  padding:6px 12px!important;
+  font-size:12.5px!important;
+  color:var(--app-ink)!important;
+}
+:root:not([data-theme="dark"]) .ctxmenu button:hover{background:var(--app-accent)!important;color:#fff!important}
+:root:not([data-theme="dark"]) .ctxmenu button.danger{color:#c23a4b!important}
+:root:not([data-theme="dark"]) .ctxmenu button.danger:hover{background:#c23a4b!important;color:#fff!important}
+
+/* A row you can right-click gets a context-menu cursor affordance */
+:root:not([data-theme="dark"]) .team-row[data-calendar],
+:root:not([data-theme="dark"]) tr.p-emp,
+:root:not([data-theme="dark"]) .pm-exception-row{cursor:context-menu}

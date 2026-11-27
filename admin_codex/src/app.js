@@ -861,7 +861,7 @@ async function renderDashboard(data, preloaded={}){
             ${canFinance?`<div class="panel cc-payroll"><div class="head"><div><b>เงินเดือนงวดปัจจุบัน</b><span class="sub" style="margin-left:8px">${esc(payrollPeriodLabel)}</span></div><div class="spacer"></div><span class="cc-pay-badge ${payrollIncomplete?"wait":"ok"}">${payrollIncomplete?"ต้องตรวจ":"พร้อมออกสลิป"}</span></div><div class="body"><div class="cc-pay-metrics"><div><span>ยอดสุทธิตาม Timesheet</span><b class="money">${fmtBaht(totalNet)}</b><em>ก่อนหัก ${fmtBaht(payrollGross)} · หัก ${fmtBaht(payrollDed)}</em></div><div><span>คำนวณได้</span><b>${fmtInt(payrollEligible)} คน</b><em>มีเวลาและเรตครบ</em></div><div><span>เวลาค้างตรวจ</span><b class="${payrollIncomplete?"warn":""}">${fmtInt(payrollIncomplete)} รายการ</b><em>${payrollIncomplete?"ต้องตรวจให้ครบก่อนออกสลิป":"ไม่มีรายการค้าง"}</em></div></div><div class="cc-pay-actions"><button class="btn sub sm" data-nav="owner">ตรวจเวลาเข้า–ออก</button><button class="btn sm" data-nav="payroll">${payrollActionLabel}</button></div></div></div>`:""}
           </section>
           <section class="cc-work">
-            <div class="panel team-register hr-team"><div class="head"><div><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">เลือกชื่อเพื่อดูเวลาเข้า–ออกและประวัติ</span></div><div class="spacer"></div><div class="team-status-summary" aria-label="สรุปสถานะทีม"><span class="not-in">ยังไม่เข้า <b>${fmtInt(cOut)}</b></span><span class="working">ทำงาน <b>${fmtInt(cOn+cLate)}</b></span><span class="finished">ออกแล้ว <b>${fmtInt(cDone)}</b></span></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เข้างาน</span><span>ออกงาน</span><span>สถานะ</span><span>การทำงาน</span></div><div class="team-grid">${teamHtml}</div></div></div>
+            <div class="panel team-register hr-team"><div class="head"><div><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">คลิกเพื่อดูประวัติ · คลิกขวาเพื่อแก้ไขข้อมูล</span></div><div class="spacer"></div><div class="team-status-summary" aria-label="สรุปสถานะทีม"><span class="not-in">ยังไม่เข้า <b>${fmtInt(cOut)}</b></span><span class="working">ทำงาน <b>${fmtInt(cOn+cLate)}</b></span><span class="finished">ออกแล้ว <b>${fmtInt(cDone)}</b></span></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เข้างาน</span><span>ออกงาน</span><span>สถานะ</span><span>การทำงาน</span></div><div class="team-grid">${teamHtml}</div></div></div>
             <div class="cc-left-stack">
               <div class="panel cc-decide"><div class="head"><div class="wq-title"><b>งานที่ต้องจัดการ</b><span>${fmtInt(actionQueue.length)} รายการ</span></div><div class="spacer"></div><button class="btn ok sm" type="button" data-act="ot">+ บันทึก OT</button></div><div class="body flush work-queue">${workQueueHtml}</div></div>
             </div>
@@ -935,6 +935,17 @@ async function renderDashboard(data, preloaded={}){
     node.querySelectorAll("[data-calendar]").forEach(b=>{ b.onclick=()=>openAttendanceCalendar(b.dataset.calendar, attendanceDays, attendanceD, owner); b.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openAttendanceCalendar(b.dataset.calendar, attendanceDays, attendanceD, owner); } }; });
     node.querySelectorAll('[data-checkin]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); quickClock(b.dataset.checkin,"check_in",b); });
     node.querySelectorAll('[data-checkout]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); quickClock(b.dataset.checkout,"check_out",b); });
+    // Right-click a person on the team board to edit their data directly.
+    node.querySelectorAll(".team-row[data-calendar]").forEach(row=>{
+      const id=row.dataset.calendar; const emp=state.empById[id];
+      attachRowMenu(row, [
+        {label:"บันทึก/แก้ไขเวลาวันนี้", fn:()=>attendanceCorrectionDialog(id)},
+        {label:"ลงเวลาเข้า", fn:()=>quickClock(id,"check_in")},
+        {label:"ลงเวลาออก", fn:()=>quickClock(id,"check_out")},
+        {label:"เปิดปฏิทินการทำงาน", fn:()=>openAttendanceCalendar(id, attendanceDays, attendanceD, owner)},
+        ...(emp?[{label:"แก้ไขข้อมูลพนักงาน", fn:()=>employeeDialog(emp)}]:[]),
+      ]);
+    });
     node.querySelectorAll('[data-act="clock"]').forEach(b=>b.onclick=()=>adminAttendanceDialog());
     node.querySelectorAll('[data-act="emp"]').forEach(b=>b.onclick=()=>employeeDialog(null));
     node.querySelectorAll('[data-act="ot"]').forEach(b=>b.onclick=()=>addOvertimeDialog());
@@ -2819,7 +2830,16 @@ function pmRenderMatrix(){
   }).join("");
   host.innerHTML=rows;
   const count=$("#pmRosterCount"); if(count) count.textContent=`${pmModel.length} คน`;
-  host.querySelectorAll("[data-pm-emp]").forEach(row=>row.onclick=()=>pmSelectEmployee(row.dataset.pmEmp));
+  host.querySelectorAll("[data-pm-emp]").forEach(row=>{
+    row.onclick=()=>pmSelectEmployee(row.dataset.pmEmp);
+    const id=row.dataset.pmEmp, emp=state.empById[id];
+    attachRowMenu(row, [
+      {label:"ดูรายละเอียด", fn:()=>pmSelectEmployee(id)},
+      {label:"บันทึก/แก้ไขเวลาวันนี้", fn:()=>attendanceCorrectionDialog(id)},
+      {label:"เปิดปฏิทินการทำงาน", fn:()=>openAttendanceCalendar(id)},
+      ...(emp?[{label:"แก้ไขข้อมูลพนักงาน", fn:()=>employeeDialog(emp)}]:[]),
+    ]);
+  });
   pmRenderReviewQueue();
 }
 function pmSelectEmployee(id){ ownerState.pmSel=id; pmRenderMatrix(); pmRenderDetail(); }
