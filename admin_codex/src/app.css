@@ -981,7 +981,7 @@
   #page-dashboard .cc-pay-actions{display:flex;gap:8px;margin-top:16px}
   #page-dashboard .cc-pay-actions .btn{flex:1}
   /* Work row: decisions + team */
-  #page-dashboard .cc-work{display:grid;grid-template-columns:minmax(300px,.8fr) minmax(0,1.2fr);gap:18px}
+  #page-dashboard .cc-work{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr);gap:18px}
   #page-dashboard .cc-decide .head b:before{content:"";display:inline-block;width:7px;height:7px;margin-right:8px;border-radius:50%;background:#f59e0b}
   #page-dashboard .cc-lower{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(330px,.85fr);gap:18px}
   #page-dashboard .cc-lower>.panel{border-top:3px solid var(--blue)}
@@ -2484,7 +2484,7 @@ button,.btn{box-shadow:none!important;font-weight:500!important}
   #page-dashboard .cc>.cc-command-alert{order:4!important;margin:0!important}
   #page-dashboard .cc>.cc-work{order:5!important;margin:0!important}
   #page-dashboard .cc>.cc-split{order:6!important;margin:0!important}
-  #page-dashboard .cc-work{grid-template-columns:minmax(320px,.72fr) minmax(0,1.28fr)!important;gap:12px!important}
+  #page-dashboard .cc-work{grid-template-columns:minmax(0,1.28fr) minmax(320px,.72fr)!important;gap:12px!important}
   #page-dashboard .cc-split{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr)!important;gap:12px!important}
   #page-dashboard .cc-arrival .body{padding:10px 12px!important}
   #page-dashboard .cc-arrival-chart{min-height:118px!important}
@@ -2709,3 +2709,40 @@ button,.btn{box-shadow:none!important;font-weight:500!important}
 #page-dashboard .cc-work .team-group.tg-done .team-group-head{background:#e8f0fb;color:#2b5fb0}
 #page-dashboard .cc-work .team-group.tg-done .tg-dot{background:#3f7fd6}
 #page-dashboard .cc-work .team-group.tg-done .team-group-head em{color:#2b5fb0}
+
+/* ============================================================
+   Requested tweaks (user): compact "สรุปงานวันนี้" tiles with a
+   readable hover, and a green sidebar shell to match the console.
+   Appended last so it wins the cascade over earlier layers.
+   ============================================================ */
+/* Summary tiles: smaller, and hover keeps a readable (darker) fill
+   instead of washing to white (an earlier .cc-stat:hover rule did). */
+#page-dashboard .cc-summary-tiles .cc-stat{min-height:74px!important;padding:11px 14px!important;border-radius:12px!important;box-shadow:0 6px 16px -12px rgba(15,40,64,.45)!important}
+#page-dashboard .cc-summary-tiles .cc-stat b{font-size:23px!important}
+#page-dashboard .cc-summary-tiles .cc-stat-l{font-size:10.5px!important}
+#page-dashboard .cc-summary-tiles .cc-stat small{font-size:9.5px!important;margin-top:3px!important}
+#page-dashboard .cc-summary-tiles .cc-stat-ic{width:26px!important;height:26px!important;right:11px;top:11px;border-radius:7px!important}
+#page-dashboard .cc-summary-tiles .cc-stat-ic svg{width:15px!important;height:15px!important}
+#page-dashboard .cc-summary-tiles .cc-stat:after{width:76px;height:76px;right:-20px;bottom:-28px;border-width:13px}
+#page-dashboard .cc-summary-tiles .cc-stat:hover{transform:translateY(-2px)!important;box-shadow:0 12px 24px -10px rgba(15,40,64,.5)!important;filter:none!important}
+#page-dashboard .cc-summary-tiles .s-blue:hover{background:var(--c-teal-700)!important}
+#page-dashboard .cc-summary-tiles .s-amber:hover{background:var(--c-amber-700)!important}
+#page-dashboard .cc-summary-tiles .s-rose:hover{background:var(--c-red-700)!important}
+#page-dashboard .cc-summary-tiles .s-green:hover{background:var(--c-green)!important}
+#page-dashboard .cc-summary-tiles .s-indigo:hover{background:#4038c8!important}
+
+/* Sidebar: green shell (navy -> green) to match the console accent. */
+:root:not([data-theme="dark"]) .side{background:linear-gradient(180deg,#128a4f 0%,#0b5f36 100%)!important;border-right:1px solid #0a4f2d!important}
+:root:not([data-theme="dark"]) .side .brand{background:#0b5f36!important;border-bottom:1px solid rgba(255,255,255,.18)!important;color:#fff!important;min-height:68px!important;padding:14px 16px!important}
+:root:not([data-theme="dark"]) .side .brand small{color:rgba(255,255,255,.74)!important}
+:root:not([data-theme="dark"]) .side .brand::before{background:#fff!important;color:#0f7a46!important;box-shadow:0 2px 6px rgba(7,40,22,.3)!important}
+:root:not([data-theme="dark"]) .nav-section{color:#c3e7d2!important}
+:root:not([data-theme="dark"]) .nav button{color:#e6f5ec!important}
+:root:not([data-theme="dark"]) .nav button:hover{background:rgba(255,255,255,.13)!important;color:#fff!important}
+:root:not([data-theme="dark"]) .nav button.active{background:#fff!important;color:#0f7a46!important;box-shadow:inset 3px 0 0 #7fdcab!important;font-weight:600!important}
+:root:not([data-theme="dark"]) .nav button.active *{color:#0f7a46!important}
+:root:not([data-theme="dark"]) .nav button.active .pill{background:#0f7a46!important;color:#fff!important}
+:root:not([data-theme="dark"]) .nav .pill{background:#d79b20!important;color:#fff!important}
+:root:not([data-theme="dark"]) .side .foot{border-top-color:rgba(255,255,255,.17)!important;color:rgba(255,255,255,.72)!important}
+:root:not([data-theme="dark"]) .side .foot b{color:#fff!important}
+:root:not([data-theme="dark"]) .side .foot a{color:#ffe1a6!important}
