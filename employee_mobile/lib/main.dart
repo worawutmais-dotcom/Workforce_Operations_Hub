@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'attendance_view_state.dart';
 import 'bvn_api.dart';
+import 'identity_validation.dart';
 import 'notif.dart';
 import 'pwa_runtime.dart';
 import 'pwa_support.dart';
@@ -3212,64 +3213,90 @@ class AccountScreen extends StatelessWidget {
     }
     final nationalId = TextEditingController();
     final phone = TextEditingController(text: '${current['phone'] ?? ''}');
-    await showDialog<void>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('ยืนยันข้อมูลส่วนตัว'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'ข้อมูลจะส่งให้ผู้ดูแลตรวจสอบก่อนบันทึกในทะเบียนพนักงาน',
-              style: TextStyle(fontSize: 12, color: kMuted),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: nationalId,
-              keyboardType: TextInputType.number,
-              maxLength: 13,
-              decoration: InputDecoration(
-                labelText: 'เลขบัตรประชาชน',
-                hintText:
-                    current['nationalIdLast4']?.toString().isNotEmpty == true
-                    ? 'บันทึกแล้ว ••••${current['nationalIdLast4']}'
-                    : '13 หลัก',
-              ),
-            ),
-            TextField(
-              controller: phone,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: 'เบอร์โทรศัพท์'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c),
-            child: const Text('ยกเลิก'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              try {
-                await BvnApi().submitIdentity(
-                  token: token,
-                  nationalId: nationalId.text,
-                  phone: phone.text,
-                );
-                if (c.mounted) Navigator.pop(c);
-                _snack(context, 'ส่งข้อมูลให้ผู้ดูแลตรวจสอบแล้ว');
-              } on BvnApiException catch (e) {
-                _snack(context, e.message);
-              } catch (_) {
-                _snack(context, 'ส่งข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง');
-              }
-            },
-            child: const Text('ส่งให้ตรวจสอบ'),
-          ),
-        ],
-      ),
+    final validation = ValueNotifier(
+      validateEmployeeIdentity(nationalId: nationalId.text, phone: phone.text),
     );
+    void refreshValidation() => validation.value = validateEmployeeIdentity(
+      nationalId: nationalId.text,
+      phone: phone.text,
+    );
+    nationalId.addListener(refreshValidation);
+    phone.addListener(refreshValidation);
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (c) => ValueListenableBuilder<EmployeeIdentityValidation>(
+          valueListenable: validation,
+          builder: (c, state, _) => AlertDialog(
+            title: const Text('ยืนยันข้อมูลส่วนตัว'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'ข้อมูลจะส่งให้ผู้ดูแลตรวจสอบก่อนบันทึกในทะเบียนพนักงาน',
+                  style: TextStyle(fontSize: 12, color: kMuted),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: nationalId,
+                  keyboardType: TextInputType.number,
+                  maxLength: 13,
+                  decoration: InputDecoration(
+                    labelText: 'เลขบัตรประชาชน',
+                    helperText: '${state.nationalIdDigits}/13 · ${state.nationalIdHint}',
+                    hintText:
+                        current['nationalIdLast4']?.toString().isNotEmpty == true
+                        ? 'บันทึกแล้ว ••••${current['nationalIdLast4']}'
+                        : '13 หลัก',
+                  ),
+                ),
+                TextField(
+                  controller: phone,
+                  keyboardType: TextInputType.phone,
+                  maxLength: 10,
+                  decoration: InputDecoration(
+                    labelText: 'เบอร์โทรศัพท์',
+                    helperText: '${state.phoneDigits}/10 · ${state.phoneHint}',
+                    hintText: 'เช่น 0845561071',
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c),
+                child: const Text('ยกเลิก'),
+              ),
+              FilledButton(
+                onPressed: state.canSubmit
+                    ? () async {
+                        try {
+                          await BvnApi().submitIdentity(
+                            token: token,
+                            nationalId: nationalId.text,
+                            phone: phone.text,
+                          );
+                          if (c.mounted) Navigator.pop(c);
+                          _snack(context, 'ส่งข้อมูลให้ผู้ดูแลตรวจสอบแล้ว');
+                        } on BvnApiException catch (e) {
+                          _snack(context, e.message);
+                        } catch (_) {
+                          _snack(context, 'ส่งข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง');
+                        }
+                      }
+                    : null,
+                child: const Text('ส่งให้ตรวจสอบ'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } finally {
+      nationalId.dispose();
+      phone.dispose();
+      validation.dispose();
+    }
   }
 
   Future<void> _changePasswordDialog(BuildContext context) async {
