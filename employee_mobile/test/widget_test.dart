@@ -1,6 +1,7 @@
 import 'package:employee_mobile/main.dart';
 import 'package:employee_mobile/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -159,8 +160,28 @@ void main() {
     );
 
     expect(find.text('รหัสพนักงาน'), findsOneWidget);
+    expect(find.textContaining('เช่น'), findsNothing);
     expect(find.byType(DropdownButtonFormField<String>), findsNothing);
     expect(find.text('โหลดรายชื่อใหม่'), findsNothing);
+  });
+
+  testWidgets('keeps the location map behind an explicit Today action', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: EmployeeShell(
+          employeeId: 'BVN-0002',
+          token: 'test-token',
+          brandName: 'BVN Package',
+          brandLogoUrl: '',
+          onLogout: () async {},
+        ),
+      ),
+    );
+
+    expect(find.text('ดูแผนที่และพื้นที่อนุญาต'), findsOneWidget);
+    expect(find.byType(FlutterMap), findsNothing);
   });
 
   testWidgets('renders the PWA install guide and lets the user dismiss it', (

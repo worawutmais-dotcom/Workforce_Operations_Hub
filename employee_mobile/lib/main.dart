@@ -1,7 +1,6 @@
 // Account-tab actions guard context use via a context.mounted check inside _snack.
 // ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -10,12 +9,10 @@ import 'attendance_view_state.dart';
 import 'bvn_api.dart';
 import 'employee_login_validation.dart';
 import 'identity_validation.dart';
-import 'notif.dart';
 import 'pwa_runtime.dart';
+import 'pwa_release.dart';
 import 'pwa_support.dart';
-import 'runtime_platform.dart';
 import 'theme.dart';
-import 'update.dart';
 
 // Brand language shared with Admin Codex: a light-first enterprise green
 // identity. Brand green is the single accent; amber = attention/late, red =
@@ -25,7 +22,7 @@ const _ink = kInk;
 const _greenDeep = kBrandDeep;
 const _orange = kAmber;
 
-/// Embedded PPP mark: it is always available offline in a fresh APK. When the
+/// Embedded PPP mark: it is always available in a fresh PWA install. When the
 /// owner uploads a brand image in Admin, [logoUrl] replaces this fallback.
 class PppBrandMark extends StatelessWidget {
   const PppBrandMark({
@@ -263,7 +260,6 @@ ThemeData _theme(Brightness brightness) => bvnTheme(brightness);
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await BvnConfig.load();
-  await Notif.init();
   runApp(const BvnEmployeeApp());
 }
 
@@ -482,7 +478,6 @@ class _LoginPageState extends State<LoginPage> {
                   textCapitalization: TextCapitalization.characters,
                   decoration: const InputDecoration(
                     labelText: 'รหัสพนักงาน',
-                    hintText: 'เช่น BVN-0002',
                     prefixIcon: Icon(Icons.badge_outlined),
                   ),
                   onSubmitted: (_) => _submit(),
@@ -587,12 +582,6 @@ class _EmployeeShellState extends State<EmployeeShell>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _refresh();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (shouldCheckForApkUpdate(isWeb: kIsWeb)) {
-        final info = await checkForUpdate();
-        if (info != null && mounted) showUpdateDialog(context, info);
-      }
-    });
   }
 
   @override
@@ -669,23 +658,6 @@ class _EmployeeShellState extends State<EmployeeShell>
               ? 'อยู่ระหว่างงาน'
               : 'ยังไม่ได้ลงเวลาเข้างาน';
         });
-        final wd = '${profile['workdays'] ?? '1,2,3,4,5'}'
-            .split(',')
-            .map((e) => int.tryParse(e.trim()))
-            .whereType<int>()
-            .toSet();
-        if (RegExp(r'^\d{2}:\d{2}$').hasMatch(_shiftStart) &&
-            RegExp(r'^\d{2}:\d{2}$').hasMatch(_shiftEnd)) {
-          Notif.scheduleShift(
-            shiftStart: _shiftStart,
-            shiftEnd: _shiftEnd,
-            remindBefore: (profile['remindBeforeMin'] as num?)?.toInt() ?? 15,
-            remindAfter:
-                (profile['remindCheckoutAfterMin'] as num?)?.toInt() ?? 10,
-            workdays: wd,
-            checkedIn: _in != null,
-          );
-        }
       }
       // Contact/identity information is optional at account creation. Ask the
       // employee once, after the operational home has loaded, instead of
@@ -997,9 +969,10 @@ class _Today extends StatelessWidget {
     final hasSchedule =
         RegExp(r'^\d{2}:\d{2}$').hasMatch(shiftStart) &&
         RegExp(r'^\d{2}:\d{2}$').hasMatch(shiftEnd);
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
@@ -1182,14 +1155,11 @@ class _Today extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           if (locationRequired)
-            Expanded(
-              child: _CheckInMap(
-                token: token,
-                hasCompletedAttendance: hasFinished,
-              ),
-            )
-          else
-            const Spacer(),
+            OutlinedButton.icon(
+              onPressed: () => _openLocationMap(context, hasFinished),
+              icon: const Icon(Icons.location_on_outlined, size: 18),
+              label: const Text('ดูแผนที่และพื้นที่อนุญาต'),
+            ),
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
@@ -1233,6 +1203,43 @@ class _Today extends StatelessWidget {
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _openLocationMap(BuildContext context, bool hasFinished) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * .72,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'พื้นที่อนุญาตสำหรับเช็กอิน',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'ตรวจสอบตำแหน่งก่อนเช็กอินได้จากแผนที่นี้',
+                  style: TextStyle(fontSize: 13, color: kMuted),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: _CheckInMap(
+                    token: token,
+                    hasCompletedAttendance: hasFinished,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1349,8 +1356,8 @@ class _CheckInMapState extends State<_CheckInMap> {
 
   Future<void> _load() async {
     // Start the two slow operations together. The map can use cached sites
-    // while Android obtains a fresh GPS reading; neither should wait for the
-    // other on a normal check-in.
+    // while a mobile browser obtains a fresh GPS reading; neither should wait
+    // for the other on a normal check-in.
     final positionFuture = _position();
     final sitesFuture = BvnApi().sites(widget.token);
     final p = await positionFuture;
@@ -2901,102 +2908,6 @@ class _LeaveFormState extends State<_LeaveForm> {
   }
 }
 
-class _NotifStatusCard extends StatefulWidget {
-  const _NotifStatusCard();
-  @override
-  State<_NotifStatusCard> createState() => _NotifStatusCardState();
-}
-
-class _NotifStatusCardState extends State<_NotifStatusCard> {
-  bool? _enabled;
-  bool _busy = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _check();
-  }
-
-  Future<void> _check() async {
-    final on = await Notif.isEnabled();
-    if (mounted) setState(() => _enabled = on);
-  }
-
-  Future<void> _enable() async {
-    setState(() => _busy = true);
-    final ok = await Notif.requestPermission();
-    if (!mounted) return;
-    setState(() {
-      _enabled = ok;
-      _busy = false;
-    });
-    if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'เปิดสิทธิ์แจ้งเตือนไม่สำเร็จ · ไปที่ ตั้งค่า > แอป > การแจ้งเตือน เพื่อเปิดด้วยตนเอง',
-          ),
-        ),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final on = _enabled == true;
-    final color = on ? _greenDeep : _orange;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Row(
-          children: [
-            Icon(
-              on ? Icons.notifications_active : Icons.notifications_off,
-              color: color,
-              size: 22,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'การแจ้งเตือน',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _enabled == null
-                        ? 'กำลังตรวจสอบ…'
-                        : on
-                        ? 'เปิดอยู่ · เตือนก่อนเข้างานและเตือนให้เช็กเอาต์'
-                        : 'ปิดอยู่ · แอปจะไม่เตือนเช็กอิน/เช็กเอาต์',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (_enabled == false)
-              FilledButton(
-                onPressed: _busy ? null : _enable,
-                style: FilledButton.styleFrom(
-                  backgroundColor: _greenDeep,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                ),
-                child: Text(_busy ? '…' : 'เปิด'),
-              )
-            else if (on)
-              const Icon(Icons.check_circle, color: _greenDeep, size: 20),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class AccountScreen extends StatelessWidget {
   const AccountScreen({
     super.key,
@@ -3159,7 +3070,7 @@ class AccountScreen extends StatelessWidget {
           const SizedBox(height: 4),
           Center(
             child: Text(
-              'เวอร์ชัน $kAppVersionName',
+              'เวอร์ชัน $kPwaVersionName',
               style: const TextStyle(fontSize: 10.5, color: kMuted),
             ),
           ),

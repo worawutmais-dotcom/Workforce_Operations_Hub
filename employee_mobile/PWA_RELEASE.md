@@ -22,8 +22,7 @@ to preserve the PWA base path and its service-worker scope.
 - [ ] Browser calls to `swift-handler` pass from the final origin.
 - [ ] No server-side credential or Supabase service-role key is present in the
   web build.
-- [ ] Android APK update settings (`app_update_mandatory` and APK version
-  fields) remain unchanged.
+- [ ] No APK update prompt or download link is shown in the PWA.
 
 ## iPhone Safari UAT
 
@@ -37,7 +36,7 @@ to preserve the PWA base path and its service-worker scope.
 - [ ] With Location Services enabled, check in inside an allowed site radius.
 - [ ] Deny GPS once and confirm the app explains the recovery path without
   submitting a false attendance event.
-- [ ] Check out and confirm check-out follows the same policy as Android.
+- [ ] Check out and confirm the PWA records the same attendance policy.
 - [ ] Close and reopen the Home Screen app; confirm the employee session and
   month/history views load correctly.
 - [ ] Repeat with unstable network and confirm the user receives a recoverable

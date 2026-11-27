@@ -15,16 +15,13 @@ class _CountingClient extends http.BaseClient {
         : <String, dynamic>{};
     final action = requestBody['action'];
     final data = switch (action) {
-      'employee_directory' => <String, dynamic>{
-          'employees': [
-            <String, dynamic>{'employeeId': 'EMP-TEST', 'name': 'Test'},
-          ],
-        },
       'employee_profile' => <String, dynamic>{'name': 'Test'},
       _ => <String, dynamic>{},
     };
     return http.StreamedResponse(
-      Stream<List<int>>.value(utf8.encode(jsonEncode({'ok': true, 'data': data}))),
+      Stream<List<int>>.value(
+        utf8.encode(jsonEncode({'ok': true, 'data': data})),
+      ),
       200,
       request: request,
     );
@@ -32,18 +29,6 @@ class _CountingClient extends http.BaseClient {
 }
 
 void main() {
-  test('employee directory is served from the short-lived read cache', () async {
-    final client = _CountingClient();
-    final api = BvnApi(client: client);
-
-    final first = await api.employeeDirectory();
-    final second = await api.employeeDirectory();
-
-    expect(first.single['employeeId'], 'EMP-TEST');
-    expect(second.single['name'], 'Test');
-    expect(client.sends, 1);
-  });
-
   test('explicit refresh clears employee profile cache', () async {
     final client = _CountingClient();
     final api = BvnApi(client: client);

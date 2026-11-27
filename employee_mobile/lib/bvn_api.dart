@@ -3,8 +3,6 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
-import 'runtime_platform.dart';
-
 // Default backend = Supabase Edge Function. (Publishable key is public by
 // design — safe to bake in. The secret service_role key is never in the app.)
 const bvnApiUrl = String.fromEnvironment(
@@ -18,7 +16,7 @@ const bvnApiKey = String.fromEnvironment(
 );
 
 // Runtime-overridable endpoint + apikey (set in-app, persisted) so a changed
-// URL does NOT require rebuilding the APK. Falls back to the baked defaults.
+// URL does NOT require rebuilding the PWA. Falls back to the baked defaults.
 class BvnConfig {
   static const _storage = FlutterSecureStorage();
   static const _key = 'bvn_endpoint';
@@ -178,20 +176,9 @@ class BvnApi {
     return returnedId;
   }
 
-  Future<List<Map<String, dynamic>>> employeeDirectory() =>
-      _cached('employee-directory', const Duration(minutes: 5), () async {
-        final response = await post({'action': 'employee_directory'});
-        final rows = (response['data'] as Map<String, dynamic>?)?['employees'];
-        return rows is List
-            ? rows.whereType<Map<String, dynamic>>().toList()
-            : <Map<String, dynamic>>[];
-      });
-
   /// Public, non-sensitive branding. The app has an embedded PPP mark as a
   /// reliable fallback; this URL lets the owner update the visible logo later
-  /// from the Admin billing settings without issuing a new APK.
-  // Public app/backend version manifest. The APK binary itself lives on Drive
-  // (apkUrl); this only returns the small version metadata to compare against.
+  /// from the Admin billing settings without a new PWA deployment.
   Future<Map<String, dynamic>> version() async =>
       ((await post({'action': 'version'}))['data'] as Map<String, dynamic>?) ??
       <String, dynamic>{};
@@ -239,7 +226,7 @@ class BvnApi {
       'action': 'employee_login',
       'employeeId': employeeId,
       'password': password,
-      'deviceLabel': currentDeviceLabel,
+      'deviceLabel': 'PWA web',
     });
     final data = response['data'] as Map<String, dynamic>?;
     final id = data?['employeeId']?.toString() ?? '',

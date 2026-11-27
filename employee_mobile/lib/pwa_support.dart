@@ -8,8 +8,8 @@ bool shouldShowPwaInstallGuide({
 }) =>
     isIosWeb && !isStandalone && !isDismissed;
 
-/// The PWA preserves the Android policy: a required location is captured only
-/// for Check-in. Check-out does not start a location request by itself.
+/// A required location is captured only for Check-in. Check-out does not
+/// start a location request by itself.
 bool shouldRequestCheckInLocation({
   required bool locationRequired,
   required String eventType,
