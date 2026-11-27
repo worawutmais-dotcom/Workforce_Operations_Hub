@@ -8,10 +8,7 @@ void main() {
     expect(kInk, const Color(0xFF0F172A));
     expect(kMuted, const Color(0xFF475569));
     expect(bvnTheme(Brightness.light).scaffoldBackgroundColor, Colors.white);
-    expect(
-      bvnTheme(Brightness.light).textTheme.bodyMedium?.color,
-      kInk,
-    );
+    expect(bvnTheme(Brightness.light).textTheme.bodyMedium?.color, kInk);
   });
 
   test('uses the compact Operational Calm application chrome', () {
@@ -41,7 +38,10 @@ void main() {
     );
 
     expect(status.label, 'ต้องอัปเดตข้อมูล');
-    expect(status.detail, 'เพิ่มเลขบัตรประชาชนและเบอร์โทรเพื่อให้ผู้ดูแลตรวจสอบ');
+    expect(
+      status.detail,
+      'เพิ่มเลขบัตรประชาชนและเบอร์โทรเพื่อให้ผู้ดูแลตรวจสอบ',
+    );
     expect(status.requiresAction, isTrue);
     expect(status.locationPolicy, 'ลงเวลาตามพิกัดที่อนุญาต');
   });
@@ -70,43 +70,44 @@ void main() {
     expect(status.requiresAction, isFalse);
   });
 
-  testWidgets('renders the compact account without advance payments or scrolling', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(360, 800));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets(
+    'renders the compact account without advance payments or scrolling',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(360, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: AccountScreen(
-            token: 'test-token',
-            name: 'วราวุฒิ ม่วงสุวรรณ ชื่อทดสอบยาว',
-            id: 'BVN-0002',
-            role: 'พนักงานขายประจำสาขา',
-            locationRequired: true,
-            profileNeedsUpdate: true,
-            identityPending: false,
-            onLogout: () async {},
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AccountScreen(
+              token: 'test-token',
+              name: 'วราวุฒิ ม่วงสุวรรณ ชื่อทดสอบยาว',
+              id: 'BVN-0002',
+              role: 'พนักงานขายประจำสาขา',
+              locationRequired: true,
+              profileNeedsUpdate: true,
+              identityPending: false,
+              onLogout: () async {},
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    expect(find.text('ข้อมูลการทำงานของฉัน'), findsOneWidget);
-    expect(find.text('สถานะบัญชี'), findsOneWidget);
-    expect(find.text('ต้องอัปเดตข้อมูล'), findsOneWidget);
-    expect(
-      find.text('นโยบายการลงเวลา · ลงเวลาตามพิกัดที่อนุญาต'),
-      findsOneWidget,
-    );
-    expect(find.text('ข้อมูลส่วนตัว'), findsAtLeastNWidgets(1));
-    expect(find.text('เปลี่ยนรหัสผ่าน'), findsOneWidget);
-    expect(find.text('ออกจากระบบ'), findsOneWidget);
-    expect(find.text('ขอเบิกเงินล่วงหน้า'), findsNothing);
-    expect(find.byType(ListView), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.text('ข้อมูลการทำงานของฉัน'), findsOneWidget);
+      expect(find.text('สถานะบัญชี'), findsOneWidget);
+      expect(find.text('ต้องอัปเดตข้อมูล'), findsOneWidget);
+      expect(
+        find.text('นโยบายการลงเวลา · ลงเวลาตามพิกัดที่อนุญาต'),
+        findsOneWidget,
+      );
+      expect(find.text('ข้อมูลส่วนตัว'), findsAtLeastNWidgets(1));
+      expect(find.text('เปลี่ยนรหัสผ่าน'), findsOneWidget);
+      expect(find.text('ออกจากระบบ'), findsOneWidget);
+      expect(find.text('ขอเบิกเงินล่วงหน้า'), findsNothing);
+      expect(find.byType(ListView), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('uses a solid account identity surface instead of a gradient', (
     tester,
@@ -148,6 +149,18 @@ void main() {
     expect(find.text('BVN Package'), findsOneWidget);
     expect(find.text('ระบบลงเวลาพนักงาน'), findsOneWidget);
     expect(find.byType(LoginPage), findsOneWidget);
+  });
+
+  testWidgets('uses private employee ID entry instead of a name directory', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(home: LoginPage(onLogin: (_, _) async {})),
+    );
+
+    expect(find.text('รหัสพนักงาน'), findsOneWidget);
+    expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+    expect(find.text('โหลดรายชื่อใหม่'), findsNothing);
   });
 
   testWidgets('renders the PWA install guide and lets the user dismiss it', (

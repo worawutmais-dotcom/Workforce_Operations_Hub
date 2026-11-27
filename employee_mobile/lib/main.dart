@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'attendance_view_state.dart';
 import 'bvn_api.dart';
+import 'employee_login_validation.dart';
 import 'identity_validation.dart';
 import 'notif.dart';
 import 'pwa_runtime.dart';
@@ -381,44 +382,32 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  final _employeeId = TextEditingController();
   final _password = TextEditingController();
-  List<Map<String, dynamic>> _people = [];
-  String? _id, _error;
-  bool _hidden = true, _loading = true, _pwaGuideDismissed = false;
+  String? _error;
+  bool _hidden = true, _submitting = false, _pwaGuideDismissed = false;
 
   bool get _showPwaGuide => shouldShowPwaInstallGuide(
     isIosWeb: isIosPwaBrowser,
     isStandalone: isPwaStandalone,
     isDismissed: _pwaGuideDismissed,
   );
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      _people = await BvnApi().employeeDirectory();
-    } on BvnApiException catch (e) {
-      _error = e.message;
-    } catch (e) {
-      _error = 'โหลดรายชื่อไม่สำเร็จ: $e';
-    }
-    if (mounted) setState(() => _loading = false);
-  }
-
   Future<void> _submit() async {
-    if (_id == null || _password.text.trim().isEmpty) {
-      setState(() => _error = 'เลือกชื่อของคุณและกรอกรหัสผ่าน');
+    final employeeId = _employeeId.text.trim().toUpperCase();
+    final formError = employeeLoginError(
+      employeeId: employeeId,
+      password: _password.text,
+    );
+    if (formError != null) {
+      setState(() => _error = formError);
       return;
     }
     setState(() {
-      _loading = true;
+      _submitting = true;
       _error = null;
     });
     try {
-      final session = await BvnApi().login(_id!, _password.text.trim());
+      final session = await BvnApi().login(employeeId, _password.text.trim());
       await widget.onLogin(session.employeeId, session.mobileToken);
     } on BvnApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -427,12 +416,13 @@ class _LoginPageState extends State<LoginPage> {
         setState(() => _error = 'เชื่อมต่อระบบไม่สำเร็จ ลองใหม่อีกครั้ง');
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
   @override
   void dispose() {
+    _employeeId.dispose();
     _password.dispose();
     super.dispose();
   }
@@ -477,116 +467,84 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ],
                 const SizedBox(height: 30),
-                if (!_loading && _people.isEmpty)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          const Icon(Icons.person_search_outlined, size: 30),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'ไม่พบรายชื่อพนักงาน',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'ให้ผู้ดูแลสร้างและเปิดใช้งานบัญชีก่อน แล้วจึงลองโหลดรายชื่อใหม่',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else ...[
-                  DropdownButtonFormField<String>(
-                    initialValue: _id,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'ชื่อพนักงาน',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: _people
-                        .map(
-                          (p) => DropdownMenuItem(
-                            value: p['employeeId']?.toString(),
-                            child: Text('${p['name']} (${p['employeeId']})'),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: _loading
-                        ? null
-                        : (value) => setState(() => _id = value),
+                const Text(
+                  'กรอกรหัสพนักงานและรหัสผ่านของคุณ',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: kMuted),
+                ),
+                const SizedBox(height: 18),
+                TextField(
+                  controller: _employeeId,
+                  enabled: !_submitting,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(
+                    labelText: 'รหัสพนักงาน',
+                    hintText: 'เช่น BVN-0002',
+                    prefixIcon: Icon(Icons.badge_outlined),
                   ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: _password,
-                    obscureText: _hidden,
-                    keyboardType: TextInputType.text,
-                    decoration: InputDecoration(
-                      labelText: 'รหัสผ่าน',
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _hidden
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
+                  onSubmitted: (_) => _submit(),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _password,
+                  obscureText: _hidden,
+                  keyboardType: TextInputType.text,
+                  enabled: !_submitting,
+                  decoration: InputDecoration(
+                    labelText: 'รหัสผ่าน',
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _hidden
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
+                      onPressed: _submitting
+                          ? null
+                          : () => setState(() => _hidden = !_hidden),
+                    ),
+                  ),
+                  onSubmitted: (_) => _submit(),
+                ),
+                if (_error != null)
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: kDangerSoft,
+                      borderRadius: BorderRadius.circular(kRadiusSm),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.error_outline_rounded,
+                          size: 18,
+                          color: kDanger,
                         ),
-                        onPressed: () => setState(() => _hidden = !_hidden),
-                      ),
-                    ),
-                  ),
-                  if (_error != null)
-                    Container(
-                      margin: const EdgeInsets.only(top: 12),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: kDangerSoft,
-                        borderRadius: BorderRadius.circular(kRadiusSm),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.error_outline_rounded,
-                            size: 18,
-                            color: kDanger,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _error!,
-                              style: const TextStyle(
-                                color: kDanger,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _error!,
+                            style: const TextStyle(
+                              color: kDanger,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  const SizedBox(height: 22),
-                  FilledButton(
-                    onPressed: _loading || _people.isEmpty ? null : _submit,
-                    child: Text(_loading ? 'กำลังโหลด…' : 'เข้าสู่ระบบ'),
                   ),
-                  TextButton(
-                    onPressed: _loading
-                        ? null
-                        : () {
-                            setState(() {
-                              _loading = true;
-                              _error = null;
-                            });
-                            _load();
-                          },
-                    child: const Text('โหลดรายชื่อใหม่'),
+                const SizedBox(height: 22),
+                FilledButton(
+                  onPressed: _submitting ? null : _submit,
+                  child: Text(
+                    _submitting ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ',
                   ),
-                ],
+                ),
               ],
             ),
           ),
@@ -872,11 +830,7 @@ class _EmployeeShellState extends State<EmployeeShell>
       appBar: AppBar(
         title: Row(
           children: [
-            PppBrandMark(
-              size: 28,
-              logoUrl: widget.brandLogoUrl,
-              onDark: true,
-            ),
+            PppBrandMark(size: 28, logoUrl: widget.brandLogoUrl, onDark: true),
             const SizedBox(width: 9),
             Expanded(
               child: Text(widget.brandName, overflow: TextOverflow.ellipsis),
@@ -1747,10 +1701,7 @@ class _CheckInMapState extends State<_CheckInMap> {
 
 // Month calendar of attendance: color-coded days + one row per day with times.
 class _MonthCalendar extends StatefulWidget {
-  const _MonthCalendar({
-    required this.token,
-    required this.attendanceRevision,
-  });
+  const _MonthCalendar({required this.token, required this.attendanceRevision});
   final String token;
   final int attendanceRevision;
   @override
@@ -3087,23 +3038,70 @@ class AccountScreen extends StatelessWidget {
                 CircleAvatar(
                   radius: 21,
                   backgroundColor: Colors.white.withValues(alpha: .18),
-                  child: Text(displayName.isEmpty ? '?' : displayName[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+                  child: Text(
+                    displayName.isEmpty ? '?' : displayName[0].toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 11),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 2),
-                  Text('$displayRole · $id', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withValues(alpha: .84), fontSize: 11.5)),
-                ])),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$displayRole · $id',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: .84),
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 8),
-          Row(children: [
-            Expanded(child: _statusCard('สถานะบัญชี', 'ใช้งานอยู่', Icons.person_outline_rounded, const Color(0xFFE8F7EF), const Color(0xFF08764E))),
-            const SizedBox(width: 8),
-            Expanded(child: _statusCard('ข้อมูลส่วนตัว', status.label, status.icon, status.background, status.foreground)),
-          ]),
+          Row(
+            children: [
+              Expanded(
+                child: _statusCard(
+                  'สถานะบัญชี',
+                  'ใช้งานอยู่',
+                  Icons.person_outline_rounded,
+                  const Color(0xFFE8F7EF),
+                  const Color(0xFF08764E),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _statusCard(
+                  'ข้อมูลส่วนตัว',
+                  status.label,
+                  status.icon,
+                  status.background,
+                  status.foreground,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           _locationPolicy(status),
           if (status.requiresAction) ...[
@@ -3113,18 +3111,54 @@ class AccountScreen extends StatelessWidget {
           const SizedBox(height: 10),
           SoftCard(
             padding: EdgeInsets.zero,
-            child: Column(children: [
-              _accountTile(context, Icons.badge_outlined, 'ข้อมูลส่วนตัว', status.requiresAction ? 'กรอกข้อมูลเพื่อส่งให้ผู้ดูแลตรวจสอบ' : status.detail, () => _identityDialog(context)),
-              const Divider(height: 1, indent: 52),
-              _accountTile(context, Icons.lock_outline_rounded, 'เปลี่ยนรหัสผ่าน', 'ใช้รหัสผ่านเดิมเพื่อยืนยัน', () => _changePasswordDialog(context)),
-              const Divider(height: 1, indent: 52),
-              _accountTile(context, Icons.lock_reset_rounded, 'รีเซ็ตรหัสผ่าน', 'ขอให้ผู้ดูแลช่วยเมื่อเข้าไม่ได้', () => _requestResetDialog(context)),
-            ]),
+            child: Column(
+              children: [
+                _accountTile(
+                  context,
+                  Icons.badge_outlined,
+                  'ข้อมูลส่วนตัว',
+                  status.requiresAction
+                      ? 'กรอกข้อมูลเพื่อส่งให้ผู้ดูแลตรวจสอบ'
+                      : status.detail,
+                  () => _identityDialog(context),
+                ),
+                const Divider(height: 1, indent: 52),
+                _accountTile(
+                  context,
+                  Icons.lock_outline_rounded,
+                  'เปลี่ยนรหัสผ่าน',
+                  'ใช้รหัสผ่านเดิมเพื่อยืนยัน',
+                  () => _changePasswordDialog(context),
+                ),
+                const Divider(height: 1, indent: 52),
+                _accountTile(
+                  context,
+                  Icons.lock_reset_rounded,
+                  'รีเซ็ตรหัสผ่าน',
+                  'ขอให้ผู้ดูแลช่วยเมื่อเข้าไม่ได้',
+                  () => _requestResetDialog(context),
+                ),
+              ],
+            ),
           ),
           const Spacer(),
-          OutlinedButton.icon(onPressed: onLogout, style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(42), foregroundColor: kDanger, side: const BorderSide(color: Color(0xFFE6C3C3))), icon: const Icon(Icons.logout_rounded, size: 18), label: const Text('ออกจากระบบ')),
+          OutlinedButton.icon(
+            onPressed: onLogout,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(42),
+              foregroundColor: kDanger,
+              side: const BorderSide(color: Color(0xFFE6C3C3)),
+            ),
+            icon: const Icon(Icons.logout_rounded, size: 18),
+            label: const Text('ออกจากระบบ'),
+          ),
           const SizedBox(height: 4),
-          Center(child: Text('เวอร์ชัน $kAppVersionName', style: const TextStyle(fontSize: 10.5, color: kMuted))),
+          Center(
+            child: Text(
+              'เวอร์ชัน $kAppVersionName',
+              style: const TextStyle(fontSize: 10.5, color: kMuted),
+            ),
+          ),
         ],
       ),
     );
@@ -3132,32 +3166,105 @@ class AccountScreen extends StatelessWidget {
 
   Widget _locationPolicy(WorkIdentityStatus status) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-    decoration: BoxDecoration(color: kBrandSoft, borderRadius: BorderRadius.circular(kRadiusSm), border: Border.all(color: kHair)),
-    child: Row(children: [
-      Icon(locationRequired ? Icons.location_on_outlined : Icons.location_off_outlined, color: kBrandDeep, size: 18),
-      const SizedBox(width: 8),
-      Expanded(child: Text('นโยบายการลงเวลา · ${status.locationPolicy}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: kInk))),
-    ]),
-  );
-
-  Widget _identityAlert(BuildContext context, WorkIdentityStatus status) => InkWell(
-    onTap: () => _identityDialog(context),
-    borderRadius: BorderRadius.circular(kRadiusSm),
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-      decoration: BoxDecoration(color: status.background, borderRadius: BorderRadius.circular(kRadiusSm), border: Border.all(color: status.foreground.withValues(alpha: .25))),
-      child: Row(children: [Icon(Icons.info_outline_rounded, color: status.foreground, size: 18), const SizedBox(width: 8), Expanded(child: Text(status.detail, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: status.foreground, fontSize: 12, fontWeight: FontWeight.w600))), Icon(Icons.chevron_right_rounded, color: status.foreground)]),
+    decoration: BoxDecoration(
+      color: kBrandSoft,
+      borderRadius: BorderRadius.circular(kRadiusSm),
+      border: Border.all(color: kHair),
+    ),
+    child: Row(
+      children: [
+        Icon(
+          locationRequired
+              ? Icons.location_on_outlined
+              : Icons.location_off_outlined,
+          color: kBrandDeep,
+          size: 18,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            'นโยบายการลงเวลา · ${status.locationPolicy}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: kInk,
+            ),
+          ),
+        ),
+      ],
     ),
   );
 
-  Widget _statusCard(String title, String value, IconData icon, Color bg, Color fg) => Container(
+  Widget _identityAlert(BuildContext context, WorkIdentityStatus status) =>
+      InkWell(
+        onTap: () => _identityDialog(context),
+        borderRadius: BorderRadius.circular(kRadiusSm),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+          decoration: BoxDecoration(
+            color: status.background,
+            borderRadius: BorderRadius.circular(kRadiusSm),
+            border: Border.all(color: status.foreground.withValues(alpha: .25)),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                color: status.foreground,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  status.detail,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: status.foreground,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: status.foreground),
+            ],
+          ),
+        ),
+      );
+
+  Widget _statusCard(
+    String title,
+    String value,
+    IconData icon,
+    Color bg,
+    Color fg,
+  ) => Container(
     padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(kRadiusSm)),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Icon(icon, size: 18, color: fg), const SizedBox(height: 9),
-      Text(title, style: const TextStyle(fontSize: 11.5, color: kMuted)), const SizedBox(height: 2),
-      Text(value, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: fg, fontWeight: FontWeight.w800)),
-    ]),
+    decoration: BoxDecoration(
+      color: bg,
+      borderRadius: BorderRadius.circular(kRadiusSm),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: fg),
+        const SizedBox(height: 9),
+        Text(title, style: const TextStyle(fontSize: 11.5, color: kMuted)),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 13,
+            color: fg,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    ),
   );
 
   Widget _accountTile(
@@ -3186,7 +3293,12 @@ class AccountScreen extends StatelessWidget {
     ),
     subtitle: subtitle == null
         ? null
-        : Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: kMuted)),
+        : Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 11, color: kMuted),
+          ),
     trailing: const Icon(Icons.chevron_right_rounded, color: kMuted),
   );
 
@@ -3244,9 +3356,11 @@ class AccountScreen extends StatelessWidget {
                   maxLength: 13,
                   decoration: InputDecoration(
                     labelText: 'เลขบัตรประชาชน',
-                    helperText: '${state.nationalIdDigits}/13 · ${state.nationalIdHint}',
+                    helperText:
+                        '${state.nationalIdDigits}/13 · ${state.nationalIdHint}',
                     hintText:
-                        current['nationalIdLast4']?.toString().isNotEmpty == true
+                        current['nationalIdLast4']?.toString().isNotEmpty ==
+                            true
                         ? 'บันทึกแล้ว ••••${current['nationalIdLast4']}'
                         : '13 หลัก',
                   ),
