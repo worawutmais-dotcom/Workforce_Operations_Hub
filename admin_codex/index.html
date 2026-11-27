@@ -2724,41 +2724,103 @@ button,.btn{box-shadow:none!important;font-weight:500!important}
 #page-dashboard .cc-work .team-group.tg-done .team-group-head em{color:#2b5fb0}
 
 /* ============================================================
-   Requested tweaks (user): compact "สรุปงานวันนี้" tiles with a
-   readable hover, and a green sidebar shell to match the console.
-   Appended last so it wins the cascade over earlier layers.
+   PLAIN DESKTOP-APP THEME (user request): neutral grey/white chrome
+   like a standard Windows program. Color is reserved for STATUS only
+   (status pills, badges, summary-tile accents). Flat 1px borders,
+   small radius, no heavy gradients/shadows. Appended last so it wins
+   the cascade over earlier colored layers.
    ============================================================ */
-/* Summary tiles: smaller, and hover keeps a readable (darker) fill
-   instead of washing to white (an earlier .cc-stat:hover rule did). */
-#page-dashboard .cc-summary-tiles .cc-stat{min-height:74px!important;padding:11px 14px!important;border-radius:12px!important;box-shadow:0 6px 16px -12px rgba(15,40,64,.45)!important}
-#page-dashboard .cc-summary-tiles .cc-stat b{font-size:23px!important}
-#page-dashboard .cc-summary-tiles .cc-stat-l{font-size:10.5px!important}
-#page-dashboard .cc-summary-tiles .cc-stat small{font-size:9.5px!important;margin-top:3px!important}
-#page-dashboard .cc-summary-tiles .cc-stat-ic{width:26px!important;height:26px!important;right:11px;top:11px;border-radius:7px!important}
-#page-dashboard .cc-summary-tiles .cc-stat-ic svg{width:15px!important;height:15px!important}
-#page-dashboard .cc-summary-tiles .cc-stat:after{width:76px;height:76px;right:-20px;bottom:-28px;border-width:13px}
-#page-dashboard .cc-summary-tiles .cc-stat:hover{transform:translateY(-2px)!important;box-shadow:0 12px 24px -10px rgba(15,40,64,.5)!important;filter:none!important}
-#page-dashboard .cc-summary-tiles .s-blue:hover{background:var(--c-teal-700)!important}
-#page-dashboard .cc-summary-tiles .s-amber:hover{background:var(--c-amber-700)!important}
-#page-dashboard .cc-summary-tiles .s-rose:hover{background:var(--c-red-700)!important}
-#page-dashboard .cc-summary-tiles .s-green:hover{background:var(--c-green)!important}
-#page-dashboard .cc-summary-tiles .s-indigo:hover{background:#4038c8!important}
+:root:not([data-theme="dark"]){
+  --app-bg:#eceef1;         /* window background */
+  --app-panel:#ffffff;      /* cards/panels */
+  --app-line:#cfd3d8;       /* program-style hairline border */
+  --app-line-soft:#e2e5e9;
+  --app-ink:#1f2328;        /* primary text */
+  --app-muted:#5c636d;      /* secondary text */
+  --app-head:#f4f5f7;       /* header/strip fill */
+  --app-side:#f4f5f6;       /* sidebar fill */
+  --app-accent:#2f6fb0;     /* subtle interactive accent (not brand green) */
+}
 
-/* Sidebar: green shell (navy -> green) to match the console accent. */
-:root:not([data-theme="dark"]) .side{background:linear-gradient(180deg,#128a4f 0%,#0b5f36 100%)!important;border-right:1px solid #0a4f2d!important}
-:root:not([data-theme="dark"]) .side .brand{background:#0b5f36!important;border-bottom:1px solid rgba(255,255,255,.18)!important;color:#fff!important;min-height:68px!important;padding:14px 16px!important}
-:root:not([data-theme="dark"]) .side .brand small{color:rgba(255,255,255,.74)!important}
-:root:not([data-theme="dark"]) .side .brand::before{background:#fff!important;color:#0f7a46!important;box-shadow:0 2px 6px rgba(7,40,22,.3)!important}
-:root:not([data-theme="dark"]) .nav-section{color:#c3e7d2!important}
-:root:not([data-theme="dark"]) .nav button{color:#e6f5ec!important}
-:root:not([data-theme="dark"]) .nav button:hover{background:rgba(255,255,255,.13)!important;color:#fff!important}
-:root:not([data-theme="dark"]) .nav button.active{background:#fff!important;color:#0f7a46!important;box-shadow:inset 3px 0 0 #7fdcab!important;font-weight:600!important}
-:root:not([data-theme="dark"]) .nav button.active *{color:#0f7a46!important}
-:root:not([data-theme="dark"]) .nav button.active .pill{background:#0f7a46!important;color:#fff!important}
-:root:not([data-theme="dark"]) .nav .pill{background:#d79b20!important;color:#fff!important}
-:root:not([data-theme="dark"]) .side .foot{border-top-color:rgba(255,255,255,.17)!important;color:rgba(255,255,255,.72)!important}
-:root:not([data-theme="dark"]) .side .foot b{color:#fff!important}
-:root:not([data-theme="dark"]) .side .foot a{color:#ffe1a6!important}
+/* ---- App shell ---- */
+:root:not([data-theme="dark"]) body,
+:root:not([data-theme="dark"]) .app{background:var(--app-bg)!important}
+
+/* Sidebar: light grey, dark text, thin right border. No brand::before override
+   (so the company logo image stays intact). */
+:root:not([data-theme="dark"]) .side{background:var(--app-side)!important;border-right:1px solid var(--app-line)!important;box-shadow:none!important}
+:root:not([data-theme="dark"]) .side .brand{background:var(--app-head)!important;border-bottom:1px solid var(--app-line)!important;color:var(--app-ink)!important;min-height:60px!important}
+:root:not([data-theme="dark"]) .side .brand small{color:var(--app-muted)!important}
+:root:not([data-theme="dark"]) .nav-section{color:var(--app-muted)!important}
+:root:not([data-theme="dark"]) .nav button{color:var(--app-ink)!important;border-radius:4px!important}
+:root:not([data-theme="dark"]) .nav button:hover{background:#e4e7eb!important;color:var(--app-ink)!important}
+:root:not([data-theme="dark"]) .nav button.active{background:#dfe8f3!important;color:#1f2328!important;box-shadow:inset 3px 0 0 var(--app-accent)!important;font-weight:600!important}
+:root:not([data-theme="dark"]) .nav button.active *{color:#1f2328!important}
+:root:not([data-theme="dark"]) .side .foot{border-top-color:var(--app-line)!important;color:var(--app-muted)!important}
+:root:not([data-theme="dark"]) .side .foot b{color:var(--app-ink)!important}
+:root:not([data-theme="dark"]) .side .foot a{color:var(--app-accent)!important}
+
+/* ---- Topbar ---- */
+:root:not([data-theme="dark"]) .topbar{background:var(--app-head)!important;border-bottom:1px solid var(--app-line)!important;box-shadow:none!important}
+
+/* ---- Panels / cards: flat white boxes, hairline border, tiny radius ---- */
+:root:not([data-theme="dark"]) .panel,
+:root:not([data-theme="dark"]) .card,
+:root:not([data-theme="dark"]) .cc-command-bar,
+:root:not([data-theme="dark"]) .cc-hero,
+:root:not([data-theme="dark"]) .cc-left-stack,
+:root:not([data-theme="dark"]) .team-register{
+  background:var(--app-panel)!important;
+  border:1px solid var(--app-line)!important;
+  border-radius:4px!important;
+  box-shadow:none!important;
+}
+:root:not([data-theme="dark"]) .panel-head,
+:root:not([data-theme="dark"]) .card-head{background:var(--app-head)!important;border-bottom:1px solid var(--app-line-soft)!important}
+
+/* ---- Buttons: native program look ---- */
+:root:not([data-theme="dark"]) .btn,
+:root:not([data-theme="dark"]) button.btn{border-radius:4px!important;box-shadow:none!important}
+:root:not([data-theme="dark"]) .btn.secondary,
+:root:not([data-theme="dark"]) .btn.ghost{background:#f7f8fa!important;border:1px solid var(--app-line)!important;color:var(--app-ink)!important}
+:root:not([data-theme="dark"]) .btn.secondary:hover,
+:root:not([data-theme="dark"]) .btn.ghost:hover{background:#eef0f3!important}
+
+/* ---- Tables: crisp grid lines, grey header strip ---- */
+:root:not([data-theme="dark"]) table thead th{background:var(--app-head)!important;color:var(--app-muted)!important;border-bottom:1px solid var(--app-line)!important}
+:root:not([data-theme="dark"]) table td,
+:root:not([data-theme="dark"]) table th{border-color:var(--app-line-soft)!important}
+:root:not([data-theme="dark"]) table tbody tr:hover{background:#f4f6f8!important}
+
+/* ---- Summary tiles: white boxes, status-colored LEFT accent + number.
+   Neutralize the vivid gradient fills but KEEP color as a status signal. */
+#page-dashboard .cc-summary-tiles .cc-stat{
+  background:var(--app-panel)!important;
+  border:1px solid var(--app-line)!important;
+  border-left-width:4px!important;
+  border-radius:4px!important;
+  box-shadow:none!important;
+  color:var(--app-ink)!important;
+  min-height:72px!important;padding:11px 14px!important;
+}
+#page-dashboard .cc-summary-tiles .cc-stat:after{display:none!important}
+#page-dashboard .cc-summary-tiles .cc-stat:hover{transform:none!important;box-shadow:none!important;background:#f7f9fb!important;filter:none!important}
+#page-dashboard .cc-summary-tiles .cc-stat b{font-size:23px!important;color:var(--app-ink)!important}
+#page-dashboard .cc-summary-tiles .cc-stat-l{font-size:10.5px!important;color:var(--app-muted)!important}
+#page-dashboard .cc-summary-tiles .cc-stat small{font-size:9.5px!important;margin-top:3px!important;color:var(--app-muted)!important}
+#page-dashboard .cc-summary-tiles .cc-stat-ic{background:transparent!important;box-shadow:none!important;width:26px!important;height:26px!important;right:11px;top:11px}
+/* status accent per tile */
+#page-dashboard .cc-summary-tiles .s-blue{border-left-color:#2f6fb0!important}
+#page-dashboard .cc-summary-tiles .s-blue b,#page-dashboard .cc-summary-tiles .s-blue .cc-stat-ic{color:#2f6fb0!important}
+#page-dashboard .cc-summary-tiles .s-amber{border-left-color:#c77c0a!important}
+#page-dashboard .cc-summary-tiles .s-amber b,#page-dashboard .cc-summary-tiles .s-amber .cc-stat-ic{color:#c77c0a!important}
+#page-dashboard .cc-summary-tiles .s-rose{border-left-color:#c23a4b!important}
+#page-dashboard .cc-summary-tiles .s-rose b,#page-dashboard .cc-summary-tiles .s-rose .cc-stat-ic{color:#c23a4b!important}
+#page-dashboard .cc-summary-tiles .s-green{border-left-color:#1f8a52!important}
+#page-dashboard .cc-summary-tiles .s-green b,#page-dashboard .cc-summary-tiles .s-green .cc-stat-ic{color:#1f8a52!important}
+#page-dashboard .cc-summary-tiles .s-indigo{border-left-color:#4b47b8!important}
+#page-dashboard .cc-summary-tiles .s-indigo b,#page-dashboard .cc-summary-tiles .s-indigo .cc-stat-ic{color:#4b47b8!important}
+/* status pills & group headers keep their colors (defined earlier) — do not touch */
 </style>
 </head>
 <body>
