@@ -3,11 +3,14 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
+import 'runtime_platform.dart';
+
 // Default backend = Supabase Edge Function. (Publishable key is public by
 // design — safe to bake in. The secret service_role key is never in the app.)
 const bvnApiUrl = String.fromEnvironment(
   'BVN_API_URL',
-  defaultValue: 'https://vqualksnbctfukcbxqdd.supabase.co/functions/v1/swift-handler',
+  defaultValue:
+      'https://vqualksnbctfukcbxqdd.supabase.co/functions/v1/swift-handler',
 );
 const bvnApiKey = String.fromEnvironment(
   'BVN_API_KEY',
@@ -236,7 +239,7 @@ class BvnApi {
       'action': 'employee_login',
       'employeeId': employeeId,
       'password': password,
-      'deviceLabel': 'Android app',
+      'deviceLabel': currentDeviceLabel,
     });
     final data = response['data'] as Map<String, dynamic>?;
     final id = data?['employeeId']?.toString() ?? '',

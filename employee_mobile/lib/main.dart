@@ -1,6 +1,7 @@
 // Account-tab actions guard context use via a context.mounted check inside _snack.
 // ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -12,6 +13,7 @@ import 'identity_validation.dart';
 import 'notif.dart';
 import 'pwa_runtime.dart';
 import 'pwa_support.dart';
+import 'runtime_platform.dart';
 import 'theme.dart';
 import 'update.dart';
 
@@ -586,8 +588,10 @@ class _EmployeeShellState extends State<EmployeeShell>
     WidgetsBinding.instance.addObserver(this);
     _refresh();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final info = await checkForUpdate();
-      if (info != null && mounted) showUpdateDialog(context, info);
+      if (shouldCheckForApkUpdate(isWeb: kIsWeb)) {
+        final info = await checkForUpdate();
+        if (info != null && mounted) showUpdateDialog(context, info);
+      }
     });
   }
 
