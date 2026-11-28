@@ -41,6 +41,8 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <script src="flutter_bootstrap.js" async></script>
+  <!-- Version the bootstrap URL so an installed PWA cannot reuse a stale
+       cached loader after a GitHub Pages deployment. Bump with every release. -->
+  <script src="flutter_bootstrap.js?v=1.0.19" async></script>
 </body>
 </html>
