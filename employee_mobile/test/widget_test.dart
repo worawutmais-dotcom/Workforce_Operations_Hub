@@ -165,9 +165,7 @@ void main() {
     expect(find.text('โหลดรายชื่อใหม่'), findsNothing);
   });
 
-  testWidgets('keeps the location map behind an explicit Today action', (
-    tester,
-  ) async {
+  testWidgets('keeps the location map visible on Today', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: EmployeeShell(
@@ -180,8 +178,9 @@ void main() {
       ),
     );
 
-    expect(find.text('ดูแผนที่และพื้นที่อนุญาต'), findsOneWidget);
-    expect(find.byType(FlutterMap), findsNothing);
+    expect(find.text('ยืนยันพื้นที่เช็กอิน'), findsOneWidget);
+    expect(find.byType(FlutterMap), findsOneWidget);
+    expect(find.text('ดูแผนที่และพื้นที่อนุญาต'), findsNothing);
   });
 
   testWidgets('renders the PWA install guide and lets the user dismiss it', (

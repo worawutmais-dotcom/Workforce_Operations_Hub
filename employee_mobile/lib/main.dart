@@ -780,7 +780,6 @@ class _EmployeeShellState extends State<EmployeeShell>
         shiftEnd: _shiftEnd,
         busy: _busy,
         token: widget.token,
-        locationRequired: _locationRequired,
         onIn: () => _attendance('check_in'),
         onOut: () => _attendance('check_out'),
         onRefresh: () => _refresh(force: true),
@@ -878,14 +877,13 @@ class _Today extends StatelessWidget {
     required this.shiftEnd,
     required this.busy,
     required this.token,
-    required this.locationRequired,
     required this.onIn,
     required this.onOut,
     required this.onRefresh,
   });
   final String name, role, status, token, shiftStart, shiftEnd;
   final String? checkIn, checkOut;
-  final bool busy, locationRequired;
+  final bool busy;
   final Future<void> Function() onIn, onOut, onRefresh;
 
   String _initials() {
@@ -1153,14 +1151,15 @@ class _Today extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          if (locationRequired)
-            OutlinedButton.icon(
-              onPressed: () => _openLocationMap(context, hasFinished),
-              icon: const Icon(Icons.location_on_outlined, size: 18),
-              label: const Text('ดูแผนที่และพื้นที่อนุญาต'),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 228,
+            child: _CheckInMap(
+              token: token,
+              hasCompletedAttendance: hasFinished,
             ),
-          const SizedBox(height: 8),
+          ),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             height: 48,
@@ -1203,43 +1202,6 @@ class _Today extends StatelessWidget {
                   ),
           ),
         ],
-      ),
-    );
-  }
-
-  void _openLocationMap(BuildContext context, bool hasFinished) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * .72,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'พื้นที่อนุญาตสำหรับเช็กอิน',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'ตรวจสอบตำแหน่งก่อนเช็กอินได้จากแผนที่นี้',
-                  style: TextStyle(fontSize: 13, color: kMuted),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: _CheckInMap(
-                    token: token,
-                    hasCompletedAttendance: hasFinished,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -1355,19 +1317,28 @@ class _CheckInMapState extends State<_CheckInMap> {
   }
 
   Future<void> _load() async {
+    Future<(List<Map<String, dynamic>>, String?)> loadSitesSafely() async {
+      try {
+        return (await BvnApi().sites(widget.token), null);
+      } catch (error) {
+        return (
+          <Map<String, dynamic>>[],
+          error.toString().replaceFirst('Exception: ', ''),
+        );
+      }
+    }
+
     // Start the two slow operations together. The map can use cached sites
     // while a mobile browser obtains a fresh GPS reading; neither should wait
     // for the other on a normal check-in.
     final positionFuture = _position();
-    final sitesFuture = BvnApi().sites(widget.token);
+    // Handle an early sites failure inside its own future. With a persistent
+    // map, the request can fail before the browser resolves GPS permission.
+    final sitesFuture = loadSitesSafely();
     final p = await positionFuture;
-    List<Map<String, dynamic>> sites = [];
-    String? sitesError;
-    try {
-      sites = await sitesFuture;
-    } catch (e) {
-      sitesError = e.toString().replaceFirst('Exception: ', '');
-    }
+    final sitesLoad = await sitesFuture;
+    final sites = sitesLoad.$1;
+    final sitesError = sitesLoad.$2;
     try {
       final me = p == null ? null : LatLng(p.latitude, p.longitude);
       String msg;
