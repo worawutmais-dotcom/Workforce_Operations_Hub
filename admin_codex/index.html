@@ -6120,6 +6120,11 @@ async function loadPersonMonth(){
       api("admin_list_holidays").catch(()=>({holidays:[]}))
     ]);
     const days=att.days||[], lines=pay.lines||[], settings=setRes.settings||{};
+    // Worked hours must exclude the lunch break (payroll already nets it out).
+    // The API returns the raw check-in→out span, so deduct lunch here so the
+    // "ชม." column, OT tint and totals all match the paid hours.
+    const lunchMin=Math.max(0,Number(settings.lunch_break_min||60));
+    days.forEach(d=>{ const w=Number(d.workedMinutes||0); if(w>0) d.workedMinutes=Math.max(0, w-lunchMin); });
     const workdays=String(settings.workdays||"1,2,3,4,5").split(",").filter(x=>x!=="").map(Number);
     const shiftLabel=settings.shift_start||"09:00", graceMin=Number(settings.shift_grace_min||5);
     const shiftMin=pmHM(shiftLabel)+graceMin;
