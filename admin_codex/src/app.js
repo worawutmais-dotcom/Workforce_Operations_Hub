@@ -1490,7 +1490,7 @@ async function employeeOnboardingDialog(){
     body.append(field("ชื่อ-นามสกุล",`<input id="obName" type="text" value="${esc(draft.name)}" autocomplete="name" required>`));
     const identity=el(`<div class="grid2"></div>`); identity.append(field("เลขบัตรประชาชน (ถ้ามี)",`<input id="obNationalId" type="text" inputmode="numeric" maxlength="17" value="${esc(draft.nationalId)}" placeholder="13 หลัก">`,"เว้นไว้ก่อนได้ แล้วค่อยให้พนักงานยืนยันใน APK"),field("เบอร์โทรศัพท์ (ถ้ามี)",`<input id="obPhone" type="tel" maxlength="20" value="${esc(draft.phone)}" placeholder="เช่น 0812345678">`)); body.append(identity);
     const grid=el(`<div class="grid2"></div>`); grid.append(field("ตำแหน่ง",`<input id="obRole" type="text" value="${esc(draft.role)}">`),field("แผนก",`<input id="obDept" type="text" value="${esc(draft.department)}">`)); body.append(grid);
-    body.append(el(`<div class="notice blue">จุดเช็กอินเป็นนโยบายของบริษัท จัดการได้ในเมนู “เวลาทำงาน” และใช้กับพนักงานทุกคนที่เปิดบังคับ GPS</div>`));
+    body.append(el(`<div class="notice blue">จุดเช็กอินเป็นนโยบายของบริษัท จัดการได้ที่หน้า “ตั้งค่า” และใช้กับพนักงานทุกคนที่เปิดบังคับ GPS</div>`));
     body.append(field("รหัสผ่านเริ่มต้น",`<input id="obPass" type="text" value="${esc(draft.password)}" autocomplete="new-password" placeholder="เว้นว่างให้ระบบสุ่ม">`,`แจ้ง Employee ID และรหัสนี้ให้พนักงานเพื่อเข้า APK`));
     body.append(el(`<label class="check"><input type="checkbox" id="obLoc" ${draft.locationRequired?"checked":""}> บังคับ GPS ตอนเช็กอิน</label>`));
     const cancel=el(`<button class="btn sub">ยกเลิก</button>`); cancel.onclick=closeModal;
@@ -1566,7 +1566,7 @@ function employeeDialog(emp){
     field("เบอร์โทรศัพท์", `<input id="fPhone" type="tel" maxlength="20" value="${esc(emp?.phone||"")}" placeholder="เช่น 0812345678">`),
   );
   body.append(identity);
-  body.append(el(`<div class="notice blue">จุดเช็กอินจัดการรวมที่เมนู “เวลาทำงาน” ไม่ต้องกำหนดรายพนักงาน</div>`));
+  body.append(el(`<div class="notice blue">จุดเช็กอินจัดการรวมที่หน้า “ตั้งค่า” ไม่ต้องกำหนดรายพนักงาน</div>`));
   body.append(field(isEdit?"รหัสผ่าน":"รหัสผ่านเริ่มต้น (ถ้าต้องการ)", `<input id="fPw" type="text" value="${esc(emp?.password||"")}" autocomplete="new-password" placeholder="${isEdit?"เว้นว่าง = ไม่เปลี่ยนรหัส":"เว้นว่าง = ระบบสุ่มให้"}">`,
     isEdit?"โหมดใช้งานง่าย: รหัสผ่านที่เก็บใน Google Sheet แสดงได้และแก้ไขได้ที่นี่":"ระบบจะแสดงรหัสที่สุ่มให้และบันทึกเป็นข้อความปกติใน Google Sheet"));
   const chk=el(`<label class="check"><input type="checkbox" id="fLoc" ${(!emp||emp.locationRequired)?"checked":""}> บังคับ GPS ตอนเช็กอิน</label>`);
@@ -3643,6 +3643,8 @@ async function renderSettings(){
     <div class="panel"><div class="head"><h2>กะงานและเวลา</h2><div class="spacer"></div><button class="btn sub sm" id="editWorkRules">แก้ไข</button></div>
       <div class="body" id="workRulesSummary"><div class="empty">กำลังโหลดการตั้งค่าเวลาทำงาน…</div></div>
     </div></section>
+    <div class="setting-group-label">จุดเช็กอินที่อนุญาต</div>
+    <section class="panel site-policy" aria-label="จุดเช็กอินที่อนุญาต"><div class="head"><div><b>จุดเช็กอินที่อนุญาต</b><span class="sub" style="margin-left:8px">นโยบายพื้นที่สำหรับการเช็กอิน</span></div><div class="spacer"></div><button class="btn ok sm" id="siteAddBtn">เพิ่มจุด</button></div><div class="site-policy-note">พนักงานเช็กอินได้เมื่ออยู่ในรัศมีของจุดที่เปิดใช้งาน · เช็กเอาต์ได้ทุกพื้นที่</div><div class="body flush"><table id="siteTable"><thead><tr><th>พื้นที่</th><th class="num">รัศมี</th><th>สถานะ</th><th data-nosort></th></tr></thead><tbody id="siteRows"><tr><td colspan="4"><div class="empty">กำลังโหลดจุดเช็กอิน…</div></td></tr></tbody></table></div></section>
     </div>
     <div class="set-tab" data-tabpanel="admins">
     <details class="panel settings-fold" open><summary><span><b>บัญชีผู้ดูแลระบบ</b><small>จัดการผู้เข้าถึงและสิทธิ์การใช้งาน</small></span><span aria-hidden="true">⌄</span></summary><div class="body settings-fold-toolbar"><button class="btn ok sm" id="addAdmin">เพิ่มบัญชี</button></div>
@@ -3709,6 +3711,8 @@ async function renderSettings(){
     const k=(($("#setApikey")&&$("#setApikey").value)||"").trim();
     state.endpoint=v; state.apikey=k; LS.setItem("bvn_endpoint", v); LS.setItem("bvn_apikey", k); clearApiReadCache(); syncBackendBadge(); toast("บันทึกการเชื่อมต่อแล้ว","good"); };
   $("#addAdmin").onclick=()=>adminUserDialog(null);
+  // Check-in sites are a company-wide policy — manage them here in Settings.
+  if($("#siteAddBtn")){ $("#siteAddBtn").onclick=()=>siteDialog(null); loadSites(); }
   const openDocumentIdentity=()=>invoiceSettingsDialog();
   const openWorkRules=async()=>{
     try{ const d=await api("admin_get_settings"); workScheduleDialog(d.settings||{}); }
