@@ -2895,7 +2895,7 @@ function pmRenderDetail(){
   const isTable=pmDetailView==="table";
   const toggle=`<span class="pm-view-toggle" role="group" aria-label="สลับมุมมอง"><button type="button" data-pmview="calendar" class="${isTable?"":"active"}">ปฏิทิน</button><button type="button" data-pmview="table" class="${isTable?"active":""}">ตาราง</button></span>`;
   const bodyView=isTable
-    ? `<div class="pm-ts-table-wrap"><table class="pm-ts-table"><thead><tr><th>วันที่</th><th>สถานะ</th><th>เวลาเข้า</th><th>เวลาออก</th><th class="num">ชม.</th><th></th></tr></thead><tbody>${tableRows}</tbody></table></div>`
+    ? `${canEdit?`<div class="pm-ts-toolbar"><button id="pmSaveAll" class="btn sm" type="button" disabled>บันทึกทั้งหมด</button><span class="pm-ts-dirty" id="pmDirtyCount">ยังไม่มีการแก้ไข</span></div>`:""}<div class="pm-ts-table-wrap"><table class="pm-ts-table"><thead><tr><th>วันที่</th><th>สถานะ</th><th>เวลาเข้า</th><th>เวลาออก</th><th class="num">ชม.</th><th></th></tr></thead><tbody>${tableRows}</tbody></table></div>`
     : `<div class="pm-recent-days">${days}</div>`;
   const hint=canEdit?(isTable?"แก้เวลาในช่องแล้วกดบันทึก · เว้นว่างแล้วบันทึกเพื่อลบ":"คลิกวันเพื่อแก้ไข/ลบเวลา"):"คลิกวันเพื่อดูรายละเอียด";
   host.innerHTML=`<div class="pm-detail-head"><div class="pm-av">${esc((m.e.name||m.e.id).slice(0,2))}</div><div><b>${esc(m.e.name||m.e.id)}</b><span>${esc(m.e.id)}${m.e.role?` · ${esc(m.e.role)}`:""}</span></div><div class="pm-detail-total"><small>ประมาณการงวดนี้</small><b>${fmtBaht(net)}</b></div><button class="btn sub sm" id="pmPrintTs" type="button">พิมพ์</button><button class="btn sm" id="pmIssueSlip" type="button">ออกสลิป</button></div>
@@ -2921,6 +2921,30 @@ function pmRenderDetail(){
       const row=btn.closest(".pm-ts-row"), iso=row.dataset.iso;
       if(!await confirmDialog("ลบเวลา",`ลบเวลาเข้า–ออกของ <b>${esc(m.e.name||m.e.id)}</b> วันที่ <b>${fmtDate(iso)}</b>?<br><span class="sub">เก็บประวัติเดิมไว้เพื่อ audit</span>`,{danger:true,okText:"ลบ"})) return;
       await withBtn(btn,async()=>{ try{ if(row.dataset.oin) await setT(iso,"check_in",""); if(row.dataset.oout) await setT(iso,"check_out",""); toast("ลบเวลาแล้ว","good"); loadPersonMonth(); renderDashboard(); }catch(e){ toast(e.message,"bad"); } });
+    });
+    // "บันทึกทั้งหมด": collect every row whose times changed and save them in one pass.
+    const saveAll=host.querySelector("#pmSaveAll"), dirtyLbl=host.querySelector("#pmDirtyCount");
+    const changedRows=()=>[...host.querySelectorAll(".pm-ts-row")].filter(row=>{
+      const nIn=row.querySelector(".pm-ts-in")?.value||"", nOut=row.querySelector(".pm-ts-out")?.value||"";
+      return nIn!==(row.dataset.oin||"")||nOut!==(row.dataset.oout||"");
+    });
+    const syncDirty=()=>{ const n=changedRows().length; if(saveAll) saveAll.disabled=!n; if(dirtyLbl) dirtyLbl.textContent=n?`แก้ไข ${fmtInt(n)} วัน · ยังไม่บันทึก`:"ยังไม่มีการแก้ไข"; };
+    host.querySelectorAll(".pm-ts-in,.pm-ts-out").forEach(inp=>inp.addEventListener("input",syncDirty));
+    syncDirty();
+    if(saveAll) saveAll.onclick=()=>withBtn(saveAll,async()=>{
+      const rows=changedRows();
+      if(!rows.length){ toast("ไม่มีการเปลี่ยนแปลง","bad"); return; }
+      const tasks=[];
+      for(const row of rows){
+        const iso=row.dataset.iso, nIn=row.querySelector(".pm-ts-in").value||"", nOut=row.querySelector(".pm-ts-out").value||"";
+        if(nIn&&nOut&&pmHM(nOut)<=pmHM(nIn)){ toast(`${fmtDate(iso)}: เวลาออกต้องหลังเวลาเข้า`,"bad"); return; }
+        if(nIn!==(row.dataset.oin||"")) tasks.push([iso,"check_in",nIn]);
+        if(nOut!==(row.dataset.oout||"")) tasks.push([iso,"check_out",nOut]);
+      }
+      let ok=0, fail=0;
+      for(const [iso,f,t] of tasks){ try{ await setT(iso,f,t); ok++; }catch(_){ fail++; } }
+      toast(fail?`บันทึก ${fmtInt(ok)} รายการ · ไม่สำเร็จ ${fmtInt(fail)}`:`บันทึกทั้งหมดแล้ว (${fmtInt(rows.length)} วัน)`, fail?"bad":"good");
+      loadPersonMonth(); renderDashboard();
     });
   }
   const pb=host.querySelector("#pmPrintTs");
