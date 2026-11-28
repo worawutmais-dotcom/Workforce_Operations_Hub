@@ -3020,6 +3020,32 @@ button,.btn{box-shadow:none!important;font-weight:500!important}
 :root:not([data-theme="dark"]) #page-dashboard .team-cal-day .tcd-bar{display:none!important}
 :root:not([data-theme="dark"]) #page-dashboard .team-cal-day .tcd-chip:not(.s-leave){display:none!important}
 :root:not([data-theme="dark"]) #page-dashboard .team-cal-day .tcd-foot{gap:3px!important;margin-top:4px!important}
+
+/* ============================================================
+   PROFESSIONAL POLISH — cross-page consistency
+   Neutralize the last vivid gradient cards (Payroll summary) so every
+   page shares the same flat white + status-accent ledger look.
+   ============================================================ */
+:root:not([data-theme="dark"]) #page-payroll .payroll-summary .payroll-metric{
+  background:#fff!important;border:1px solid var(--c-line)!important;border-left:3px solid var(--c-line)!important;
+  border-radius:2px!important;color:var(--c-ink)!important;box-shadow:none!important;min-height:0!important;
+  padding:11px 14px!important;transition:background .12s ease!important}
+:root:not([data-theme="dark"]) #page-payroll .payroll-summary .payroll-metric:hover{transform:none!important;box-shadow:none!important;background:#f7f9fb!important}
+:root:not([data-theme="dark"]) #page-payroll .payroll-summary .payroll-metric:after{display:none!important}
+:root:not([data-theme="dark"]) #page-payroll .payroll-summary .payroll-metric span,
+:root:not([data-theme="dark"]) #page-payroll .payroll-summary .payroll-metric em{color:var(--c-muted)!important}
+:root:not([data-theme="dark"]) #page-payroll .payroll-summary .payroll-metric b{color:var(--c-ink)!important;font-size:21px!important;margin-top:4px!important}
+:root:not([data-theme="dark"]) #page-payroll .payroll-summary .payroll-metric:nth-child(1){border-left-color:#0f6e56!important}
+:root:not([data-theme="dark"]) #page-payroll .payroll-summary .payroll-metric:nth-child(1) b{color:#0f6e56!important}
+:root:not([data-theme="dark"]) #page-payroll .payroll-summary .payroll-metric:nth-child(2){border-left-color:#4b47b8!important}
+:root:not([data-theme="dark"]) #page-payroll .payroll-summary .payroll-metric:nth-child(2) b{color:#4b47b8!important}
+:root:not([data-theme="dark"]) #page-payroll .payroll-summary .payroll-metric:nth-child(3){border-left-color:#c77c0a!important}
+:root:not([data-theme="dark"]) #page-payroll .payroll-summary .payroll-metric:nth-child(3) b{color:#c77c0a!important}
+:root:not([data-theme="dark"]) #page-payroll .payroll-summary .payroll-metric:nth-child(4){border-left-color:#1f8a52!important}
+:root:not([data-theme="dark"]) #page-payroll .payroll-summary .payroll-metric:nth-child(4) b{color:#1f8a52!important}
+/* payroll stepper: neutral circles, only the active step accented */
+:root:not([data-theme="dark"]) #page-payroll .payroll-flow-step>span{background:#eceef1!important;color:#5c636d!important;border-radius:2px!important}
+:root:not([data-theme="dark"]) #page-payroll .payroll-flow-step.active>span{background:#1f8a52!important;color:#fff!important}
 </style>
 </head>
 <body>
@@ -3984,7 +4010,6 @@ async function renderDashboard(data, preloaded={}){
           </section>
           ${commandAlert}
           ${canOperations?dashboardTeamCalendarHtml(calendarMonth, team, calendarDays, String(dashSettings.workdays||"1,2,3,4,5"), leaves):""}
-          ${canFinance?`<section class="cc-split cc-split-solo"><div class="panel cc-payroll"><div class="head"><div><b>เงินเดือนงวดปัจจุบัน</b><span class="sub" style="margin-left:8px">${esc(payrollPeriodLabel)}</span></div><div class="spacer"></div><span class="cc-pay-badge ${payrollIncomplete?"wait":"ok"}">${payrollIncomplete?"ต้องตรวจ":"พร้อมออกสลิป"}</span></div><div class="body"><div class="cc-pay-metrics"><div><span>ยอดสุทธิตาม Timesheet</span><b class="money">${fmtBaht(totalNet)}</b><em>ก่อนหัก ${fmtBaht(payrollGross)} · หัก ${fmtBaht(payrollDed)}</em></div><div><span>คำนวณได้</span><b>${fmtInt(payrollEligible)} คน</b><em>มีเวลาและเรตครบ</em></div><div><span>เวลาค้างตรวจ</span><b class="${payrollIncomplete?"warn":""}">${fmtInt(payrollIncomplete)} รายการ</b><em>${payrollIncomplete?"ต้องตรวจให้ครบก่อนออกสลิป":"ไม่มีรายการค้าง"}</em></div></div><div class="cc-pay-actions"><button class="btn sub sm" data-nav="owner">ตรวจเวลาเข้า–ออก</button><button class="btn sm" data-nav="payroll">${payrollActionLabel}</button></div></div></div></section>`:""}
           <section class="cc-work">
             <div class="panel team-register hr-team"><div class="head"><div><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">คลิกเพื่อดูประวัติ · คลิกขวาเพื่อแก้ไขข้อมูล</span></div><div class="spacer"></div><div class="team-status-summary" aria-label="สรุปสถานะทีม"><span class="not-in">ยังไม่เข้า <b>${fmtInt(cOut)}</b></span><span class="working">ทำงาน <b>${fmtInt(cOn+cLate)}</b></span><span class="finished">ออกแล้ว <b>${fmtInt(cDone)}</b></span></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เข้างาน</span><span>ออกงาน</span><span>สถานะ</span><span>การทำงาน</span></div><div class="team-grid">${teamHtml}</div></div></div>
             <div class="cc-left-stack">
