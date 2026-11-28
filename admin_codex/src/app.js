@@ -573,6 +573,13 @@ function dashboardTeamCalendarHtml(month, team, attendanceDays, workdays, leaves
   const allowedDays=new Set(String(workdays||"1,2,3,4,5").split(",").filter(v=>v!==""));
   const byDate={};
   (attendanceDays||[]).forEach(row=>{ if(!row.date) return; (byDate[row.date]||(byDate[row.date]=[])).push(row); });
+  // Approved leave spread across each covered day, with names, so the calendar
+  // shows who is off on which day (combined with attendance status).
+  const leaveByDate={};
+  (leaves||[]).filter(l=>l.status==="approved"&&l.startDate&&l.endDate).forEach(l=>{
+    for(let dd=1;dd<=last;dd++){ const iso=`${y}-${pad(m+1)}-${pad(dd)}`;
+      if(l.startDate<=iso&&l.endDate>=iso){ (leaveByDate[iso]||(leaveByDate[iso]=[])).push({name:empName(l.employeeId)||l.employeeId, type:l.leaveType||"ลา"}); } }
+  });
   let grid=DASH_CAL_DOW.map((name,i)=>`<div class="team-cal-dow" style="color:${i===5?"#2b5a86":i===6?"#8f322d":"var(--muted)"}">${name}</div>`).join("");
   const lead=(new Date(y,m,1).getDay()+6)%7;
   for(let i=0;i<lead;i++) grid+=`<div class="team-cal-day blank" aria-hidden="true"></div>`;
@@ -582,7 +589,7 @@ function dashboardTeamCalendarHtml(month, team, attendanceDays, workdays, leaves
     const iso=`${y}-${pad(m+1)}-${pad(day)}`, date=new Date(y,m,day), dow=date.getDay(), rows=byDate[iso]||[];
     const complete=rows.filter(r=>r.status==="complete"||!!(r.checkIn&&r.checkOut)).length;
     const open=rows.filter(r=>!!r.checkIn&&!r.checkOut).length;
-    const leaveCount=new Set((leaves||[]).filter(leave=>leave.status==="approved"&&leave.startDate<=iso&&leave.endDate>=iso).map(leave=>leave.employeeId)).size;
+    const leaveList=leaveByDate[iso]||[]; const leaveNames=[...new Set(leaveList.map(x=>x.name))]; const leaveCount=leaveNames.length;
     const scheduled=allowedDays.has(String(dow)), expected=Math.max(0,team.length-leaveCount), missing=Math.max(0, scheduled?expected-complete-open:0);
     const future=iso>today, isToday=iso===today;
     const expectedN=Math.max(expected,complete+open);
@@ -596,8 +603,10 @@ function dashboardTeamCalendarHtml(month, team, attendanceDays, workdays, leaves
     else { cls="off"; fig=leaveCount?`<span class="tcd-chip s-off"><i></i>ลา ${fmtInt(leaveCount)}</span>`:`<span class="tcd-chip s-off"><i></i>—</span>`; }
     if(scheduled && !future){ mWorkdays++; if(missing>0) mReview++; else if(open>0) mRunning++; else mComplete++; }
     dailySummaries[iso]={day,iso,scheduled,future,complete,open,missing,expected:expectedN,ratio,cls};
-    const title=`${fmtDate(iso)}${scheduled&&!future?` · ครบ ${fmtInt(complete)} · กำลังทำงาน ${fmtInt(open)} · ต้องตรวจ ${fmtInt(missing)} · ทีม ${fmtInt(expectedN)}`:""}${leaveCount?` · ลา ${fmtInt(leaveCount)}`:""}`;
-    grid+=`<button type="button" class="team-cal-day ${cls}${isToday?" today":""}" data-team-day="${iso}"${future?" disabled":""} title="${esc(title)}" aria-label="เปิดข้อมูลทีมวันที่ ${fmtDate(iso)}"><span class="tcd-date"><span class="tcd-n">${day}</span>${isToday?'<span class="tcd-today">วันนี้</span>':""}</span><span class="tcd-foot">${bar}${fig}</span></button>`;
+    const title=`${fmtDate(iso)}${scheduled&&!future?` · ครบ ${fmtInt(complete)} · กำลังทำงาน ${fmtInt(open)} · ต้องตรวจ ${fmtInt(missing)} · ทีม ${fmtInt(expectedN)}`:""}${leaveCount?` · ลา: ${leaveNames.join(", ")}`:""}`;
+    const leaveTag=leaveCount?`<span class="tcd-chip s-leave"><i></i>ลา ${fmtInt(leaveCount)}</span>`:"";
+    const hasLeave=leaveCount?" has-leave":"";
+    grid+=`<button type="button" class="team-cal-day ${cls}${hasLeave}${isToday?" today":""}" data-team-day="${iso}"${future?" disabled":""} title="${esc(title)}" aria-label="เปิดข้อมูลทีมวันที่ ${fmtDate(iso)}"><span class="tcd-date"><span class="tcd-n">${day}</span>${isToday?'<span class="tcd-today">วันนี้</span>':""}</span><span class="tcd-foot">${bar}${fig}${leaveTag}</span></button>`;
   }
   const anchor=(today.startsWith(`${y}-${pad(m+1)}`)?new Date(y,m,Math.min(new Date().getDate(),last)):new Date(y,m,last));
   const monday=new Date(anchor); monday.setDate(anchor.getDate()-((anchor.getDay()+6)%7));
@@ -612,7 +621,13 @@ function dashboardTeamCalendarHtml(month, team, attendanceDays, workdays, leaves
     const height=item.scheduled&&!item.future?Math.max(12,item.ratio):14;
     return `<button type="button" class="tcw-day ${state}" data-team-day="${iso}" title="${esc(fmtDate(iso))}: ครบ ${fmtInt(item.complete)} · ทำงาน ${fmtInt(item.open)} · ตรวจ ${fmtInt(item.missing)}"><span>${weekLabels[index]}</span><i style="height:${height}%"></i><small>${item.scheduled&&!item.future?`${fmtInt(item.ratio)}%`:"—"}</small></button>`;
   }).join("");
-  return `<section class="panel dashboard-team-calendar team-calendar-split" aria-label="ปฏิทินทีม"><div class="head"><div><b>ปฏิทินทีม</b><span class="sub" style="margin-left:8px">เลือกวันที่เพื่อดูสถานะทีมและจัดการเวลา</span></div><div class="spacer"></div><div class="team-cal-head"><button class="btn sub sm" data-team-cal-nav="prev" aria-label="เดือนก่อน">‹</button><b class="team-cal-label">${CAL_TH_MON[m]} ${y+543}</b><button class="btn sub sm" data-team-cal-nav="next" aria-label="เดือนถัดไป">›</button></div></div><div class="body team-cal-split-body"><div class="team-cal-month"><div class="team-cal-sum"><span>วันทำงาน <b>${fmtInt(mWorkdays)}</b></span><span class="s-ok">ครบ <b>${fmtInt(mComplete)}</b></span>${mRunning?`<span class="s-run">ทำงาน <b>${fmtInt(mRunning)}</b></span>`:""}<span class="s-warn">ตรวจ <b>${fmtInt(mReview)}</b></span></div><div class="team-cal-legend"><span><i style="background:#1f9d61"></i>ครบ</span><span><i style="background:#2f7fd6"></i>ทำงาน</span><span><i style="background:#d9892a"></i>ตรวจ</span><span><i style="background:#9aa7b6"></i>หยุด</span></div><div class="team-cal-grid">${grid}</div></div><aside class="team-weekly" aria-label="แนวโน้มสัปดาห์นี้"><div class="tcw-title"><span>${lineIcon("pulse")}</span><div><b>แนวโน้มสัปดาห์นี้</b><small>${fmtDate(monday.toISOString().slice(0,10))} – ${fmtDate(new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()+6).toISOString().slice(0,10))}</small></div></div><div class="tcw-chart">${weekBars}</div><div class="tcw-summary"><span class="ok">ครบ <b>${fmtInt(weekComplete)}</b></span><span class="run">ทำงาน <b>${fmtInt(weekOpen)}</b></span><span class="warn">ตรวจ <b>${fmtInt(weekReview)}</b></span><span>วันทำงาน <b>${fmtInt(weekWorkdays)}</b></span></div></aside></div></section>`;
+  const monthLeaveRows=Object.keys(leaveByDate).sort().map(iso=>{
+    const names=[...new Set(leaveByDate[iso].map(x=>x.name))];
+    const d=new Date(iso+"T00:00:00+07:00");
+    return `<li class="tll-row${iso===today?" is-today":""}"><button type="button" class="tll-link" data-team-day="${iso}"><span class="tll-date"><b>${d.getDate()}</b><small>${CAL_TH_MON[d.getMonth()].slice(0,3)}</small></span><span class="tll-names">${esc(names.join(", "))}</span><span class="tll-count">${fmtInt(names.length)}</span></button></li>`;
+  }).join("");
+  const leaveSide=monthLeaveRows?`<ul class="team-leave-list">${monthLeaveRows}</ul>`:`<div class="team-leave-empty">เดือนนี้ยังไม่มีใครลา</div>`;
+  return `<section class="panel dashboard-team-calendar team-calendar-split" aria-label="ปฏิทินทีม"><div class="head"><div><b>ปฏิทินทีม</b><span class="sub" style="margin-left:8px">เลือกวันที่เพื่อดูสถานะทีมและจัดการเวลา</span></div><div class="spacer"></div><div class="team-cal-head"><button class="btn sub sm" data-team-cal-nav="prev" aria-label="เดือนก่อน">‹</button><b class="team-cal-label">${CAL_TH_MON[m]} ${y+543}</b><button class="btn sub sm" data-team-cal-nav="next" aria-label="เดือนถัดไป">›</button></div></div><div class="body team-cal-split-body"><div class="team-cal-month"><div class="team-cal-sum"><span>วันทำงาน <b>${fmtInt(mWorkdays)}</b></span><span class="s-ok">ครบ <b>${fmtInt(mComplete)}</b></span>${mRunning?`<span class="s-run">ทำงาน <b>${fmtInt(mRunning)}</b></span>`:""}<span class="s-warn">ตรวจ <b>${fmtInt(mReview)}</b></span></div><div class="team-cal-legend"><span><i style="background:#1f9d61"></i>ครบ</span><span><i style="background:#2f7fd6"></i>ทำงาน</span><span><i style="background:#d9892a"></i>ตรวจ</span><span><i style="background:#b06c0e"></i>ลา</span><span><i style="background:#9aa7b6"></i>หยุด</span></div><div class="team-cal-grid">${grid}</div></div><aside class="team-leave-side" aria-label="วันลาเดือนนี้"><div class="tcw-title"><span>${lineIcon("users")}</span><div><b>ใครลาบ้างเดือนนี้</b><small>${CAL_TH_MON[m]} ${y+543}</small></div></div>${leaveSide}</aside></div></section>`;
 }
 async function renderDashboard(data, preloaded={}){
   const node=$("#page-dashboard");
@@ -856,10 +871,8 @@ async function renderDashboard(data, preloaded={}){
             ${canFinance?`<button class="cc-stat s-green" data-nav="payroll"><span class="cc-stat-ic">${SVG.wallet}</span><span class="cc-stat-l">พร้อมตรวจสลิป</span><b>${fmtInt(payrollEligible)}</b><small>${payrollIncomplete?`ค้างตรวจเวลา ${fmtInt(payrollIncomplete)} รายการ`:"Timesheet พร้อมคำนวณ"}</small></button>`:`<button class="cc-stat s-indigo" data-nav="approvals"><span class="cc-stat-ic">${SVG.inbox}</span><span class="cc-stat-l">รออนุมัติ</span><b>${fmtInt(mPend)}</b><small>ลา ${fmtInt(mLeave)} · OT ${fmtInt(mOt)} · ${_thMon}</small></button>`}
           </section>
           ${commandAlert}
-          <section class="cc-split">
-            <div class="panel cc-arrival"><div class="head"><div><b>ช่วงเวลาเข้างานของทีม</b><span class="sub" style="margin-left:8px">วันนี้ · พีคสุด ${fmtInt(arrivalPeak)} คน</span></div></div><div class="body"><div class="cc-arrival-chart"><div class="cc-bars">${arrivalBars}</div><div class="cc-axis">${arrivalLabels}</div></div></div></div>
-            ${canFinance?`<div class="panel cc-payroll"><div class="head"><div><b>เงินเดือนงวดปัจจุบัน</b><span class="sub" style="margin-left:8px">${esc(payrollPeriodLabel)}</span></div><div class="spacer"></div><span class="cc-pay-badge ${payrollIncomplete?"wait":"ok"}">${payrollIncomplete?"ต้องตรวจ":"พร้อมออกสลิป"}</span></div><div class="body"><div class="cc-pay-metrics"><div><span>ยอดสุทธิตาม Timesheet</span><b class="money">${fmtBaht(totalNet)}</b><em>ก่อนหัก ${fmtBaht(payrollGross)} · หัก ${fmtBaht(payrollDed)}</em></div><div><span>คำนวณได้</span><b>${fmtInt(payrollEligible)} คน</b><em>มีเวลาและเรตครบ</em></div><div><span>เวลาค้างตรวจ</span><b class="${payrollIncomplete?"warn":""}">${fmtInt(payrollIncomplete)} รายการ</b><em>${payrollIncomplete?"ต้องตรวจให้ครบก่อนออกสลิป":"ไม่มีรายการค้าง"}</em></div></div><div class="cc-pay-actions"><button class="btn sub sm" data-nav="owner">ตรวจเวลาเข้า–ออก</button><button class="btn sm" data-nav="payroll">${payrollActionLabel}</button></div></div></div>`:""}
-          </section>
+          ${canOperations?dashboardTeamCalendarHtml(calendarMonth, team, calendarDays, String(dashSettings.workdays||"1,2,3,4,5"), leaves):""}
+          ${canFinance?`<section class="cc-split cc-split-solo"><div class="panel cc-payroll"><div class="head"><div><b>เงินเดือนงวดปัจจุบัน</b><span class="sub" style="margin-left:8px">${esc(payrollPeriodLabel)}</span></div><div class="spacer"></div><span class="cc-pay-badge ${payrollIncomplete?"wait":"ok"}">${payrollIncomplete?"ต้องตรวจ":"พร้อมออกสลิป"}</span></div><div class="body"><div class="cc-pay-metrics"><div><span>ยอดสุทธิตาม Timesheet</span><b class="money">${fmtBaht(totalNet)}</b><em>ก่อนหัก ${fmtBaht(payrollGross)} · หัก ${fmtBaht(payrollDed)}</em></div><div><span>คำนวณได้</span><b>${fmtInt(payrollEligible)} คน</b><em>มีเวลาและเรตครบ</em></div><div><span>เวลาค้างตรวจ</span><b class="${payrollIncomplete?"warn":""}">${fmtInt(payrollIncomplete)} รายการ</b><em>${payrollIncomplete?"ต้องตรวจให้ครบก่อนออกสลิป":"ไม่มีรายการค้าง"}</em></div></div><div class="cc-pay-actions"><button class="btn sub sm" data-nav="owner">ตรวจเวลาเข้า–ออก</button><button class="btn sm" data-nav="payroll">${payrollActionLabel}</button></div></div></div></section>`:""}
           <section class="cc-work">
             <div class="panel team-register hr-team"><div class="head"><div><b>ทีมวันนี้</b><span class="sub" style="margin-left:8px">คลิกเพื่อดูประวัติ · คลิกขวาเพื่อแก้ไขข้อมูล</span></div><div class="spacer"></div><div class="team-status-summary" aria-label="สรุปสถานะทีม"><span class="not-in">ยังไม่เข้า <b>${fmtInt(cOut)}</b></span><span class="working">ทำงาน <b>${fmtInt(cOn+cLate)}</b></span><span class="finished">ออกแล้ว <b>${fmtInt(cDone)}</b></span></div><button class="btn sub sm" data-nav="owner">บันทึกเวลาแทน</button></div><div class="body"><div class="team-register-head"><span></span><span>พนักงาน</span><span>เข้างาน</span><span>ออกงาน</span><span>สถานะ</span><span>การทำงาน</span></div><div class="team-grid">${teamHtml}</div></div></div>
             <div class="cc-left-stack">
@@ -3632,8 +3645,8 @@ async function renderSettings(){
     ${groupTabsHtml("settings")}
     <div class="settings-workspace">
     <div class="directory-page-head bvn-page-head settings-page-head"><div><div class="route-eyebrow">การควบคุมระบบ</div><h2>ตั้งค่าบริษัทและนโยบาย</h2><p>กำหนดเอกสาร กะงาน และสิทธิ์ที่ใช้ทั้งบริษัท</p></div><div class="directory-count">สิทธิ์<br><b>${esc(ROLE_LABEL[state.role]||"ผู้ดูแล")}</b></div></div>
-    <nav class="set-tabs" role="tablist" aria-label="หมวดการตั้งค่า"><button type="button" class="active" data-set-tab="policy">นโยบาย</button><button type="button" data-set-tab="admins">ทีมผู้ดูแล</button><button type="button" data-set-tab="calendar">ปฏิทิน · แอป</button><button type="button" data-set-tab="system">ระบบ</button></nav>
     <div class="set-tab active" data-tabpanel="policy">
+    <div class="setting-group-label">นโยบายและเวลา</div>
     <section class="settings-command settings-command-compact" aria-label="การตั้งค่าหลัก"><div class="settings-command-head"><div><span class="settings-kicker">ตั้งค่าหลัก</span><h3>สิ่งที่มีผลต่อเวลาและสลิป</h3></div><span class="settings-command-status"><i></i> ตรวจสอบก่อนออกสลิป</span></div><div class="settings-command-grid"><button type="button" class="settings-command-card" data-settings-action="document"><span class="settings-command-icon" aria-hidden="true">${lineIcon("file")}</span><span><b>ข้อมูลบริษัทและเอกสาร</b><small>ชื่อบริษัท โลโก้ ผู้ลงนาม</small></span><em>แก้ไข ›</em></button><button type="button" class="settings-command-card is-time" data-settings-action="work"><span class="settings-command-icon" aria-hidden="true">${lineIcon("clock")}</span><span><b>กะงานและการลงเวลา</b><small id="settingsWorkStatus">กำลังโหลดนโยบาย…</small></span><em>ตั้งค่า ›</em></button><button type="button" class="settings-command-card is-payroll" data-settings-action="social"><span class="settings-command-icon" aria-hidden="true">${lineIcon("bill")}</span><span><b>ประกันสังคม</b><small id="settingsSsoStatus">กำลังโหลดนโยบาย…</small></span><em>ตั้งค่า ›</em></button></div></section>
     <div class="setting-group-label">ภาพรวมนโยบายที่ใช้งาน</div>
     <section class="settings-core-grid" aria-label="ภาพรวมนโยบาย">
@@ -3647,6 +3660,7 @@ async function renderSettings(){
     <section class="panel site-policy" aria-label="จุดเช็กอินที่อนุญาต"><div class="head"><div><b>จุดเช็กอินที่อนุญาต</b><span class="sub" style="margin-left:8px">นโยบายพื้นที่สำหรับการเช็กอิน</span></div><div class="spacer"></div><button class="btn ok sm" id="siteAddBtn">เพิ่มจุด</button></div><div class="site-policy-note">พนักงานเช็กอินได้เมื่ออยู่ในรัศมีของจุดที่เปิดใช้งาน · เช็กเอาต์ได้ทุกพื้นที่</div><div class="body flush"><table id="siteTable"><thead><tr><th>พื้นที่</th><th class="num">รัศมี</th><th>สถานะ</th><th data-nosort></th></tr></thead><tbody id="siteRows"><tr><td colspan="4"><div class="empty">กำลังโหลดจุดเช็กอิน…</div></td></tr></tbody></table></div></section>
     </div>
     <div class="set-tab" data-tabpanel="admins">
+    <div class="setting-group-label">ทีมผู้ดูแล</div>
     <details class="panel settings-fold" open><summary><span><b>บัญชีผู้ดูแลระบบ</b><small>จัดการผู้เข้าถึงและสิทธิ์การใช้งาน</small></span><span aria-hidden="true">⌄</span></summary><div class="body settings-fold-toolbar"><button class="btn ok sm" id="addAdmin">เพิ่มบัญชี</button></div>
       <div class="body flush"><table>
         <thead><tr><th>ชื่อผู้ใช้</th><th>รหัสผ่าน</th><th>ชื่อแสดง</th><th>สิทธิ์</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
@@ -3655,6 +3669,7 @@ async function renderSettings(){
     </details>
     </div>
     <div class="set-tab" data-tabpanel="calendar">
+    <div class="setting-group-label">ปฏิทิน · แอปพนักงาน</div>
     <section class="settings-support-grid" aria-label="ปฏิทินและแอปพนักงาน">
     <div class="panel settings-holiday-panel"><div class="head"><h2>วันหยุดบริษัท</h2><div class="spacer"></div><button class="btn sub sm" id="importHoliday">เติมปีนี้</button><button class="btn ok sm" id="addHoliday">เพิ่ม</button></div>
       <div class="body flush"><table id="holTable"><thead><tr><th>วันที่</th><th>ชื่อวันหยุด</th></tr></thead>
