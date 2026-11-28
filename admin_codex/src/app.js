@@ -762,6 +762,28 @@ async function renderDashboard(data, preloaded={}){
       const byInTime=(a,b)=>pmHM(todayByEmp[a.id]&&todayByEmp[a.id].checkIn)-pmHM(todayByEmp[b.id]&&todayByEmp[b.id].checkIn);
       teamByStatus.late.sort(byInTime); teamByStatus.in.sort(byInTime); teamByStatus.done.sort(byInTime);
       teamByStatus.out.sort((a,b)=>String(a.name||a.id).localeCompare(String(b.name||b.id),"th"));
+      // Attendance donut + recent-activity feed (modern summary, ref-styled).
+      const _todayISO=todayISO();
+      const _leaveSet=new Set((leaves||[]).filter(l=>l.status==="approved"&&l.startDate&&l.endDate&&l.startDate<=_todayISO&&l.endDate>=_todayISO).map(l=>l.employeeId));
+      const _nLeave=team.filter(e=>_leaveSet.has(e.id)).length;
+      const _nPresent=cOn+cDone, _nLate=cLate, _nAbsent=Math.max(0,cOut-_nLeave);
+      const _present=cOn+cLate+cDone, _presentPct=Math.round(_present/tot*100);
+      const _segs=[["#16a34a",_nPresent],["#f59e0b",_nLate],["#8b5cf6",_nLeave],["#cbd5e1",_nAbsent]];
+      let _acc=0; const _stops=_segs.filter(s=>s[1]>0).map(([c,v])=>{const a0=_acc/tot*360;_acc+=v;const a1=_acc/tot*360;return `${c} ${a0.toFixed(1)}deg ${a1.toFixed(1)}deg`;}).join(",")||"#e5e9f0 0deg 360deg";
+      const _acts=[];
+      team.forEach(e=>{ const t=todayByEmp[e.id]; if(!t)return; const late=t.checkIn&&pmHM(t.checkIn)>dashShiftMin;
+        if(t.checkOut) _acts.push({time:t.checkOut,name:e.name,label:"ออกงาน",tone:"out"});
+        if(t.checkIn) _acts.push({time:t.checkIn,name:e.name,label:late?"เข้างาน · สาย":"เข้างาน",tone:late?"late":"in"}); });
+      team.filter(e=>_leaveSet.has(e.id)).forEach(e=>_acts.push({time:"",name:e.name,label:"ลางานวันนี้",tone:"leave"}));
+      _acts.sort((a,b)=>pmHM(b.time||"00:00")-pmHM(a.time||"00:00"));
+      const _actHtml=_acts.slice(0,6).map(a=>`<li class="act-row act-${a.tone}"><span class="act-time">${a.time?esc(a.time):"—"}</span><span class="act-dot"></span><span class="act-copy"><b>${esc(a.name)}</b><small>${a.label}</small></span></li>`).join("")||`<li class="act-empty">ยังไม่มีกิจกรรมวันนี้</li>`;
+      const insightsHtml=`<section class="cc-insights">
+          <div class="panel att-summary"><div class="head"><b>สรุปการเข้างานวันนี้</b></div><div class="body att-summary-body">
+            <div class="att-donut" style="background:conic-gradient(${_stops})"><div class="att-hole"><b>${_presentPct}%</b><span>เข้างานแล้ว</span></div></div>
+            <ul class="att-legend"><li><i style="background:#16a34a"></i><span>เข้างาน</span><b>${fmtInt(_nPresent)}</b></li><li><i style="background:#f59e0b"></i><span>สาย</span><b>${fmtInt(_nLate)}</b></li><li><i style="background:#8b5cf6"></i><span>ลา</span><b>${fmtInt(_nLeave)}</b></li><li><i style="background:#cbd5e1"></i><span>ยังไม่เข้า</span><b>${fmtInt(_nAbsent)}</b></li></ul>
+          </div></div>
+          <div class="panel act-panel"><div class="head"><b>กิจกรรมล่าสุด</b><span class="sub" style="margin-left:8px">เข้า–ออกงานวันนี้</span></div><div class="body flush"><ul class="act-list">${_actHtml}</ul></div></div>
+        </section>`;
       const teamGroupMeta=[
         {key:"out",label:"ยังไม่เข้างาน",tone:"out"},
         {key:"late",label:"เข้างานสาย",tone:"late"},
@@ -870,6 +892,7 @@ async function renderDashboard(data, preloaded={}){
             <button class="cc-stat s-rose" data-nav="owner"><span class="cc-stat-ic">${SVG.search}</span><span class="cc-stat-l">ต้องตรวจเวลา</span><b>${fmtInt(data.exceptions)}</b><small>${Number(data.exceptions)?"ตรวจให้ครบก่อนปิดรอบ":"ไม่มีรายการค้างตรวจ"}</small></button>
             ${canFinance?`<button class="cc-stat s-green" data-nav="payroll"><span class="cc-stat-ic">${SVG.wallet}</span><span class="cc-stat-l">พร้อมตรวจสลิป</span><b>${fmtInt(payrollEligible)}</b><small>${payrollIncomplete?`ค้างตรวจเวลา ${fmtInt(payrollIncomplete)} รายการ`:"Timesheet พร้อมคำนวณ"}</small></button>`:`<button class="cc-stat s-indigo" data-nav="approvals"><span class="cc-stat-ic">${SVG.inbox}</span><span class="cc-stat-l">รออนุมัติ</span><b>${fmtInt(mPend)}</b><small>ลา ${fmtInt(mLeave)} · OT ${fmtInt(mOt)} · ${_thMon}</small></button>`}
           </section>
+          ${insightsHtml}
           ${commandAlert}
           ${canOperations?dashboardTeamCalendarHtml(calendarMonth, team, calendarDays, String(dashSettings.workdays||"1,2,3,4,5"), leaves):""}
           <section class="cc-work">

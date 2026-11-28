@@ -3176,3 +3176,30 @@ button,.btn{box-shadow:none!important;font-weight:500!important}
 /* badges everywhere → soft pill tone */
 :root:not([data-theme="dark"]) .badge{border-radius:999px!important}
 :root:not([data-theme="dark"]) .badge.good,:root:not([data-theme="dark"]) .badge.ok{background:#dcf5e4!important;color:#15803d!important}
+
+/* ---- Attendance donut + Recent activity (ref components) ---- */
+:root:not([data-theme="dark"]) #page-dashboard .cc>.cc-insights{order:4!important}
+#page-dashboard .cc-insights{display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);gap:14px}
+#page-dashboard .att-summary-body{display:flex!important;align-items:center;gap:20px;padding:18px!important}
+#page-dashboard .att-donut{width:132px;height:132px;border-radius:50%;flex:none;display:grid;place-items:center}
+#page-dashboard .att-hole{width:94px;height:94px;border-radius:50%;background:#fff;display:grid;place-items:center;text-align:center;box-shadow:inset 0 0 0 1px #eef1f6}
+#page-dashboard .att-hole b{font-size:25px;font-weight:700;color:#1e293b;line-height:1;font-variant-numeric:tabular-nums}
+#page-dashboard .att-hole span{font-size:10.5px;color:#667085;margin-top:3px}
+#page-dashboard .att-legend{list-style:none;margin:0;padding:0;flex:1;display:flex;flex-direction:column;gap:10px}
+#page-dashboard .att-legend li{display:flex;align-items:center;gap:9px;font-size:12.5px;color:#475467}
+#page-dashboard .att-legend i{width:11px;height:11px;border-radius:3px;flex:none}
+#page-dashboard .att-legend b{margin-left:auto;font-variant-numeric:tabular-nums;color:#1e293b;font-weight:600}
+#page-dashboard .act-list{list-style:none;margin:0;padding:2px 0;max-height:230px;overflow:auto}
+#page-dashboard .act-row{display:flex;align-items:center;gap:11px;padding:9px 16px}
+#page-dashboard .act-row+.act-row{border-top:1px solid #f1f4f8}
+#page-dashboard .act-time{font-size:11.5px;color:#667085;font-variant-numeric:tabular-nums;min-width:40px}
+#page-dashboard .act-dot{width:9px;height:9px;border-radius:50%;flex:none;background:#94a3b8}
+#page-dashboard .act-in .act-dot{background:#16a34a}
+#page-dashboard .act-out .act-dot{background:#2563eb}
+#page-dashboard .act-late .act-dot{background:#f59e0b}
+#page-dashboard .act-leave .act-dot{background:#8b5cf6}
+#page-dashboard .act-copy{min-width:0}
+#page-dashboard .act-copy b{display:block;font-size:12.5px;font-weight:500;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#page-dashboard .act-copy small{font-size:11px;color:#667085}
+#page-dashboard .act-empty{list-style:none;padding:28px;text-align:center;color:#94a0b2;font-size:12px}
+@media(max-width:900px){#page-dashboard .cc-insights{grid-template-columns:1fr}}
