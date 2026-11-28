@@ -23,7 +23,7 @@
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { corsHeadersFor, isRetiredMobileAction } from "./edge_security.ts";
+import { corsHeadersFor, isRetiredMobileAction, shouldValidateAttendanceLocation } from "./edge_security.ts";
 import { mobileSessionExpiresAt, mobileTokenDigest } from "./mobile_session_security.ts";
 
 const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
@@ -1259,9 +1259,9 @@ const H: Record<string, (p: any) => Promise<Response>> = {
     if (!["check_in", "check_out"].includes(eventType)) return reply(false, "Invalid attendance event");
     const lat = Number(p.latitude), lng = Number(p.longitude), acc = Number(p.accuracy);
     let matched: any = null, distance: number | null = null, accepted = true;
-    if (eventType === "check_in" && e.location_required !== false) {
-      if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(acc) || acc < 0) return reply(false, "ต้องระบุตำแหน่ง GPS สำหรับการเช็กอิน");
-      if (p.mocked === true) return reply(false, "ตรวจพบการปลอมตำแหน่ง (Mock location) — ปิดแอปจำลองตำแหน่งก่อนเช็กอิน");
+    if (shouldValidateAttendanceLocation(eventType, e.location_required !== false)) {
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(acc) || acc < 0) return reply(false, "ต้องระบุตำแหน่ง GPS สำหรับการลงเวลา");
+      if (p.mocked === true) return reply(false, "ตรวจพบการปลอมตำแหน่ง (Mock location) — ปิดแอปจำลองตำแหน่งก่อนลงเวลา");
       const sites = await activeSites();
       if (!sites.length) return reply(false, "ยังไม่ได้ตั้งจุดเช็กอิน กรุณาติดต่อแอดมิน");
       sites.forEach((s) => { const d = metres(lat, lng, s.lat, s.lng); if (distance === null || d < distance) { distance = d; matched = s; } });
@@ -1308,12 +1308,12 @@ const H: Record<string, (p: any) => Promise<Response>> = {
       // which turns Bangkok Monday 00:00 into the preceding Sunday. Use the
       // canonical plain-date helper shared with payroll instead.
       const dow = weekdayOf(dateStr), rec = byDay[dateStr], isHoliday = !!holidays[dateStr], leaveType = leaveByDate[dateStr] || "";
-      let status = "", inStr = "", outStr = "", worked = 0, ot = 0, late = false;
+      let status = "", inStr = "", outStr = "", worked = 0, ot = 0, late = false, netWorked = 0;
       if (rec && rec.inTs) {
         inStr = hhmm(rec.inTs);
         const inMin = new Date(rec.inTs + ICT * 60000).getUTCHours() * 60 + new Date(rec.inTs + ICT * 60000).getUTCMinutes();
         late = !isHoliday && !leaveType && inMin > shiftMin + grace;
-        if (rec.outTs && rec.outTs > rec.inTs) { outStr = hhmm(rec.outTs); worked = Math.round((rec.outTs - rec.inTs) / 60000); const net = Math.max(0, worked - lunch); ot = isHoliday && holOt ? net : Math.max(0, net - otThr); status = isHoliday ? "holiday_work" : late ? "late" : "normal"; }
+        if (rec.outTs && rec.outTs > rec.inTs) { outStr = hhmm(rec.outTs); worked = Math.round((rec.outTs - rec.inTs) / 60000); const net = Math.max(0, worked - lunch); netWorked = net; ot = isHoliday && holOt ? net : Math.max(0, net - otThr); status = isHoliday ? "holiday_work" : late ? "late" : "normal"; }
         else status = "incomplete";
       } else if (leaveType) status = "leave";
       else if (isHoliday) status = "holiday";
@@ -1330,7 +1330,7 @@ const H: Record<string, (p: any) => Promise<Response>> = {
         else if (dow === 0) dayMult = num(s.ot_sunday_multiplier) || 2;
         else if (dow === 6 && s.ot_saturday_enabled === "true") dayMult = num(s.ot_saturday_multiplier) || 1.5;
       }
-      days.push({ date: dateStr, day: dn, dow, status, checkIn: inStr, checkOut: outStr, workedMinutes: worked, otMinutes: ot, late, holidayName: holidays[dateStr] || "", leaveType, multiplier: dayMult });
+      days.push({ date: dateStr, day: dn, dow, status, checkIn: inStr, checkOut: outStr, workedMinutes: netWorked, otMinutes: ot, late, holidayName: holidays[dateStr] || "", leaveType, multiplier: dayMult });
     }
     return reply(true, "ok", { year, month, shiftStart: s.shift_start, shiftEnd: s.shift_end, shift_start: s.shift_start, shift_end: s.shift_end, days });
   },
