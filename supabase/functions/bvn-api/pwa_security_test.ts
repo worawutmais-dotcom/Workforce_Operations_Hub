@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { corsHeadersFor, isRetiredMobileAction } from "./edge_security.ts";
+import {
+  corsHeadersFor,
+  isRetiredMobileAction,
+  shouldValidateAttendanceLocation,
+} from "./edge_security.ts";
 
 test("allows only the hosted PWA and localhost browser origins", () => {
   assert.equal(
@@ -27,4 +31,10 @@ test("allows only the hosted PWA and localhost browser origins", () => {
 test("retires anonymous employee directory access", () => {
   assert.equal(isRetiredMobileAction("employee_directory"), true);
   assert.equal(isRetiredMobileAction("employee_login"), false);
+});
+
+test("requires the GPS geofence for both check-in and check-out", () => {
+  assert.equal(shouldValidateAttendanceLocation("check_in", true), true);
+  assert.equal(shouldValidateAttendanceLocation("check_out", true), true);
+  assert.equal(shouldValidateAttendanceLocation("check_out", false), false);
 });

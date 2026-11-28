@@ -2,42 +2,45 @@ import 'package:employee_mobile/pwa_support.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('offers installation guidance only to an undisposed iPhone web session', () {
-    expect(
-      shouldShowPwaInstallGuide(
-        isIosWeb: true,
-        isStandalone: false,
-        isDismissed: false,
-      ),
-      isTrue,
-    );
-    expect(
-      shouldShowPwaInstallGuide(
-        isIosWeb: false,
-        isStandalone: false,
-        isDismissed: false,
-      ),
-      isFalse,
-    );
-    expect(
-      shouldShowPwaInstallGuide(
-        isIosWeb: true,
-        isStandalone: true,
-        isDismissed: false,
-      ),
-      isFalse,
-    );
-    expect(
-      shouldShowPwaInstallGuide(
-        isIosWeb: true,
-        isStandalone: false,
-        isDismissed: true,
-      ),
-      isFalse,
-    );
-  });
+  test(
+    'offers installation guidance only to an undisposed iPhone web session',
+    () {
+      expect(
+        shouldShowPwaInstallGuide(
+          isIosWeb: true,
+          isStandalone: false,
+          isDismissed: false,
+        ),
+        isTrue,
+      );
+      expect(
+        shouldShowPwaInstallGuide(
+          isIosWeb: false,
+          isStandalone: false,
+          isDismissed: false,
+        ),
+        isFalse,
+      );
+      expect(
+        shouldShowPwaInstallGuide(
+          isIosWeb: true,
+          isStandalone: true,
+          isDismissed: false,
+        ),
+        isFalse,
+      );
+      expect(
+        shouldShowPwaInstallGuide(
+          isIosWeb: true,
+          isStandalone: false,
+          isDismissed: true,
+        ),
+        isFalse,
+      );
+    },
+  );
 
-  test('requests a location only for required check-in', () {
+  test('requests a location for every required attendance event', () {
     expect(
       shouldRequestCheckInLocation(
         locationRequired: true,
@@ -50,7 +53,7 @@ void main() {
         locationRequired: true,
         eventType: 'check_out',
       ),
-      isFalse,
+      isTrue,
     );
     expect(
       shouldRequestCheckInLocation(

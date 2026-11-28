@@ -19,3 +19,10 @@ export function corsHeadersFor(origin: string | null): Headers {
 export function isRetiredMobileAction(action: string): boolean {
   return action === "employee_directory";
 }
+
+export function shouldValidateAttendanceLocation(
+  eventType: string,
+  locationRequired: boolean,
+): boolean {
+  return locationRequired && (eventType === "check_in" || eventType === "check_out");
+}

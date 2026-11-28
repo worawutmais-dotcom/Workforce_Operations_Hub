@@ -694,7 +694,7 @@ class _EmployeeShellState extends State<EmployeeShell>
     setState(() => _busy = true);
     try {
       Position? p;
-      // Check-out is allowed anywhere, so only the location-required check-IN needs GPS.
+      // Both check-in and check-out must satisfy the allowed GPS area.
       if (shouldRequestCheckInLocation(
         locationRequired: _locationRequired,
         eventType: type,
@@ -717,9 +717,9 @@ class _EmployeeShellState extends State<EmployeeShell>
         );
       }
       final mocked = p?.isMocked ?? false;
-      if (type == 'check_in' && mocked) {
+      if (mocked) {
         throw Exception(
-          'ตรวจพบการปลอมตำแหน่ง (Mock location) — ปิดแอปจำลองตำแหน่งก่อนเช็กอิน',
+          'ตรวจพบการปลอมตำแหน่ง (Mock location) — ปิดแอปจำลองตำแหน่งก่อนลงเวลา',
         );
       }
       final res = await BvnApi().attendance(
