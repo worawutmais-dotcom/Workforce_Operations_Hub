@@ -4084,7 +4084,13 @@ try{
   // No endpoint, or still on the retired default Apps Script → move to Supabase.
   // A custom /exec an owner typed is left alone (manual fallback).
   if(!ep || ep===LEGACY_APPS_SCRIPT){ ep=DEFAULT_ENDPOINT; LS.setItem("bvn_endpoint", ep); }
-  if(isSupabaseEndpoint(ep) && !LS.getItem("bvn_apikey")){ LS.setItem("bvn_apikey", DEFAULT_APIKEY); }
+  // On the baked-in default backend, always refresh the publishable key to the one
+  // shipped in this file. A stale/rotated key left in a browser makes Supabase reject
+  // the request with an auth error ("ยืนยันตัวตนไม่ผ่าน") even though the username/
+  // password are correct — self-heal it so no manual cache-clear is needed. A custom
+  // endpoint an owner typed keeps its own key.
+  if(ep===DEFAULT_ENDPOINT){ LS.setItem("bvn_apikey", DEFAULT_APIKEY); }
+  else if(isSupabaseEndpoint(ep) && !LS.getItem("bvn_apikey")){ LS.setItem("bvn_apikey", DEFAULT_APIKEY); }
 }catch(_){}
 $("#inEndpoint").value = LS.getItem("bvn_endpoint") || DEFAULT_ENDPOINT;
 $("#inApikey") && ($("#inApikey").value = LS.getItem("bvn_apikey") || (isSupabaseEndpoint($("#inEndpoint").value)?DEFAULT_APIKEY:""));
