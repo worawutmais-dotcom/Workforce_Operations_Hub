@@ -3104,3 +3104,75 @@ button,.btn{box-shadow:none!important;font-weight:500!important}
 /* Employee page: let each column size to its own content so the shorter
    list panel doesn't stretch and leave an empty gap under it. */
 :root:not([data-theme="dark"]) #page-people .employee-workspace{align-items:start!important}
+
+/* ████████████████████████████████████████████████████████████████
+   MODERN SAAS THEME — navy sidebar + blue primary + soft pastel cards
+   (user reference: "Time Attendance" dashboard). Light mode only.
+   Appended last to win over the earlier flat/ledger layers.
+   ████████████████████████████████████████████████████████████████ */
+:root:not([data-theme="dark"]){
+  --m-blue:#2563eb; --m-blue-600:#1d4ed8; --m-blue-50:#e8f0fe;
+  --m-navy:#0f1b30; --m-navy-2:#15263f;
+  --m-canvas:#eef1f6; --m-surface:#ffffff; --m-line:#e7ebf1;
+  --m-ink:#1e293b; --m-muted:#667085; --m-faint:#94a0b2;
+  --m-shadow:0 1px 2px rgba(16,24,40,.04),0 10px 24px -12px rgba(16,24,40,.12);
+  --m-radius:14px;
+}
+/* ---- canvas + typography ---- */
+:root:not([data-theme="dark"]) body,:root:not([data-theme="dark"]) .app,:root:not([data-theme="dark"]) .content{background:var(--m-canvas)!important;color:var(--m-ink)!important}
+:root:not([data-theme="dark"]) .page-title{color:var(--m-ink)!important;font-weight:700!important}
+:root:not([data-theme="dark"]) a{color:var(--m-blue)!important}
+:root:not([data-theme="dark"]) *:focus-visible{outline-color:var(--m-blue)!important}
+
+/* left sidebar: keep the existing light sidebar (user: "bar ทางซ้าย คงเดิม")
+   — only align the active item to the blue primary for one consistent accent. */
+:root:not([data-theme="dark"]) .nav button.active{background:var(--m-blue-50)!important;color:var(--m-blue)!important;box-shadow:inset 3px 0 0 var(--m-blue)!important}
+:root:not([data-theme="dark"]) .nav button.active *{color:var(--m-blue)!important}
+
+/* ---- topbar + buttons: blue primary ---- */
+:root:not([data-theme="dark"]) .topbar{background:var(--m-surface)!important;border-bottom:1px solid var(--m-line)!important}
+:root:not([data-theme="dark"]) .btn{border-radius:10px!important;font-weight:600!important}
+:root:not([data-theme="dark"]) .btn:not(.sub):not(.ghost):not(.secondary):not(.danger):not(.ok){background:var(--m-blue)!important;border-color:var(--m-blue)!important;color:#fff!important;box-shadow:0 6px 16px -8px rgba(37,99,235,.55)!important}
+:root:not([data-theme="dark"]) .btn:not(.sub):not(.ghost):not(.secondary):not(.danger):not(.ok):hover{background:var(--m-blue-600)!important;border-color:var(--m-blue-600)!important}
+:root:not([data-theme="dark"]) .btn.sub,:root:not([data-theme="dark"]) .btn.ghost,:root:not([data-theme="dark"]) .btn.secondary{background:var(--m-surface)!important;border:1px solid var(--m-line)!important;color:var(--m-ink)!important;box-shadow:none!important}
+:root:not([data-theme="dark"]) input:focus,:root:not([data-theme="dark"]) select:focus,:root:not([data-theme="dark"]) textarea:focus{border-color:var(--m-blue)!important;box-shadow:0 0 0 3px var(--m-blue-50)!important}
+
+/* ---- rounded soft white cards ---- */
+:root:not([data-theme="dark"]) .panel,:root:not([data-theme="dark"]) .card,
+:root:not([data-theme="dark"]) #page-dashboard .dashboard-team-calendar{background:var(--m-surface)!important;border:1px solid var(--m-line)!important;border-radius:var(--m-radius)!important;box-shadow:var(--m-shadow)!important}
+:root:not([data-theme="dark"]) .panel>.head,:root:not([data-theme="dark"]) .card>.head{background:transparent!important;border-bottom:1px solid var(--m-line)!important;padding:12px 16px!important}
+:root:not([data-theme="dark"]) table thead th{background:#f8fafc!important;color:var(--m-muted)!important}
+
+/* ---- pastel stat cards with a colored icon circle ---- */
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles{display:grid!important;grid-template-columns:repeat(4,1fr)!important;gap:14px!important;border:0!important;background:transparent!important;border-radius:0!important;overflow:visible!important;margin:4px 0 0!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .cc-summary-label{display:none!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .cc-stat{position:relative!important;display:block!important;border:1px solid var(--m-line)!important;border-left:1px solid var(--m-line)!important;border-radius:var(--m-radius)!important;box-shadow:var(--m-shadow)!important;min-height:96px!important;padding:18px 18px 18px 78px!important;background:var(--m-surface)!important;overflow:hidden!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .cc-stat:hover{transform:translateY(-2px)!important;box-shadow:0 1px 2px rgba(16,24,40,.04),0 16px 30px -14px rgba(16,24,40,.22)!important;background:var(--m-surface)!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .cc-stat:after{display:none!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .cc-stat-ic{display:grid!important;place-items:center!important;position:absolute!important;left:18px!important;top:50%!important;transform:translateY(-50%)!important;width:46px!important;height:46px!important;border-radius:13px!important;box-shadow:none!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .cc-stat-ic svg{width:22px!important;height:22px!important;fill:none!important;stroke:#fff!important;stroke-width:1.9!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .cc-stat b{display:block!important;font-size:27px!important;font-weight:700!important;color:var(--m-ink)!important;line-height:1.1!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .cc-stat-l{display:block!important;font-size:12.5px!important;color:var(--m-muted)!important;margin-top:2px!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .cc-stat small{display:block!important;font-size:11px!important;color:var(--m-faint)!important;margin-top:3px!important}
+/* per-status tint (card wash + icon colour) */
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .s-blue{background:#eef4fe!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .s-blue .cc-stat-ic{background:var(--m-blue)!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .s-amber{background:#fdf1e3!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .s-amber .cc-stat-ic{background:#f97316!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .s-rose{background:#fdeaea!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .s-rose .cc-stat-ic{background:#ef4444!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .s-green{background:#e7f6ed!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .s-green .cc-stat-ic{background:#16a34a!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .s-indigo{background:#efeafe!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles .s-indigo .cc-stat-ic{background:#8b5cf6!important}
+@media(max-width:900px){:root:not([data-theme="dark"]) #page-dashboard .cc-summary-tiles{grid-template-columns:repeat(2,1fr)!important}}
+
+/* ---- soft colored status pills (team rows) ---- */
+:root:not([data-theme="dark"]) #page-dashboard .cc-work .tc-pill{border-radius:999px!important;font-weight:600!important;box-shadow:none!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-work .tc-in .tc-pill,
+:root:not([data-theme="dark"]) #page-dashboard .cc-work .tc-done .tc-pill{background:#dcf5e4!important;color:#15803d!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-work .tc-late .tc-pill{background:#fdecd9!important;color:#c2410c!important}
+:root:not([data-theme="dark"]) #page-dashboard .cc-work .tc-out .tc-pill{background:#fde3e3!important;color:#b91c1c!important}
+/* badges everywhere → soft pill tone */
+:root:not([data-theme="dark"]) .badge{border-radius:999px!important}
+:root:not([data-theme="dark"]) .badge.good,:root:not([data-theme="dark"]) .badge.ok{background:#dcf5e4!important;color:#15803d!important}
