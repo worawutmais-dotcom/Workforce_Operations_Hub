@@ -3033,3 +3033,14 @@ button,.btn{box-shadow:none!important;font-weight:500!important}
 /* payroll stepper: neutral circles, only the active step accented */
 :root:not([data-theme="dark"]) #page-payroll .payroll-flow-step>span{background:#eceef1!important;color:#5c636d!important;border-radius:2px!important}
 :root:not([data-theme="dark"]) #page-payroll .payroll-flow-step.active>span{background:#1f8a52!important;color:#fff!important}
+
+/* Timesheet calendar/table: มาครบเวลา → เขียวอ่อนจางๆ · มี OT → น้ำเงินม่วงอ่อนจางๆ */
+:root:not([data-theme="dark"]) #page-owner .pm-day.present{background:#f2faf5!important;border-color:#d0ead9!important}
+:root:not([data-theme="dark"]) #page-owner .pm-day.present small{color:#1f8a52!important}
+:root:not([data-theme="dark"]) #page-owner .pm-day.ot{background:#f0f1fb!important;border-color:#d4d7f1!important}
+:root:not([data-theme="dark"]) #page-owner .pm-day.ot small{color:#4b47b8!important;font-weight:700!important}
+/* table view rows */
+:root:not([data-theme="dark"]) #page-owner .pm-ts-row.tc-present{background:#f6fcf8!important}
+:root:not([data-theme="dark"]) #page-owner .pm-ts-row.tc-present .pm-ts-st{color:#1f8a52!important}
+:root:not([data-theme="dark"]) #page-owner .pm-ts-row.ot{background:#f4f5fc!important}
+:root:not([data-theme="dark"]) #page-owner .pm-ts-row.ot .pm-ts-st{color:#4b47b8!important;font-weight:700!important}

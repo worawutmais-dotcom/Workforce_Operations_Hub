@@ -2879,7 +2879,7 @@ function pmRenderDetail(){
   const days=m.cells.map(c=>{ const type=c.d&&c.d.status!=="complete"?"review":c.base;
     const text=type==="present"?"ครบ":type==="late"?"สาย":type==="absent"?"ขาด":type==="off"?"หยุด":"รอ";
     const times=c.d?`${esc(c.d.checkIn||"—")} – ${esc(c.d.checkOut||"—")}`:"—";
-    return `<button class="pm-day ${type}${c.isToday?" today":""}" data-detail-iso="${c.iso}" type="button"><b>${c.dn}</b><small>${text}</small><em>${times}</em></button>`;
+    return `<button class="pm-day ${type}${c.ot?" ot":""}${c.isToday?" today":""}" data-detail-iso="${c.iso}" type="button"><b>${c.dn}</b><small>${c.ot?"OT":text}</small><em>${times}</em></button>`;
   }).join("");
   const tableRows=m.cells.map(c=>{ const type=c.d&&c.d.status!=="complete"?"review":c.base;
     const text=type==="present"?"ครบ":type==="late"?"สาย":type==="absent"?"ขาด":type==="off"?"หยุด":"รอ";
@@ -2889,7 +2889,7 @@ function pmRenderDetail(){
     const inCell=canEdit?`<input type="time" class="pm-ts-in" value="${ci}" aria-label="เวลาเข้า ${c.dn}">`:`<span>${ci||"—"}</span>`;
     const outCell=canEdit?`<input type="time" class="pm-ts-out" value="${co}" aria-label="เวลาออก ${c.dn}">`:`<span>${co||"—"}</span>`;
     const act=canEdit?`<button class="btn sm pm-ts-save" type="button">บันทึก</button><button class="btn danger sm pm-ts-clr" type="button"${(ci||co)?"":" disabled"}>ลบ</button>`:"";
-    return `<tr class="pm-ts-row tc-${type}${c.isToday?" is-today":""}" data-iso="${c.iso}" data-oin="${ci}" data-oout="${co}"><td class="pm-ts-date"><b>${c.dn}</b> <span>${dow}</span></td><td><span class="pm-ts-st s-${type}">${text}</span></td><td>${inCell}</td><td>${outCell}</td><td class="num">${hrs}</td><td class="pm-ts-act">${act}</td></tr>`;
+    return `<tr class="pm-ts-row tc-${type}${c.ot?" ot":""}${c.isToday?" is-today":""}" data-iso="${c.iso}" data-oin="${ci}" data-oout="${co}"><td class="pm-ts-date"><b>${c.dn}</b> <span>${dow}</span></td><td><span class="pm-ts-st s-${type}">${c.ot?"OT":text}</span></td><td>${inCell}</td><td>${outCell}</td><td class="num">${hrs}</td><td class="pm-ts-act">${act}</td></tr>`;
   }).join("");
   const isTable=pmDetailView==="table";
   const toggle=`<span class="pm-view-toggle" role="group" aria-label="สลับมุมมอง"><button type="button" data-pmview="calendar" class="${isTable?"":"active"}">ปฏิทิน</button><button type="button" data-pmview="table" class="${isTable?"active":""}">ตาราง</button></span>`;
